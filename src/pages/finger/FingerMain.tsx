@@ -7,7 +7,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useGame } from '@/contexts/GameContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ChevronLeft, Zap, Users, Clock, Trophy, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Zap, Users, Clock, Trophy, MessageSquare, ChevronRight } from 'lucide-react';
 
 export const FingerMain = () => {
   const navigate = useNavigate();
@@ -16,13 +16,13 @@ export const FingerMain = () => {
   const { play } = useSounds();
   const { buttonClick, success } = useHaptics();
   
-  const [countdown, setCountdown] = useState(900);
+  const [countdown, setCountdown] = useState(300);
   const [playerCount, setPlayerCount] = useState(23);
 
   // Countdown timer
   useEffect(() => {
     const timer = setInterval(() => {
-      setCountdown(prev => prev > 0 ? prev - 1 : 0);
+      setCountdown(prev => prev > 0 ? prev - 1 : 300);
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -39,16 +39,15 @@ export const FingerMain = () => {
         addFingerPlayer(mockPlayer);
         setPlayerCount(prev => prev + 1);
       }
-    }, 3000 + Math.random() * 4000);
+    }, 4000);
 
     return () => clearInterval(interval);
   }, [addFingerPlayer]);
 
-
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   const handleJoin = () => {
@@ -76,23 +75,24 @@ export const FingerMain = () => {
 
   const handleTestReset = () => {
     resetFingerGame();
-    setCountdown(900);
+    setCountdown(300);
+    setPlayerCount(23);
   };
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-5">
         {/* Header */}
-        <div className="flex items-center gap-4 pt-2">
+        <div className="flex items-center gap-3 pt-2">
           <button 
             onClick={handleBack}
             className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Fastest Finger</h1>
-            <p className="text-sm text-muted-foreground">Last comment wins</p>
+            <h1 className="text-xl font-black text-foreground">Fastest Finger</h1>
+            <p className="text-sm text-muted-foreground">Last comment standing wins</p>
           </div>
         </div>
 
@@ -105,66 +105,88 @@ export const FingerMain = () => {
           startLabel="Start Live Game"
         />
 
-        {/* Game Info */}
-        <div className="card-game">
-          <div className="relative z-10">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-14 h-14 rounded-xl bg-primary/15 flex items-center justify-center glow-primary">
-                <Zap className="w-7 h-7 text-primary" />
+        {/* Hero Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-card via-card to-primary/10">
+          {/* Background effects */}
+          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/20 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl" />
+          
+          <div className="relative z-10 p-5">
+            {/* Live badge */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/20 rounded-full border border-red-500/30">
+                <span className="live-dot" />
+                <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Live</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Users className="w-4 h-4" />
+                <span className="text-sm font-medium">{playerCount} waiting</span>
+              </div>
+            </div>
+
+            {/* Title */}
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center glow-primary">
+                <Zap className="w-9 h-9 text-primary" />
               </div>
               <div>
-                <h2 className="font-bold text-lg text-foreground">Live Comment Battle</h2>
-                <p className="text-sm text-muted-foreground">Be the last standing!</p>
+                <h2 className="text-xl font-black text-foreground">Live Comment Battle</h2>
+                <p className="text-sm text-muted-foreground">Be the last commenter standing!</p>
               </div>
             </div>
 
-            <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl p-5 mb-4 border border-primary/20">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-center flex-1">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Current Pool</p>
-                  <p className="font-black text-2xl text-primary">₦{fingerPoolValue.toLocaleString()}</p>
-                </div>
-                <div className="w-px h-10 bg-border/50" />
-                <div className="text-center flex-1">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Next Game In</p>
-                  <p className="font-bold text-xl text-foreground">{formatTime(countdown)}</p>
+            {/* Pool & Countdown */}
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <div className="bg-background/60 backdrop-blur-sm rounded-xl p-4 border border-border/30">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Prize Pool</p>
+                <p className="text-2xl font-black text-primary">₦{fingerPoolValue.toLocaleString()}</p>
+              </div>
+              <div className="bg-background/60 backdrop-blur-sm rounded-xl p-4 border border-border/30">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Starts In</p>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-primary" />
+                  <p className="text-2xl font-black text-foreground">{formatTime(countdown)}</p>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
-                <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Entry</p>
+            {/* Entry & Winners */}
+            <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-xl border border-border/30 mb-5">
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground uppercase">Entry</p>
                 <p className="font-bold text-primary">₦700</p>
               </div>
-              <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
-                <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Waiting</p>
-                <p className="font-bold text-foreground flex items-center justify-center gap-1">
-                  <Users className="w-4 h-4 text-primary" /> {playerCount}
+              <div className="w-px h-8 bg-border/50" />
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground uppercase">Winners</p>
+                <p className="font-bold text-foreground flex items-center gap-1">
+                  <Trophy className="w-4 h-4 text-gold" /> Top 3
                 </p>
               </div>
-              <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
-                <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Winners</p>
-                <p className="font-bold text-primary flex items-center justify-center gap-1">
-                  <Trophy className="w-4 h-4" /> Top 3
-                </p>
+              <div className="w-px h-8 bg-border/50" />
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground uppercase">Game Time</p>
+                <p className="font-bold text-foreground">30 min</p>
               </div>
             </div>
 
+            {/* CTA */}
             {hasJoinedFinger ? (
               <button
                 onClick={() => navigate('/finger/lobby')}
-                className="w-full btn-primary"
+                className="w-full btn-primary flex items-center justify-center gap-2 text-lg"
               >
                 Go to Lobby
+                <ChevronRight className="w-5 h-5" />
               </button>
             ) : (
               <button
                 onClick={handleJoin}
                 disabled={balance < 700}
-                className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full btn-primary flex items-center justify-center gap-2 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {balance < 700 ? 'Insufficient Balance' : 'Join Lobby - ₦700'}
+                <Zap className="w-5 h-5" />
+                {balance < 700 ? 'Insufficient Balance' : 'Join Lobby — ₦700'}
               </button>
             )}
           </div>
@@ -172,7 +194,7 @@ export const FingerMain = () => {
 
         {/* How to Play */}
         <div className="card-panel">
-          <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+          <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-primary" />
             How to Win
           </h3>
@@ -183,7 +205,7 @@ export const FingerMain = () => {
             </li>
             <li className="flex items-start gap-3">
               <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">2</span>
-              <span>Send comments - each comment resets the 60s timer</span>
+              <span>Send comments — each comment resets the 60s timer</span>
             </li>
             <li className="flex items-start gap-3">
               <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">3</span>
@@ -191,14 +213,17 @@ export const FingerMain = () => {
             </li>
             <li className="flex items-start gap-3">
               <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">4</span>
-              <span>Max game time: 20 minutes - then it auto-ends</span>
+              <span>Max game time: 30 minutes — then it auto-ends</span>
             </li>
           </ul>
         </div>
 
-        {/* Prize Split */}
+        {/* Prize Distribution */}
         <div className="card-panel">
-          <h3 className="font-bold text-foreground mb-3">Prize Distribution</h3>
+          <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-gold" />
+            Prize Distribution
+          </h3>
           <div className="space-y-2">
             <div className="flex items-center justify-between p-3 rounded-xl podium-1">
               <span className="flex items-center gap-2 font-medium">

@@ -11,18 +11,13 @@ import { NotificationProvider } from "@/components/PushNotification";
 // Main
 import { Home } from "@/pages/Home";
 
-// Finger
+// Fastest Finger
 import { FingerMain } from "@/pages/finger/FingerMain";
 import { FingerLobby } from "@/pages/finger/FingerLobby";
 import { FingerArena } from "@/pages/finger/FingerArena";
 import { FingerResults } from "@/pages/finger/FingerResults";
 
-// Pool
-import { PoolMain } from "@/pages/pool/PoolMain";
-import { PoolDraw } from "@/pages/pool/PoolDraw";
-import { PoolResult } from "@/pages/pool/PoolResult";
-
-// Other
+// Other screens
 import { RankScreen } from "@/pages/RankScreen";
 import { ProfileScreen } from "@/pages/ProfileScreen";
 import { WalletMain } from "@/pages/wallet/WalletMain";
@@ -49,16 +44,11 @@ const App = () => (
                   {/* Home */}
                   <Route path="/home" element={<Home />} />
                   
-                  {/* Fastest Finger */}
+                  {/* Fastest Finger - The main game */}
                   <Route path="/finger" element={<FingerMain />} />
                   <Route path="/finger/lobby" element={<FingerLobby />} />
                   <Route path="/finger/arena" element={<FingerArena />} />
                   <Route path="/finger/results" element={<FingerResults />} />
-                  
-                  {/* Lucky Pool */}
-                  <Route path="/pool" element={<PoolMain />} />
-                  <Route path="/pool/draw" element={<PoolDraw />} />
-                  <Route path="/pool/result" element={<PoolResult />} />
                   
                   {/* Other screens */}
                   <Route path="/rank" element={<RankScreen />} />
