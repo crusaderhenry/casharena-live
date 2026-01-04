@@ -1,7 +1,8 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
+import { supabase } from '@/integrations/supabase/client';
 
-// Crusader - The fun game host!
+// Crusader - The African bold man voice game host!
 const CRUSADER_PHRASES = {
   lobby_welcome: [
     "Yo yo yo! Crusader here! Welcome to the arena, legends!",
@@ -25,11 +26,6 @@ const CRUSADER_PHRASES = {
     "{name} came outta NOWHERE with that takeover!",
     "Ladies and gents, your new leader: {name}!",
   ],
-  timer_60: [
-    "Fresh minute on the clock! Who's hungry?",
-    "60 seconds reset! The battle continues!",
-    "New timer! Keep that energy up!",
-  ],
   timer_30: [
     "30 seconds left! Things are getting SPICY!",
     "Half a minute! Who's gonna choke?",
@@ -47,7 +43,7 @@ const CRUSADER_PHRASES = {
   ],
   timer_5: [
     "FIVE SECONDS! TYPE SOMETHING!",
-    "5! 4! 3! — Wait, someone reset it!",
+    "5! 4! 3! Oh this is tense!",
     "FIVE! THE SUSPENSE IS KILLING ME!",
   ],
   close_call: [
@@ -77,50 +73,100 @@ const CRUSADER_PHRASES = {
   ],
 };
 
+// Voice ID for Brian (bold confident male) - can be changed to African voice
+const CRUSADER_VOICE_ID = "nPczCjzI2devNBz1zQrb"; // Brian
+
 export const useCrusader = () => {
   const { settings } = useAudio();
   const enabledRef = useRef(true);
   const lastAnnouncementRef = useRef<number>(0);
-  const synthRef = useRef<SpeechSynthesis | null>(null);
-  const minIntervalRef = useRef(3000); // Minimum 3s between announcements
+  const minIntervalRef = useRef(3500);
+  const audioQueueRef = useRef<HTMLAudioElement[]>([]);
+  const isPlayingRef = useRef(false);
 
   useEffect(() => {
     enabledRef.current = settings.commentaryEnabled;
   }, [settings.commentaryEnabled]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      synthRef.current = window.speechSynthesis;
+  // Play audio from queue
+  const playNextInQueue = useCallback(() => {
+    if (audioQueueRef.current.length === 0) {
+      isPlayingRef.current = false;
+      return;
     }
-    return () => {
-      synthRef.current?.cancel();
-    };
-  }, []);
 
-  const speak = useCallback((text: string, rate = 1.15, pitch = 1.05) => {
-    if (!synthRef.current || !enabledRef.current) return;
+    isPlayingRef.current = true;
+    const audio = audioQueueRef.current.shift();
+    if (audio) {
+      audio.volume = settings.volume * 0.8;
+      audio.onended = () => playNextInQueue();
+      audio.onerror = () => playNextInQueue();
+      audio.play().catch(() => playNextInQueue());
+    }
+  }, [settings.volume]);
+
+  // Queue audio for playback
+  const queueAudio = useCallback((audioUrl: string) => {
+    const audio = new Audio(audioUrl);
+    audioQueueRef.current.push(audio);
+    
+    if (!isPlayingRef.current) {
+      playNextInQueue();
+    }
+  }, [playNextInQueue]);
+
+  // Generate TTS using ElevenLabs
+  const speak = useCallback(async (text: string) => {
+    if (!enabledRef.current) return;
     
     const now = Date.now();
     if (now - lastAnnouncementRef.current < minIntervalRef.current) return;
     lastAnnouncementRef.current = now;
 
-    synthRef.current.cancel();
+    try {
+      const { data, error } = await supabase.functions.invoke('crusader-tts', {
+        body: { text, voiceId: CRUSADER_VOICE_ID },
+      });
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = rate;
-    utterance.pitch = pitch;
-    utterance.volume = 0.8;
-    
-    const voices = synthRef.current.getVoices();
-    const preferredVoice = voices.find(v => 
-      v.lang.startsWith('en') && (v.name.includes('Male') || v.name.includes('Daniel') || v.name.includes('Google'))
-    ) || voices.find(v => v.lang.startsWith('en'));
-    
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
+      if (error) {
+        console.error('TTS error:', error);
+        // Fallback to Web Speech API
+        fallbackSpeak(text);
+        return;
+      }
+
+      if (data?.audioContent) {
+        const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
+        queueAudio(audioUrl);
+      }
+    } catch (err) {
+      console.error('TTS request failed:', err);
+      fallbackSpeak(text);
     }
+  }, [queueAudio]);
 
-    synthRef.current.speak(utterance);
+  // Fallback to Web Speech API if TTS fails
+  const fallbackSpeak = useCallback((text: string) => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const synth = window.speechSynthesis;
+      synth.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.15;
+      utterance.pitch = 0.9; // Lower pitch for bold voice
+      utterance.volume = 0.7;
+      
+      const voices = synth.getVoices();
+      const preferredVoice = voices.find(v => 
+        v.lang.startsWith('en') && v.name.includes('Male')
+      ) || voices.find(v => v.lang.startsWith('en'));
+      
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+
+      synth.speak(utterance);
+    }
   }, []);
 
   const getRandomPhrase = (category: keyof typeof CRUSADER_PHRASES, replacements?: Record<string, string>) => {
@@ -135,65 +181,55 @@ export const useCrusader = () => {
   };
 
   const welcomeLobby = useCallback(() => {
-    speak(getRandomPhrase('lobby_welcome'), 1.1, 1.0);
+    speak(getRandomPhrase('lobby_welcome'));
   }, [speak]);
 
   const announceGameStart = useCallback(() => {
-    speak(getRandomPhrase('game_start'), 1.2, 1.1);
+    speak(getRandomPhrase('game_start'));
   }, [speak]);
 
   const announceLeaderChange = useCallback((leaderName: string) => {
-    speak(getRandomPhrase('leader_change', { name: leaderName }), 1.2, 1.1);
-  }, [speak]);
-
-  const announceTimerReset = useCallback(() => {
-    if (Math.random() > 0.7) { // Only 30% chance to avoid spam
-      speak(getRandomPhrase('timer_60'), 1.1, 1.0);
-    }
+    speak(getRandomPhrase('leader_change', { name: leaderName }));
   }, [speak]);
 
   const announceTimerLow = useCallback((seconds: number) => {
     if (seconds === 30) {
-      speak(getRandomPhrase('timer_30'), 1.3, 1.15);
+      speak(getRandomPhrase('timer_30'));
     } else if (seconds === 15) {
-      speak(getRandomPhrase('timer_15'), 1.4, 1.2);
+      speak(getRandomPhrase('timer_15'));
     } else if (seconds === 10) {
-      speak(getRandomPhrase('timer_10'), 1.5, 1.25);
+      speak(getRandomPhrase('timer_10'));
     } else if (seconds === 5) {
-      speak(getRandomPhrase('timer_5'), 1.6, 1.3);
+      speak(getRandomPhrase('timer_5'));
     }
   }, [speak]);
 
   const announceCloseCall = useCallback(() => {
-    speak(getRandomPhrase('close_call'), 1.3, 1.2);
+    speak(getRandomPhrase('close_call'));
   }, [speak]);
 
   const announceGameOver = useCallback(() => {
-    speak(getRandomPhrase('game_over'), 1.2, 1.1);
+    speak(getRandomPhrase('game_over'));
   }, [speak]);
 
   const announceWinner = useCallback((winnerName: string) => {
     setTimeout(() => {
-      speak(getRandomPhrase('winner_announce', { name: winnerName }), 1.2, 1.1);
+      speak(getRandomPhrase('winner_announce', { name: winnerName }));
     }, 1500);
   }, [speak]);
 
   const randomHype = useCallback(() => {
-    speak(getRandomPhrase('hype_random'), 1.15, 1.05);
+    speak(getRandomPhrase('hype_random'));
   }, [speak]);
 
   const setEnabled = useCallback((enabled: boolean) => {
     enabledRef.current = enabled;
-    if (!enabled) {
-      synthRef.current?.cancel();
-    }
   }, []);
 
   return {
     welcomeLobby,
     announceGameStart,
     announceLeaderChange,
-    announceTimerReset,
     announceTimerLow,
     announceCloseCall,
     announceGameOver,

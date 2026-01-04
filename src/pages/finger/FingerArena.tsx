@@ -6,6 +6,7 @@ import { useGame, mockPlayers, Comment } from '@/contexts/GameContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useCrusader } from '@/hooks/useCrusader';
+import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { useAudio } from '@/contexts/AudioContext';
 import { Send, Crown, Clock, Mic } from 'lucide-react';
 
@@ -30,6 +31,7 @@ export const FingerArena = () => {
   const { play } = useSounds();
   const { vibrate, buttonClick } = useHaptics();
   const crusader = useCrusader();
+  const { simulatePlayerVoice } = useVoiceChat();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   
   const [timer, setTimer] = useState(60);
@@ -133,6 +135,11 @@ export const FingerArena = () => {
         
         setLocalComments(prev => [newComment, ...prev].slice(0, 100));
         setTimer(60);
+        
+        // Simulate player voice chat occasionally
+        if (Math.random() > 0.85) {
+          simulatePlayerVoice(randomPlayer.name);
+        }
         
         // Only show system message occasionally to avoid spam
         if (Math.random() > 0.7) {
