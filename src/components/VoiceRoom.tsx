@@ -1,18 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Mic, MicOff } from 'lucide-react';
+import { Mic, MicOff, Eye } from 'lucide-react';
 import { Player } from '@/contexts/GameContext';
 
 interface VoiceRoomProps {
   players: Player[];
   onMicToggle?: (isMuted: boolean) => void;
+  audienceMuted?: boolean;
+  isSpectator?: boolean;
 }
 
-export const VoiceRoom = ({ players, onMicToggle }: VoiceRoomProps) => {
+export const VoiceRoom = ({ players, onMicToggle, audienceMuted = false, isSpectator = false }: VoiceRoomProps) => {
   const [isMuted, setIsMuted] = useState(true);
   const [speakingPlayers, setSpeakingPlayers] = useState<Set<string>>(new Set());
 
-  // Simulate random players speaking
+  // Simulate random players speaking (if not muted)
   useEffect(() => {
+    if (audienceMuted) {
+      setSpeakingPlayers(new Set());
+      return;
+    }
+
     const interval = setInterval(() => {
       if (players.length > 0) {
         const randomIndex = Math.floor(Math.random() * Math.min(players.length, 5));
@@ -37,7 +44,7 @@ export const VoiceRoom = ({ players, onMicToggle }: VoiceRoomProps) => {
     }, 1500);
 
     return () => clearInterval(interval);
-  }, [players]);
+  }, [players, audienceMuted]);
 
   const handleMicToggle = () => {
     setIsMuted(!isMuted);
@@ -50,10 +57,19 @@ export const VoiceRoom = ({ players, onMicToggle }: VoiceRoomProps) => {
     <div className="card-panel space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="voice-wave">
-            <span /><span /><span /><span /><span />
-          </div>
+          {audienceMuted ? (
+            <MicOff className="w-4 h-4 text-destructive" />
+          ) : (
+            <div className="voice-wave">
+              <span /><span /><span /><span /><span />
+            </div>
+          )}
           <span className="text-sm font-semibold text-foreground">Voice Room</span>
+          {isSpectator && (
+            <span className="px-2 py-0.5 text-[10px] bg-orange-500/20 text-orange-400 rounded-full flex items-center gap-1">
+              <Eye className="w-3 h-3" /> Spectator
+            </span>
+          )}
         </div>
         <button
           onClick={handleMicToggle}
@@ -62,6 +78,7 @@ export const VoiceRoom = ({ players, onMicToggle }: VoiceRoomProps) => {
               ? 'bg-destructive/20 text-destructive' 
               : 'bg-primary/20 text-primary avatar-speaking'
           }`}
+          title={isSpectator ? 'Spectators can still talk' : (isMuted ? 'Unmute' : 'Mute')}
         >
           {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
         </button>
@@ -69,13 +86,13 @@ export const VoiceRoom = ({ players, onMicToggle }: VoiceRoomProps) => {
 
       <div className="flex flex-wrap gap-3">
         {displayPlayers.map((player) => {
-          const isSpeaking = speakingPlayers.has(player.id);
+          const isSpeaking = speakingPlayers.has(player.id) && !audienceMuted;
           return (
             <div key={player.id} className="flex flex-col items-center gap-1">
               <div 
                 className={`w-12 h-12 rounded-full bg-card-elevated flex items-center justify-center text-xl transition-all ${
                   isSpeaking ? 'avatar-speaking' : ''
-                }`}
+                } ${audienceMuted ? 'opacity-50' : ''}`}
               >
                 {player.avatar}
               </div>
