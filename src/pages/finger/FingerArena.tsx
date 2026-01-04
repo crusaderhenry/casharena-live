@@ -54,6 +54,7 @@ export const FingerArena = () => {
   const [isSpectator, setIsSpectator] = useState(false);
   const [hostMuted, setHostMuted] = useState(false);
   const [audienceMuted, setAudienceMuted] = useState(false);
+  const [audienceCount, setAudienceCount] = useState(() => 120 + Math.floor(Math.random() * 80));
   const chatRef = useRef<HTMLDivElement>(null);
   const hasAnnouncedStart = useRef(false);
   const lastHypeRef = useRef(0);
@@ -63,6 +64,19 @@ export const FingerArena = () => {
   useEffect(() => {
     timerRef.current = timer;
   }, [timer]);
+
+  // Simulate live audience count
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAudienceCount((prev) => {
+        const step = Math.ceil(Math.random() * 3);
+        const delta = Math.random() > 0.55 ? step : -step;
+        return Math.max(0, prev + delta);
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Start background music
   useEffect(() => {
@@ -124,7 +138,7 @@ export const FingerArena = () => {
     }));
     setLocalComments(initialComments);
     showSystemMessage('Game started! Be the last commenter!');
-    
+
     if (!hasAnnouncedStart.current) {
       setTimeout(() => crusader.announceGameStart(), 500);
       hasAnnouncedStart.current = true;
@@ -136,19 +150,28 @@ export const FingerArena = () => {
     setTimeout(() => setSystemMessage(''), 3000);
   };
 
-  // AI comments simulation - MORE FREQUENT for busy feel
+  // Reset the 60s countdown whenever a new comment arrives
+  useEffect(() => {
+    if (isGameOver) return;
+    if (localComments.length === 0) return;
+
+    setTimer((prev) => (prev === GAME_SETTINGS.commentTimerSeconds ? prev : GAME_SETTINGS.commentTimerSeconds));
+  }, [isGameOver, localComments[0]?.id]);
+
+  // AI comments simulation (slower so the 60s timer actually counts down)
   useEffect(() => {
     if (isGameOver) return;
 
     const interval = setInterval(() => {
-      // Much higher chance for busy chat
       const currentTimer = timerRef.current;
-      const chance = currentTimer < 15 ? 0.85 : currentTimer < 30 ? 0.7 : currentTimer < 45 ? 0.5 : 0.4;
-      
+
+      // Lower chance overall, and VERY low near the end so the game can finish
+      const chance = currentTimer <= 10 ? 0.06 : currentTimer <= 20 ? 0.16 : 0.26;
+
       if (Math.random() < chance) {
         const randomPlayer = mockPlayers[Math.floor(Math.random() * mockPlayers.length)];
         const randomComment = AI_COMMENTS[Math.floor(Math.random() * AI_COMMENTS.length)];
-        
+
         const newComment: Comment = {
           id: `ai_${Date.now()}_${Math.random()}`,
           playerId: randomPlayer.id,
@@ -157,25 +180,22 @@ export const FingerArena = () => {
           text: randomComment,
           timestamp: new Date(),
         };
-        
+
         setLocalComments(prev => [newComment, ...prev].slice(0, 100));
-        // Reset timer to 60 when AI comment comes in
-        setTimer(GAME_SETTINGS.commentTimerSeconds);
-        
+
         // Simulate player voice chat occasionally (respect audience mute)
         if (Math.random() > 0.85 && !audienceMuted) {
           simulatePlayerVoice(randomPlayer.name);
         }
-        
-        // Only show system message occasionally to avoid spam
-        if (Math.random() > 0.7) {
+
+        if (Math.random() > 0.75) {
           showSystemMessage(`⏱️ ${randomPlayer.name} reset the timer!`);
         }
       }
-    }, 300 + Math.random() * 600); // Much faster interval: 300-900ms
+    }, 2500 + Math.random() * 3500); // 2.5s - 6s
 
     return () => clearInterval(interval);
-  }, [isGameOver, audienceMuted]);
+  }, [isGameOver, audienceMuted, simulatePlayerVoice]);
 
   // Random hype from Crusader
   useEffect(() => {
@@ -422,7 +442,13 @@ export const FingerArena = () => {
               <span className="live-dot" />
               Live Finger Arena
             </h1>
-            <p className="text-xs text-muted-foreground">Last comment standing wins!</p>
+            <p className="text-xs text-muted-foreground flex items-center gap-2">
+              <span>Last comment standing wins!</span>
+              <span className="inline-flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                {audienceCount} watching
+              </span>
+            </p>
           </div>
           <div className="text-right">
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -507,15 +533,6 @@ export const FingerArena = () => {
             >
               {hostMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>
-            
-            {/* Audience Mute */}
-            <button
-              onClick={() => setAudienceMuted(!audienceMuted)}
-              className={`p-1.5 rounded-full transition-all ${audienceMuted ? 'bg-destructive/20 text-destructive' : 'bg-muted text-muted-foreground'}`}
-              title={audienceMuted ? 'Unmute Audience' : 'Mute Audience'}
-            >
-              <Users className="w-3.5 h-3.5" />
-            </button>
           </div>
         </div>
 
@@ -559,6 +576,8 @@ export const FingerArena = () => {
         <VoiceRoom 
           players={mockPlayers.slice(0, 6)} 
           audienceMuted={audienceMuted}
+          onAudienceMuteToggle={setAudienceMuted}
+          audienceCount={audienceCount}
           isSpectator={isSpectator}
         />
       </div>

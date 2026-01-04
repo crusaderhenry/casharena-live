@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useMemo } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -238,15 +238,28 @@ export const useCrusader = () => {
     enabledRef.current = enabled;
   }, []);
 
-  return {
-    welcomeLobby,
-    announceGameStart,
-    announceLeaderChange,
-    announceTimerLow,
-    announceCloseCall,
-    announceGameOver,
-    announceWinner,
-    randomHype,
-    setEnabled,
-  };
+  return useMemo(
+    () => ({
+      welcomeLobby,
+      announceGameStart,
+      announceLeaderChange,
+      announceTimerLow,
+      announceCloseCall,
+      announceGameOver,
+      announceWinner,
+      randomHype,
+      setEnabled,
+    }),
+    [
+      welcomeLobby,
+      announceGameStart,
+      announceLeaderChange,
+      announceTimerLow,
+      announceCloseCall,
+      announceGameOver,
+      announceWinner,
+      randomHype,
+      setEnabled,
+    ]
+  );
 };
