@@ -1,40 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
-import { Avatar } from '@/components/Avatar';
-import { TestControls, useTestMode } from '@/components/TestModeToggle';
+import { TestControls } from '@/components/TestControls';
+import { useGame, mockPlayers } from '@/contexts/GameContext';
 import { ChevronLeft, Zap, Lock, Users } from 'lucide-react';
-import { useSounds } from '@/hooks/useSounds';
-import { useHaptics } from '@/hooks/useHaptics';
-
-const MOCK_PLAYERS = [
-  'You', 'Adebayo K.', 'Chidinma U.', 'Emeka A.', 'Fatima B.',
-  'Grace O.', 'Henry I.', 'Ifeoma C.', 'John D.', 'Kemi L.',
-  'Ladi M.', 'Musa N.', 'Ngozi P.', 'Olumide R.', 'Patricia S.',
-  'Queen T.', 'Richard U.', 'Sandra V.', 'Tayo W.', 'Ugochi X.',
-  'Victor Y.', 'Wale Z.', 'Xena A.',
-];
 
 export const FingerLobby = () => {
   const navigate = useNavigate();
-  const [countdown, setCountdown] = useState(300);
+  const { isTestMode, resetFingerGame } = useGame();
+  const [countdown, setCountdown] = useState(60);
   const [entryClosed, setEntryClosed] = useState(false);
-  const { play } = useSounds();
-  const { warning, buttonClick } = useHaptics();
-  const { isTestMode } = useTestMode();
 
-  const poolValue = MOCK_PLAYERS.length * 700;
+  const poolValue = mockPlayers.length * 700;
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown(prev => {
-        if (prev <= 60 && !entryClosed) {
+        if (prev <= 10 && !entryClosed) {
           setEntryClosed(true);
-          play('timer');
-          warning();
-        }
-        if (prev <= 10 && prev > 0) {
-          play('countdown');
         }
         if (prev <= 0) {
           clearInterval(timer);
@@ -45,7 +28,7 @@ export const FingerLobby = () => {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [navigate, entryClosed, play, warning]);
+  }, [navigate, entryClosed]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -58,7 +41,8 @@ export const FingerLobby = () => {
   };
 
   const handleTestReset = () => {
-    setCountdown(300);
+    resetFingerGame();
+    setCountdown(60);
     setEntryClosed(false);
   };
 
@@ -68,11 +52,7 @@ export const FingerLobby = () => {
         {/* Header */}
         <div className="flex items-center gap-4 pt-2">
           <button 
-            onClick={() => {
-              play('click');
-              buttonClick();
-              navigate('/finger');
-            }}
+            onClick={() => navigate('/finger')}
             className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -86,43 +66,43 @@ export const FingerLobby = () => {
         {/* Test Controls */}
         <TestControls
           onStart={handleTestStart}
-          onEnd={handleTestStart}
           onReset={handleTestReset}
-          isStarted={false}
           startLabel="Start Game Now"
         />
 
         {/* Countdown */}
-        <div className={`card-premium text-center ${entryClosed ? 'border-destructive/50' : 'glow-primary'}`}>
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Zap className={`w-6 h-6 ${entryClosed ? 'text-destructive' : 'text-primary'}`} />
-            <span className="text-sm text-muted-foreground font-medium">
-              {entryClosed ? 'Entry Closed' : 'Game Starts In'}
-            </span>
-          </div>
-          <p className={`timer-display ${entryClosed ? 'text-destructive' : ''}`}>
-            {formatTime(countdown)}
-          </p>
-          {entryClosed && (
-            <div className="flex items-center justify-center gap-2 mt-3 text-destructive">
-              <Lock className="w-4 h-4" />
-              <span className="text-sm font-bold">No more entries</span>
+        <div className={`card-game text-center ${entryClosed ? 'border-destructive/50' : 'glow-primary'}`}>
+          <div className="relative z-10">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Zap className={`w-6 h-6 ${entryClosed ? 'text-destructive' : 'text-primary'}`} />
+              <span className="text-sm text-muted-foreground font-medium">
+                {entryClosed ? 'Entry Closed' : 'Game Starts In'}
+              </span>
             </div>
-          )}
+            <p className={`timer-display ${entryClosed ? 'text-destructive' : ''}`}>
+              {formatTime(countdown)}
+            </p>
+            {entryClosed && (
+              <div className="flex items-center justify-center gap-2 mt-3 text-destructive">
+                <Lock className="w-4 h-4" />
+                <span className="text-sm font-bold">No more entries</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Pool Info */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="card-premium text-center">
+          <div className="card-panel text-center">
             <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Participants</p>
             <p className="text-2xl font-black text-foreground flex items-center justify-center gap-2">
               <Users className="w-5 h-5 text-primary" />
-              {MOCK_PLAYERS.length}
+              {mockPlayers.length}
             </p>
           </div>
-          <div className="card-premium text-center">
+          <div className="card-panel text-center">
             <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Total Pool</p>
-            <p className="text-2xl font-black text-money">₦{poolValue.toLocaleString()}</p>
+            <p className="text-2xl font-black text-primary">₦{poolValue.toLocaleString()}</p>
           </div>
         </div>
 
@@ -132,17 +112,13 @@ export const FingerLobby = () => {
             Players in Lobby
           </h3>
           <div className="grid grid-cols-4 gap-3">
-            {MOCK_PLAYERS.map((player, index) => (
+            {mockPlayers.map((player, index) => (
               <div key={index} className="flex flex-col items-center animate-scale-in" style={{ animationDelay: `${index * 30}ms` }}>
-                <Avatar 
-                  name={player} 
-                  size="md" 
-                  isWinner={player === 'You'}
-                />
-                <p className={`text-xs mt-1.5 truncate w-full text-center font-medium ${
-                  player === 'You' ? 'text-primary' : 'text-muted-foreground'
-                }`}>
-                  {player === 'You' ? 'You' : player.split(' ')[0]}
+                <div className="w-12 h-12 rounded-full bg-card-elevated flex items-center justify-center text-xl border border-border/50">
+                  {player.avatar}
+                </div>
+                <p className="text-xs mt-1.5 truncate w-full text-center font-medium text-muted-foreground">
+                  {player.name.split(' ')[0]}
                 </p>
               </div>
             ))}
@@ -150,7 +126,7 @@ export const FingerLobby = () => {
         </div>
 
         {/* Tips */}
-        <div className="card-premium border-primary/30 bg-primary/5">
+        <div className="card-panel border-primary/30 bg-primary/5">
           <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
             💡 Pro Tips
           </h3>
