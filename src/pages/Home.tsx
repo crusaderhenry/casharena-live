@@ -5,7 +5,7 @@ import { GameCard } from '@/components/GameCard';
 import { ActivityFeed } from '@/components/ActivityFeed';
 import { TestModeToggle } from '@/components/TestModeToggle';
 import { NotificationCenter } from '@/components/NotificationCenter';
-import { Zap, Sparkles, Trophy, Shield } from 'lucide-react';
+import { Zap, Sparkles, Trophy, Shield, ChevronRight } from 'lucide-react';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -15,62 +15,68 @@ export const Home = () => {
   const { buttonClick } = useHaptics();
 
   return (
-    <div className="min-h-screen bg-background pb-28">
-      <div className="p-4 space-y-6">
+    <div className="min-h-screen bg-background safe-bottom">
+      <div className="px-5 pt-6 pb-8 space-y-7">
         {/* Header */}
-        <div className="flex items-center justify-between pt-2">
+        <header className="flex items-center justify-between animate-slide-down">
           <div>
-            <h1 className="text-2xl font-black text-foreground tracking-tight">CashArena</h1>
-            <p className="text-sm text-muted-foreground">Fair play. Real wins. 💰</p>
+            <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
+              Cash<span className="text-gradient-primary">Arena</span>
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Fair play. Real wins.</p>
           </div>
           <div className="flex items-center gap-2">
             <TestModeToggle />
             <NotificationCenter />
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-lg glow-primary">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-lg shadow-glow">
               💎
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* Wallet */}
-        <WalletCard />
+        {/* Wallet Card */}
+        <div className="animate-slide-up" style={{ animationDelay: '50ms' }}>
+          <WalletCard />
+        </div>
 
         {/* Fairness Notice */}
-        <div className="fairness-badge">
+        <div className="fairness-notice animate-slide-up" style={{ animationDelay: '100ms' }}>
           <Shield className="w-4 h-4" />
-          <span>Fair, transparent, skill & luck based games</span>
+          <span>Provably fair games • Equal odds for everyone</span>
         </div>
 
-        {/* Game Cards */}
-        <div className="space-y-3">
-          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-            Games
+        {/* Games Section */}
+        <section className="space-y-4 animate-slide-up" style={{ animationDelay: '150ms' }}>
+          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+            Live Games
           </h2>
           
           <GameCard
             title="Fastest Finger"
-            description="Last comment wins the pool"
-            icon={<Zap className="w-6 h-6 text-primary" />}
+            description="Last comment standing wins the pool"
+            icon={<Zap className="w-7 h-7 text-primary" />}
             entry={700}
-            info="Live Now"
+            info="23 playing"
             path="/finger"
             accentColor="primary"
             ctaText="Play"
             badge="Live"
+            badgeType="live"
           />
           
           <GameCard
             title="Lucky Pool"
-            description="One random winner takes all"
-            icon={<Sparkles className="w-6 h-6 text-secondary" />}
+            description="One random winner takes the entire pool"
+            icon={<Sparkles className="w-7 h-7 text-secondary" />}
             entry={1000}
             info="Draw in 2h"
             path="/pool"
             accentColor="secondary"
             ctaText="Join"
             badge="Fair"
+            badgeType="gold"
           />
-        </div>
+        </section>
 
         {/* Rank Teaser */}
         <button
@@ -79,25 +85,31 @@ export const Home = () => {
             buttonClick();
             navigate('/rank');
           }}
-          className="w-full card-game flex items-center justify-between p-4"
+          className="w-full card-interactive flex items-center justify-between animate-slide-up"
+          style={{ animationDelay: '200ms' }}
         >
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gold/20 flex items-center justify-center glow-gold">
-              <Trophy className="w-6 h-6 text-gold" />
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gold/15 flex items-center justify-center shadow-glow-gold">
+              <Trophy className="w-7 h-7 text-gold" />
             </div>
             <div className="text-left">
-              <h3 className="font-bold text-foreground">Your Rank</h3>
-              <p className="text-sm text-muted-foreground">Weekly competition</p>
+              <h3 className="font-bold text-foreground">Weekly Rankings</h3>
+              <p className="text-sm text-muted-foreground">Compete for platform rewards</p>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-black text-gold">#47</p>
-            <p className="text-xs text-muted-foreground">Top 10 wins rewards</p>
+          <div className="flex items-center gap-2">
+            <div className="text-right">
+              <p className="text-2xl font-extrabold text-gold">#47</p>
+              <p className="text-2xs text-muted-foreground">Your rank</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </div>
         </button>
 
         {/* Activity Feed */}
-        <ActivityFeed />
+        <div className="animate-slide-up" style={{ animationDelay: '250ms' }}>
+          <ActivityFeed />
+        </div>
       </div>
       
       <BottomNav />
