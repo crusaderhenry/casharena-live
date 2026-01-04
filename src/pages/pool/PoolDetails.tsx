@@ -5,7 +5,7 @@ import { Avatar } from '@/components/Avatar';
 import { useWallet } from '@/contexts/WalletContext';
 import { useGame } from '@/contexts/GameContext';
 import { TestControls, useTestMode } from '@/components/TestModeToggle';
-import { ChevronLeft, Sparkles, Clock, Users, Shuffle, Shield } from 'lucide-react';
+import { ChevronLeft, Sparkles, Clock, Users, Shuffle, Shield, Dice6 } from 'lucide-react';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -84,7 +84,7 @@ export const PoolDetails = () => {
     setHighlightIndex(winnerIndex);
     
     const isWinner = MOCK_PARTICIPANTS[winnerIndex].name === 'You';
-    const prize = Math.floor(totalPool * 0.9); // 10% platform cut
+    const prize = Math.floor(totalPool * 0.9);
     
     setTimeout(() => {
       if (isWinner) {
@@ -119,26 +119,25 @@ export const PoolDetails = () => {
   if (isDrawing && !isTestMode) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-        <div className="w-32 h-32 rounded-full bg-primary/20 flex items-center justify-center mb-8 glow-strong">
-          <Shuffle className="w-16 h-16 text-primary animate-spin-slow" />
+        <div className="w-32 h-32 rounded-full bg-secondary/20 flex items-center justify-center mb-8 shadow-glow-gold">
+          <Shuffle className="w-16 h-16 text-secondary animate-spin-slow" />
         </div>
-        <h1 className="text-2xl font-bold text-foreground mb-2">Drawing Winner...</h1>
-        <p className="text-muted-foreground mb-8">Fair random selection in progress 🍀</p>
+        <h1 className="text-2xl font-extrabold text-foreground mb-3">Drawing Winner...</h1>
+        <p className="text-muted-foreground mb-10">Fair random selection in progress 🍀</p>
         
-        {/* Scrolling names */}
         <div className="w-full max-w-xs space-y-2">
           {MOCK_PARTICIPANTS.map((p, i) => (
             <div 
               key={i}
-              className={`p-3 rounded-xl transition-all duration-150 ${
+              className={`p-3 rounded-2xl transition-all duration-150 ${
                 i === highlightIndex 
-                  ? 'bg-primary/30 border-2 border-primary animate-scroll-highlight' 
+                  ? 'bg-secondary/20 border-2 border-secondary shadow-glow-gold' 
                   : 'bg-card border border-border/50'
               }`}
             >
               <div className="flex items-center gap-3">
                 <Avatar name={p.name} size="sm" isWinner={i === highlightIndex} />
-                <span className={`font-medium ${i === highlightIndex ? 'text-primary' : 'text-foreground'}`}>
+                <span className={`font-medium ${i === highlightIndex ? 'text-secondary' : 'text-foreground'}`}>
                   {p.name}
                 </span>
               </div>
@@ -150,13 +149,13 @@ export const PoolDetails = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="p-4 space-y-6">
+    <div className="min-h-screen bg-background safe-bottom">
+      <div className="px-5 pt-6 pb-8 space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4 pt-2">
+        <header className="flex items-center gap-4 animate-slide-down">
           <button 
             onClick={() => navigate('/pool')}
-            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
+            className="btn-icon"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -164,12 +163,13 @@ export const PoolDetails = () => {
             <h1 className="text-xl font-bold text-foreground">Pool Details</h1>
             <p className="text-sm text-muted-foreground">You're in the draw!</p>
           </div>
-        </div>
+          <span className="badge-gold">Joined</span>
+        </header>
 
         {/* Fairness Badge */}
-        <div className="fairness-badge">
+        <div className="fairness-notice animate-slide-up">
           <Shield className="w-4 h-4" />
-          <span>One random winner. No tricks. Entire pool.</span>
+          <span>One random winner • No tricks • Entire pool</span>
         </div>
 
         {/* Test Controls */}
@@ -183,54 +183,58 @@ export const PoolDetails = () => {
         />
 
         {/* Countdown */}
-        <div className={`card-premium text-center ${countdown <= 10 ? 'border-destructive/50' : 'glow-primary'}`}>
-          <Clock className={`w-8 h-8 mx-auto mb-2 ${countdown <= 10 ? 'text-destructive' : 'text-secondary'}`} />
-          <p className="text-sm text-muted-foreground mb-2">Draw in</p>
-          <p className={`timer-display ${countdown <= 10 ? 'text-destructive' : ''}`}>{countdown}s</p>
+        <div className={`card-premium text-center transition-all duration-300 animate-slide-up ${
+          countdown <= 10 ? 'border-destructive/50' : 'card-glow-gold'
+        }`}>
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <Dice6 className={`w-6 h-6 ${countdown <= 10 ? 'text-destructive' : 'text-secondary'}`} />
+            <span className="text-sm font-medium text-muted-foreground">Draw in</span>
+          </div>
+          <p className={`timer-display ${countdown <= 10 ? 'timer-warning' : ''}`}>{countdown}s</p>
         </div>
 
         {/* Pool Stats */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 animate-slide-up" style={{ animationDelay: '50ms' }}>
           <div className="card-premium text-center">
-            <p className="text-xs text-muted-foreground mb-1">Prize Pool</p>
-            <p className="text-2xl font-black text-money">₦{totalPool.toLocaleString()}</p>
+            <p className="stat-label">Prize Pool</p>
+            <p className="text-3xl font-extrabold text-money">₦{totalPool.toLocaleString()}</p>
           </div>
           <div className="card-premium text-center">
-            <p className="text-xs text-muted-foreground mb-1">Participants</p>
-            <p className="text-2xl font-bold text-foreground flex items-center justify-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
+            <p className="stat-label">Participants</p>
+            <p className="text-3xl font-extrabold text-foreground flex items-center justify-center gap-2">
+              <Users className="w-6 h-6 text-primary" />
               {MOCK_PARTICIPANTS.length}
             </p>
           </div>
         </div>
 
         {/* Your Entry */}
-        <div className="card-premium border-primary/50">
+        <div className="card-glow animate-slide-up" style={{ animationDelay: '100ms' }}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <Avatar name="You" size="lg" isWinner />
               <div>
-                <p className="font-bold text-foreground">Your Entry</p>
+                <p className="font-bold text-foreground text-lg">Your Entry</p>
                 <p className="text-sm text-muted-foreground">Equal chance with everyone</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">Win Chance</p>
-              <p className="text-xl font-bold text-primary">{Math.round(100 / MOCK_PARTICIPANTS.length)}%</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Win Chance</p>
+              <p className="text-2xl font-extrabold text-primary">{Math.round(100 / MOCK_PARTICIPANTS.length)}%</p>
             </div>
           </div>
         </div>
 
         {/* Participants */}
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+        <div className="space-y-3 animate-slide-up" style={{ animationDelay: '150ms' }}>
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
             All Participants ({MOCK_PARTICIPANTS.length})
           </h3>
           {MOCK_PARTICIPANTS.map((participant, index) => (
             <div 
               key={index} 
-              className={`card-game flex items-center justify-between py-3 ${
-                isDrawing && index === highlightIndex ? 'border-primary bg-primary/10' : ''
+              className={`card-interactive py-3 flex items-center justify-between transition-all ${
+                isDrawing && index === highlightIndex ? 'border-secondary bg-secondary/10' : ''
               }`}
             >
               <div className="flex items-center gap-3">
@@ -239,7 +243,7 @@ export const PoolDetails = () => {
                   {participant.name}
                 </p>
               </div>
-              <span className="text-xs text-muted-foreground">Equal odds</span>
+              <span className="text-xs text-muted-foreground font-medium">Equal odds</span>
             </div>
           ))}
         </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { Avatar } from '@/components/Avatar';
-import { ChevronLeft, Trophy, Clock, Medal, Star, TrendingUp } from 'lucide-react';
+import { ChevronLeft, Trophy, Clock, Medal, Star, TrendingUp, Flame } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -32,59 +32,60 @@ export const Rank = () => {
   const { buttonClick } = useHaptics();
   const [timeframe, setTimeframe] = useState<'weekly' | 'monthly'>('weekly');
 
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return <span className="text-2xl">👑</span>;
-    if (rank === 2) return <Medal className="w-6 h-6 text-silver" />;
-    if (rank === 3) return <Medal className="w-6 h-6 text-bronze" />;
+  const getRankBadge = (rank: number) => {
+    if (rank === 1) return '👑';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
     return null;
   };
 
   const getRankBg = (rank: number) => {
-    if (rank === 1) return 'bg-gold/10 border-gold/50';
-    if (rank === 2) return 'bg-silver/10 border-silver/50';
-    if (rank === 3) return 'bg-bronze/10 border-bronze/50';
-    return 'border-border/50';
+    if (rank === 1) return 'podium-1st';
+    if (rank === 2) return 'podium-2nd';
+    if (rank === 3) return 'podium-3rd';
+    return 'border-border/40';
   };
 
   return (
-    <div className="min-h-screen bg-background pb-28">
-      <div className="p-4 space-y-6">
+    <div className="min-h-screen bg-background safe-bottom">
+      <div className="px-5 pt-6 pb-8 space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4 pt-2">
+        <header className="flex items-center gap-4 animate-slide-down">
           <button 
             onClick={() => {
               play('click');
               buttonClick();
               navigate('/home');
             }}
-            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
+            className="btn-icon"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold text-foreground">Leaderboard</h1>
             <p className="text-sm text-muted-foreground">Compete for weekly rewards</p>
           </div>
-        </div>
+          <Trophy className="w-6 h-6 text-gold" />
+        </header>
 
         {/* Timeframe Toggle */}
-        <div className="flex gap-2 p-1 bg-muted/30 rounded-xl">
+        <div className="flex gap-2 p-1.5 bg-muted/30 rounded-2xl border border-border/40 animate-slide-up">
           <button
             onClick={() => setTimeframe('weekly')}
-            className={`flex-1 py-2.5 rounded-lg font-bold text-sm transition-all ${
+            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all duration-300 ${
               timeframe === 'weekly'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground'
+                ? 'bg-primary text-primary-foreground shadow-glow'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Weekly
           </button>
           <button
             onClick={() => setTimeframe('monthly')}
-            className={`flex-1 py-2.5 rounded-lg font-bold text-sm transition-all ${
+            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all duration-300 ${
               timeframe === 'monthly'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground'
+                ? 'bg-primary text-primary-foreground shadow-glow'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Monthly
@@ -92,54 +93,57 @@ export const Rank = () => {
         </div>
 
         {/* Reset Timer */}
-        <div className="card-premium flex items-center justify-between">
+        <div className="card-glass flex items-center justify-between animate-slide-up" style={{ animationDelay: '50ms' }}>
           <div className="flex items-center gap-3">
             <Clock className="w-5 h-5 text-secondary" />
-            <span className="text-sm text-muted-foreground">Weekly reset in</span>
+            <span className="text-sm text-muted-foreground font-medium">Weekly reset in</span>
           </div>
           <span className="font-bold text-secondary">4d 12h 30m</span>
         </div>
 
         {/* Your Rank Card */}
-        <div className="card-highlight">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
+        <div className="card-glow animate-slide-up" style={{ animationDelay: '100ms' }}>
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-4">
               <Avatar name="You" size="lg" isWinner />
               <div>
-                <p className="font-bold text-foreground">Your Rank</p>
+                <p className="font-bold text-lg text-foreground">Your Rank</p>
                 <p className="text-sm text-muted-foreground">{USER_RANK.points.toLocaleString()} points</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-black text-primary">#{USER_RANK.rank}</p>
-              <div className="flex items-center gap-1 text-xs text-primary">
+              <p className="text-4xl font-extrabold text-primary">#{USER_RANK.rank}</p>
+              <div className="flex items-center justify-end gap-1 text-xs text-primary mt-1">
                 <TrendingUp className="w-3 h-3" />
-                <span>+5 this week</span>
+                <span className="font-medium">+5 this week</span>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-muted/30 rounded-xl p-3 text-center">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Total Wins</p>
-              <p className="font-bold text-foreground">{USER_RANK.wins}</p>
+            <div className="stat-box">
+              <p className="stat-label">Total Wins</p>
+              <p className="stat-value flex items-center justify-center gap-1.5">
+                <Flame className="w-4 h-4 text-primary" />
+                {USER_RANK.wins}
+              </p>
             </div>
-            <div className="bg-muted/30 rounded-xl p-3 text-center">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Points Needed</p>
-              <p className="font-bold text-gold">{(MOCK_LEADERBOARD[9].points - USER_RANK.points).toLocaleString()}</p>
+            <div className="stat-box">
+              <p className="stat-label">Points to Top 10</p>
+              <p className="stat-value text-gold">{(MOCK_LEADERBOARD[9].points - USER_RANK.points).toLocaleString()}</p>
             </div>
           </div>
         </div>
 
         {/* Reward Notice */}
-        <div className="fairness-badge">
+        <div className="fairness-notice bg-gold/10 text-gold border-gold/25 animate-slide-up" style={{ animationDelay: '150ms' }}>
           <Star className="w-4 h-4" />
           <span>Top 10 players receive platform rewards weekly!</span>
         </div>
 
         {/* Top 10 Leaderboard */}
-        <div className="space-y-3">
-          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+        <div className="space-y-3 animate-slide-up" style={{ animationDelay: '200ms' }}>
+          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
             <Trophy className="w-4 h-4 text-gold" />
             Top 10 This Week
           </h2>
@@ -147,12 +151,14 @@ export const Rank = () => {
           {MOCK_LEADERBOARD.map((player, index) => (
             <div
               key={player.rank}
-              className={`card-game flex items-center justify-between py-3 border ${getRankBg(player.rank)} animate-slide-up`}
-              style={{ animationDelay: `${index * 50}ms` }}
+              className={`card-interactive py-3.5 flex items-center justify-between ${getRankBg(player.rank)} animate-slide-up`}
+              style={{ animationDelay: `${(index + 5) * 30}ms` }}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <div className="w-10 flex justify-center">
-                  {getRankIcon(player.rank) || (
+                  {getRankBadge(player.rank) ? (
+                    <span className="text-2xl">{getRankBadge(player.rank)}</span>
+                  ) : (
                     <span className="text-lg font-bold text-muted-foreground">#{player.rank}</span>
                   )}
                 </div>
@@ -163,43 +169,39 @@ export const Rank = () => {
                 </div>
               </div>
               <div className="text-right">
-                <p className={`font-bold ${player.rank === 1 ? 'text-gold' : player.rank === 2 ? 'text-silver' : player.rank === 3 ? 'text-bronze' : 'text-foreground'}`}>
+                <p className={`font-bold text-lg ${
+                  player.rank === 1 ? 'text-gold' : 
+                  player.rank === 2 ? 'text-silver' : 
+                  player.rank === 3 ? 'text-bronze' : 'text-foreground'
+                }`}>
                   {player.points.toLocaleString()}
                 </p>
-                <p className="text-[10px] text-muted-foreground">points</p>
+                <p className="text-2xs text-muted-foreground">points</p>
               </div>
             </div>
           ))}
         </div>
 
         {/* How Points Work */}
-        <div className="card-premium">
-          <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+        <div className="card-premium animate-slide-up" style={{ animationDelay: '250ms' }}>
+          <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
             <Star className="w-5 h-5 text-secondary" />
             How to Earn Points
           </h3>
-          <ul className="text-sm text-muted-foreground space-y-2">
-            <li className="flex items-center justify-between">
-              <span>Fastest Finger win</span>
-              <span className="font-bold text-primary">+500 pts</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span>Fastest Finger 2nd/3rd</span>
-              <span className="font-bold text-primary">+200 pts</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span>Lucky Pool win</span>
-              <span className="font-bold text-secondary">+1000 pts</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span>Fastest Finger participation</span>
-              <span className="font-bold text-muted-foreground">+50 pts</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span>Lucky Pool participation</span>
-              <span className="font-bold text-muted-foreground">+25 pts</span>
-            </li>
-          </ul>
+          <div className="space-y-2.5">
+            {[
+              { label: 'Fastest Finger win', points: '+500 pts', color: 'text-primary' },
+              { label: 'Fastest Finger 2nd/3rd', points: '+200 pts', color: 'text-primary' },
+              { label: 'Lucky Pool win', points: '+1000 pts', color: 'text-gold' },
+              { label: 'Fastest Finger participation', points: '+50 pts', color: 'text-muted-foreground' },
+              { label: 'Lucky Pool participation', points: '+25 pts', color: 'text-muted-foreground' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center justify-between py-1">
+                <span className="text-sm text-muted-foreground">{item.label}</span>
+                <span className={`font-bold ${item.color}`}>{item.points}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       

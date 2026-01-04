@@ -5,7 +5,7 @@ import { WalletCard } from '@/components/WalletCard';
 import { TestControls, useTestMode } from '@/components/TestModeToggle';
 import { useWallet } from '@/contexts/WalletContext';
 import { useGame } from '@/contexts/GameContext';
-import { ChevronLeft, Zap, Users, Clock, Trophy, MessageSquare, Crown, Medal } from 'lucide-react';
+import { ChevronLeft, Zap, Users, Clock, Crown, Medal, MessageCircle, Timer, Trophy } from 'lucide-react';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -68,25 +68,26 @@ export const FingerMain = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-28">
-      <div className="p-4 space-y-5">
+    <div className="min-h-screen bg-background safe-bottom">
+      <div className="px-5 pt-6 pb-8 space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4 pt-2">
+        <header className="flex items-center gap-4 animate-slide-down">
           <button 
             onClick={() => {
               play('click');
               buttonClick();
               navigate('/home');
             }}
-            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
+            className="btn-icon"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold text-foreground">Fastest Finger</h1>
             <p className="text-sm text-muted-foreground">Last comment wins</p>
           </div>
-        </div>
+          <span className="badge-live">Live</span>
+        </header>
 
         <WalletCard compact />
 
@@ -100,72 +101,84 @@ export const FingerMain = () => {
           endLabel="View Results"
         />
 
-        {/* Game Info */}
-        <div className="card-premium">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-14 h-14 rounded-xl bg-primary/15 flex items-center justify-center glow-primary">
-              <Zap className="w-7 h-7 text-primary" />
+        {/* Main Card */}
+        <div className="card-glow animate-slide-up">
+          <div className="flex items-center gap-4 mb-5">
+            <div className="w-16 h-16 rounded-2xl bg-primary/15 flex items-center justify-center shadow-glow">
+              <Zap className="w-8 h-8 text-primary" />
             </div>
             <div>
-              <h2 className="font-bold text-lg text-foreground">Live Comment Battle</h2>
-              <p className="text-sm text-muted-foreground">Be the last standing!</p>
+              <h2 className="font-bold text-xl text-foreground">Live Comment Battle</h2>
+              <p className="text-sm text-muted-foreground">Be the last standing to win!</p>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-2xl p-5 mb-4 text-center border border-primary/20">
-            <p className="text-sm text-muted-foreground mb-1">Next Game In</p>
+          {/* Countdown */}
+          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-secondary/10 rounded-3xl p-6 mb-5 text-center border border-primary/20">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Timer className="w-5 h-5 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground font-medium">Next Game Starts In</p>
+            </div>
             <p className="timer-display">{formatTime(countdown)}</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-5">
-            <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
-              <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Entry</p>
-              <p className="font-bold text-primary">₦700</p>
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="stat-box">
+              <p className="stat-label">Entry</p>
+              <p className="stat-value text-primary">₦700</p>
             </div>
-            <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
-              <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Waiting</p>
-              <p className="font-bold text-foreground flex items-center justify-center gap-1">
+            <div className="stat-box">
+              <p className="stat-label">Waiting</p>
+              <p className="stat-value flex items-center justify-center gap-1.5">
                 <Users className="w-4 h-4 text-primary" /> 23
               </p>
             </div>
-            <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
-              <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Pool</p>
-              <p className="font-bold text-secondary">₦16,100</p>
+            <div className="stat-box">
+              <p className="stat-label">Pool</p>
+              <p className="stat-value text-money">₦16,100</p>
             </div>
           </div>
 
           {/* Game Mode Selector */}
-          <div className="mb-5">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Select Mode</p>
+          <div className="mb-6">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">
+              Select Mode
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setGameMode('winner_takes_all')}
-                className={`p-4 rounded-xl border-2 transition-all text-left ${
+                className={`p-4 rounded-2xl border-2 transition-all duration-300 text-left ${
                   gameMode === 'winner_takes_all'
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border/50 hover:border-primary/50'
+                    ? 'border-primary bg-primary/10 shadow-glow'
+                    : 'border-border/60 hover:border-primary/40'
                 }`}
               >
-                <Crown className={`w-6 h-6 mb-2 ${gameMode === 'winner_takes_all' ? 'text-primary' : 'text-muted-foreground'}`} />
+                <Crown className={`w-6 h-6 mb-2 transition-colors ${
+                  gameMode === 'winner_takes_all' ? 'text-primary' : 'text-muted-foreground'
+                }`} />
                 <p className="font-bold text-sm text-foreground">Winner Takes All</p>
-                <p className="text-xs text-muted-foreground">100% to last commenter</p>
+                <p className="text-xs text-muted-foreground mt-1">100% to last commenter</p>
               </button>
               
               <button
                 onClick={() => setGameMode('top_3')}
-                className={`p-4 rounded-xl border-2 transition-all text-left ${
+                className={`p-4 rounded-2xl border-2 transition-all duration-300 text-left ${
                   gameMode === 'top_3'
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border/50 hover:border-primary/50'
+                    ? 'border-primary bg-primary/10 shadow-glow'
+                    : 'border-border/60 hover:border-primary/40'
                 }`}
               >
-                <Medal className={`w-6 h-6 mb-2 ${gameMode === 'top_3' ? 'text-primary' : 'text-muted-foreground'}`} />
+                <Medal className={`w-6 h-6 mb-2 transition-colors ${
+                  gameMode === 'top_3' ? 'text-primary' : 'text-muted-foreground'
+                }`} />
                 <p className="font-bold text-sm text-foreground">Top 3 Winners</p>
-                <p className="text-xs text-muted-foreground">50% / 30% / 20%</p>
+                <p className="text-xs text-muted-foreground mt-1">50% / 30% / 20%</p>
               </button>
             </div>
           </div>
 
+          {/* CTA */}
           {hasJoinedFinger ? (
             <button
               onClick={() => {
@@ -183,54 +196,54 @@ export const FingerMain = () => {
               disabled={balance < 700}
               className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {balance < 700 ? 'Insufficient Balance' : 'Join Game - ₦700'}
+              {balance < 700 ? 'Insufficient Balance' : 'Join Game — ₦700'}
             </button>
           )}
         </div>
 
         {/* How to Play */}
-        <div className="card-premium">
-          <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-primary" />
+        <div className="card-premium animate-slide-up" style={{ animationDelay: '50ms' }}>
+          <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-primary" />
             How to Win
           </h3>
-          <ul className="text-sm text-muted-foreground space-y-3">
-            <li className="flex items-start gap-3">
-              <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">1</span>
-              <span>Join the lobby and wait for the live game</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">2</span>
-              <span>Each comment resets the 60 second timer</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">3</span>
-              <span>Last commenter when timer hits 0 wins!</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">4</span>
-              <span>Max game: 20 minutes then auto-ends</span>
-            </li>
+          <ul className="space-y-3">
+            {[
+              'Join the lobby and wait for the live game',
+              'Each comment resets the 60 second timer',
+              'Last commenter when timer hits 0 wins!',
+              'Max game duration: 20 minutes'
+            ].map((step, i) => (
+              <li key={i} className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                  {i + 1}
+                </span>
+                <span className="text-sm text-muted-foreground">{step}</span>
+              </li>
+            ))}
           </ul>
         </div>
 
         {/* Prize Split */}
-        <div className="card-premium">
-          <h3 className="font-bold text-foreground mb-3">Prize Distribution (Top 3 Mode)</h3>
+        <div className="card-premium animate-slide-up" style={{ animationDelay: '100ms' }}>
+          <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-gold" />
+            Prize Distribution (Top 3 Mode)
+          </h3>
           <div className="space-y-2">
-            <div className="flex items-center justify-between p-3 bg-gold/10 rounded-xl border border-gold/30">
+            <div className="flex items-center justify-between p-3 rounded-xl podium-1st">
               <span className="flex items-center gap-2 font-medium">🥇 1st Place</span>
               <span className="font-bold text-gold">50% of pool</span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-silver/10 rounded-xl border border-silver/30">
+            <div className="flex items-center justify-between p-3 rounded-xl podium-2nd">
               <span className="flex items-center gap-2 font-medium">🥈 2nd Place</span>
               <span className="font-bold text-silver">30% of pool</span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-bronze/10 rounded-xl border border-bronze/30">
+            <div className="flex items-center justify-between p-3 rounded-xl podium-3rd">
               <span className="flex items-center gap-2 font-medium">🥉 3rd Place</span>
               <span className="font-bold text-bronze">20% of pool</span>
             </div>
-            <p className="text-xs text-muted-foreground text-center mt-3">
+            <p className="text-xs text-muted-foreground text-center pt-2">
               * 10% platform fee deducted from winnings
             </p>
           </div>
