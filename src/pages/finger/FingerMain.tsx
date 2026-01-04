@@ -44,13 +44,6 @@ export const FingerMain = () => {
     return () => clearInterval(interval);
   }, [addFingerPlayer]);
 
-  // Calculate estimated prizes (after 10% platform fee)
-  const netPool = fingerPoolValue * 0.9;
-  const prizes = {
-    first: Math.floor(netPool * 0.5),
-    second: Math.floor(netPool * 0.3),
-    third: Math.floor(netPool * 0.2),
-  };
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -211,28 +204,19 @@ export const FingerMain = () => {
               <span className="flex items-center gap-2 font-medium">
                 <span className="text-lg">🥇</span> 1st Place
               </span>
-              <div className="text-right">
-                <span className="font-black text-gold text-lg">₦{prizes.first.toLocaleString()}</span>
-                <span className="text-xs text-muted-foreground ml-2">(50%)</span>
-              </div>
+              <span className="font-bold text-gold">50% of pool</span>
             </div>
             <div className="flex items-center justify-between p-3 rounded-xl podium-2">
               <span className="flex items-center gap-2 font-medium">
                 <span className="text-lg">🥈</span> 2nd Place
               </span>
-              <div className="text-right">
-                <span className="font-black text-silver text-lg">₦{prizes.second.toLocaleString()}</span>
-                <span className="text-xs text-muted-foreground ml-2">(30%)</span>
-              </div>
+              <span className="font-bold text-silver">30% of pool</span>
             </div>
             <div className="flex items-center justify-between p-3 rounded-xl podium-3">
               <span className="flex items-center gap-2 font-medium">
                 <span className="text-lg">🥉</span> 3rd Place
               </span>
-              <div className="text-right">
-                <span className="font-black text-bronze text-lg">₦{prizes.third.toLocaleString()}</span>
-                <span className="text-xs text-muted-foreground ml-2">(20%)</span>
-              </div>
+              <span className="font-bold text-bronze">20% of pool</span>
             </div>
             <p className="text-xs text-muted-foreground text-center mt-3">
               * 10% platform fee deducted from winnings
