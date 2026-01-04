@@ -12,18 +12,45 @@ import { ChevronLeft, Zap, Users, Clock, Trophy, MessageSquare } from 'lucide-re
 export const FingerMain = () => {
   const navigate = useNavigate();
   const { balance, deductFunds } = useWallet();
-  const { hasJoinedFinger, joinFinger, resetFingerGame, isTestMode, fingerPoolValue } = useGame();
+  const { hasJoinedFinger, joinFinger, resetFingerGame, isTestMode, fingerPoolValue, addFingerPlayer } = useGame();
   const { play } = useSounds();
   const { buttonClick, success } = useHaptics();
   
   const [countdown, setCountdown] = useState(900);
+  const [playerCount, setPlayerCount] = useState(23);
 
+  // Countdown timer
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown(prev => prev > 0 ? prev - 1 : 0);
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Simulate players joining in real-time
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (Math.random() > 0.6) {
+        const mockPlayer = {
+          id: `sim_${Date.now()}`,
+          name: `Player${Math.floor(Math.random() * 1000)}`,
+          avatar: ['🎮', '🎯', '⚡', '🔥', '💎', '🚀'][Math.floor(Math.random() * 6)],
+        };
+        addFingerPlayer(mockPlayer);
+        setPlayerCount(prev => prev + 1);
+      }
+    }, 3000 + Math.random() * 4000);
+
+    return () => clearInterval(interval);
+  }, [addFingerPlayer]);
+
+  // Calculate estimated prizes (after 10% platform fee)
+  const netPool = fingerPoolValue * 0.9;
+  const prizes = {
+    first: Math.floor(netPool * 0.5),
+    second: Math.floor(netPool * 0.3),
+    third: Math.floor(netPool * 0.2),
+  };
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -120,7 +147,7 @@ export const FingerMain = () => {
               <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
                 <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Waiting</p>
                 <p className="font-bold text-foreground flex items-center justify-center gap-1">
-                  <Users className="w-4 h-4 text-primary" /> 23
+                  <Users className="w-4 h-4 text-primary" /> {playerCount}
                 </p>
               </div>
               <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
@@ -184,19 +211,28 @@ export const FingerMain = () => {
               <span className="flex items-center gap-2 font-medium">
                 <span className="text-lg">🥇</span> 1st Place
               </span>
-              <span className="font-bold text-gold">50% of pool</span>
+              <div className="text-right">
+                <span className="font-black text-gold text-lg">₦{prizes.first.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground ml-2">(50%)</span>
+              </div>
             </div>
             <div className="flex items-center justify-between p-3 rounded-xl podium-2">
               <span className="flex items-center gap-2 font-medium">
                 <span className="text-lg">🥈</span> 2nd Place
               </span>
-              <span className="font-bold text-silver">30% of pool</span>
+              <div className="text-right">
+                <span className="font-black text-silver text-lg">₦{prizes.second.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground ml-2">(30%)</span>
+              </div>
             </div>
             <div className="flex items-center justify-between p-3 rounded-xl podium-3">
               <span className="flex items-center gap-2 font-medium">
                 <span className="text-lg">🥉</span> 3rd Place
               </span>
-              <span className="font-bold text-bronze">20% of pool</span>
+              <div className="text-right">
+                <span className="font-black text-bronze text-lg">₦{prizes.third.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground ml-2">(20%)</span>
+              </div>
             </div>
             <p className="text-xs text-muted-foreground text-center mt-3">
               * 10% platform fee deducted from winnings
