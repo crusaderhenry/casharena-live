@@ -12,7 +12,7 @@ import { ChevronLeft, Zap, Users, Clock, Trophy, MessageSquare } from 'lucide-re
 export const FingerMain = () => {
   const navigate = useNavigate();
   const { balance, deductFunds } = useWallet();
-  const { hasJoinedFinger, joinFinger, resetFingerGame, isTestMode } = useGame();
+  const { hasJoinedFinger, joinFinger, resetFingerGame, isTestMode, fingerPoolValue } = useGame();
   const { play } = useSounds();
   const { buttonClick, success } = useHaptics();
   
@@ -98,9 +98,18 @@ export const FingerMain = () => {
               </div>
             </div>
 
-            <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl p-5 mb-4 text-center border border-primary/20">
-              <p className="text-sm text-muted-foreground mb-1">Next Game In</p>
-              <p className="timer-display">{formatTime(countdown)}</p>
+            <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl p-5 mb-4 border border-primary/20">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-center flex-1">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Current Pool</p>
+                  <p className="font-black text-2xl text-primary">₦{fingerPoolValue.toLocaleString()}</p>
+                </div>
+                <div className="w-px h-10 bg-border/50" />
+                <div className="text-center flex-1">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Next Game In</p>
+                  <p className="font-bold text-xl text-foreground">{formatTime(countdown)}</p>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-3 mb-6">
