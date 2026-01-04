@@ -24,9 +24,9 @@ serve(async (req) => {
       throw new Error("Text is required");
     }
 
-    // Use Brian voice (bold male) or custom voice ID
-    // Brian - nPczCjzI2devNBz1zQrb is a bold confident male voice
-    const selectedVoiceId = voiceId || "nPczCjzI2devNBz1zQrb";
+    // Use Daniel voice (authoritative British male) for Crusader
+    // Daniel - onwK4e9ZLuTAKqWW03F9
+    const selectedVoiceId = voiceId || "onwK4e9ZLuTAKqWW03F9";
 
     console.log(`Generating TTS for: "${text.substring(0, 50)}..." with voice: ${selectedVoiceId}`);
 
