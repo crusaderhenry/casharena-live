@@ -1,144 +1,244 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
+export interface Player {
+  id: string;
+  name: string;
+  avatar: string;
+  isSpeaking?: boolean;
+}
+
+export interface Comment {
+  id: string;
+  playerId: string;
+  playerName: string;
+  playerAvatar: string;
+  text: string;
+  timestamp: Date;
+}
+
+export interface ActivityItem {
+  id: string;
+  type: 'finger_win' | 'pool_win' | 'pool_join' | 'rank_up';
+  playerName: string;
+  playerAvatar: string;
+  amount?: number;
+  position?: number;
+  timestamp: Date;
+}
+
 interface GameContextType {
-  // Onboarding
-  hasCompletedOnboarding: boolean;
-  playStyle: string | null;
-  completeOnboarding: () => void;
-  setPlayStyle: (style: string) => void;
-  
-  // Arena
-  arenaScore: number;
-  arenaRank: number;
-  hasJoinedArena: boolean;
-  joinArena: () => void;
-  submitArenaScore: (score: number) => void;
-  resetArena: () => void;
-  
-  // Pool
-  hasJoinedPool: boolean;
-  joinPool: () => void;
-  resetPool: () => void;
-  
-  // Fastest Finger
+  // Finger game state
+  fingerPlayers: Player[];
+  fingerComments: Comment[];
+  fingerPoolValue: number;
+  fingerGameActive: boolean;
   hasJoinedFinger: boolean;
   fingerPosition: number | null;
+  addFingerPlayer: (player: Player) => void;
+  addFingerComment: (comment: Comment) => void;
+  setFingerPoolValue: (value: number) => void;
+  setFingerGameActive: (active: boolean) => void;
   joinFinger: () => void;
   setFingerPosition: (position: number) => void;
-  resetFinger: () => void;
+  resetFingerGame: () => void;
   
-  // Recent Activity
-  recentActivity: Array<{ id: string; text: string; type: string; timestamp: Date }>;
-  addActivity: (text: string, type: string) => void;
-  clearActivity: () => void;
+  // Pool game state
+  poolParticipants: Player[];
+  poolValue: number;
+  hasJoinedPool: boolean;
+  addPoolParticipant: (player: Player) => void;
+  setPoolValue: (value: number) => void;
+  joinPool: () => void;
+  resetPoolGame: () => void;
+  
+  // Activity feed
+  recentActivity: ActivityItem[];
+  addActivity: (activity: Omit<ActivityItem, 'id' | 'timestamp'>) => void;
+  
+  // Test mode
+  isTestMode: boolean;
+  setTestMode: (active: boolean) => void;
+  
+  // User profile
+  userProfile: {
+    username: string;
+    avatar: string;
+    rank: number;
+    gamesPlayed: number;
+    wins: number;
+    totalEarnings: number;
+  };
+  updateProfile: (updates: Partial<GameContextType['userProfile']>) => void;
 }
+
+export const mockPlayers: Player[] = [
+  { id: '1', name: 'CryptoKing', avatar: '👑' },
+  { id: '2', name: 'LuckyAce', avatar: '🎰' },
+  { id: '3', name: 'FastHands', avatar: '⚡' },
+  { id: '4', name: 'GoldRush', avatar: '💰' },
+  { id: '5', name: 'NightOwl', avatar: '🦉' },
+  { id: '6', name: 'StarPlayer', avatar: '⭐' },
+  { id: '7', name: 'DiamondPro', avatar: '💎' },
+  { id: '8', name: 'ThunderBolt', avatar: '🌩️' },
+  { id: '9', name: 'SilverFox', avatar: '🦊' },
+  { id: '10', name: 'MoonRider', avatar: '🌙' },
+];
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Onboarding state
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  const [playStyle, setPlayStyleState] = useState<string | null>(null);
-  
-  // Arena state
-  const [arenaScore, setArenaScore] = useState(0);
-  const [arenaRank, setArenaRank] = useState(0);
-  const [hasJoinedArena, setHasJoinedArena] = useState(false);
-  
-  // Pool state
-  const [hasJoinedPool, setHasJoinedPool] = useState(false);
-  
-  // Fastest Finger state
+  // Finger game
+  const [fingerPlayers, setFingerPlayers] = useState<Player[]>([]);
+  const [fingerComments, setFingerComments] = useState<Comment[]>([]);
+  const [fingerPoolValue, setFingerPoolValueState] = useState(35000);
+  const [fingerGameActive, setFingerGameActiveState] = useState(false);
   const [hasJoinedFinger, setHasJoinedFinger] = useState(false);
   const [fingerPosition, setFingerPositionState] = useState<number | null>(null);
   
-  // Recent Activity
-  const [recentActivity, setRecentActivity] = useState<Array<{ id: string; text: string; type: string; timestamp: Date }>>([
-    { id: '1', text: 'Welcome to CashArena!', type: 'info', timestamp: new Date() },
+  // Pool game
+  const [poolParticipants, setPoolParticipants] = useState<Player[]>([]);
+  const [poolValue, setPoolValueState] = useState(250000);
+  const [hasJoinedPool, setHasJoinedPool] = useState(false);
+  
+  // Activity
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([
+    {
+      id: '1',
+      type: 'finger_win',
+      playerName: 'CryptoKing',
+      playerAvatar: '👑',
+      amount: 15750,
+      position: 1,
+      timestamp: new Date(Date.now() - 300000),
+    },
+    {
+      id: '2',
+      type: 'pool_join',
+      playerName: 'LuckyAce',
+      playerAvatar: '🎰',
+      timestamp: new Date(Date.now() - 600000),
+    },
+    {
+      id: '3',
+      type: 'rank_up',
+      playerName: 'FastHands',
+      playerAvatar: '⚡',
+      position: 5,
+      timestamp: new Date(Date.now() - 900000),
+    },
   ]);
-
-  const completeOnboarding = useCallback(() => {
-    setHasCompletedOnboarding(true);
+  
+  // Test mode
+  const [isTestMode, setTestMode] = useState(false);
+  
+  // User profile
+  const [userProfile, setUserProfile] = useState({
+    username: 'Player1',
+    avatar: '🎮',
+    rank: 42,
+    gamesPlayed: 15,
+    wins: 3,
+    totalEarnings: 25000,
+  });
+  
+  // Finger actions
+  const addFingerPlayer = useCallback((player: Player) => {
+    setFingerPlayers(prev => [...prev, player]);
+    setFingerPoolValueState(prev => prev + 700);
+  }, []);
+  
+  const addFingerComment = useCallback((comment: Comment) => {
+    setFingerComments(prev => [comment, ...prev].slice(0, 50));
   }, []);
 
-  const setPlayStyle = useCallback((style: string) => {
-    setPlayStyleState(style);
+  const setFingerPoolValue = useCallback((value: number) => {
+    setFingerPoolValueState(value);
   }, []);
 
-  const joinArena = useCallback(() => {
-    setHasJoinedArena(true);
-  }, []);
-
-  const submitArenaScore = useCallback((score: number) => {
-    setArenaScore(score);
-    setArenaRank(Math.floor(Math.random() * 10) + 1);
-  }, []);
-
-  const resetArena = useCallback(() => {
-    setHasJoinedArena(false);
-    setArenaScore(0);
-    setArenaRank(0);
-  }, []);
-
-  const joinPool = useCallback(() => {
-    setHasJoinedPool(true);
-  }, []);
-
-  const resetPool = useCallback(() => {
-    setHasJoinedPool(false);
+  const setFingerGameActive = useCallback((active: boolean) => {
+    setFingerGameActiveState(active);
   }, []);
 
   const joinFinger = useCallback(() => {
     setHasJoinedFinger(true);
-    setFingerPositionState(null);
   }, []);
 
   const setFingerPosition = useCallback((position: number) => {
     setFingerPositionState(position);
   }, []);
-
-  const resetFinger = useCallback(() => {
+  
+  const resetFingerGame = useCallback(() => {
+    setFingerPlayers([]);
+    setFingerComments([]);
+    setFingerPoolValueState(35000);
+    setFingerGameActiveState(false);
     setHasJoinedFinger(false);
     setFingerPositionState(null);
   }, []);
-
-  const addActivity = useCallback((text: string, type: string) => {
-    const newActivity = {
-      id: `activity_${Date.now()}`,
-      text,
-      type,
-      timestamp: new Date(),
-    };
-    setRecentActivity(prev => [newActivity, ...prev.slice(0, 9)]);
+  
+  // Pool actions
+  const addPoolParticipant = useCallback((player: Player) => {
+    setPoolParticipants(prev => [...prev, player]);
+    setPoolValueState(prev => prev + 1000);
   }, []);
 
-  const clearActivity = useCallback(() => {
-    setRecentActivity([{ id: '1', text: 'Welcome to CashArena!', type: 'info', timestamp: new Date() }]);
+  const setPoolValue = useCallback((value: number) => {
+    setPoolValueState(value);
+  }, []);
+
+  const joinPool = useCallback(() => {
+    setHasJoinedPool(true);
+  }, []);
+  
+  const resetPoolGame = useCallback(() => {
+    setPoolParticipants([]);
+    setPoolValueState(250000);
+    setHasJoinedPool(false);
+  }, []);
+  
+  // Activity actions
+  const addActivity = useCallback((activity: Omit<ActivityItem, 'id' | 'timestamp'>) => {
+    const newActivity: ActivityItem = {
+      ...activity,
+      id: `act_${Date.now()}`,
+      timestamp: new Date(),
+    };
+    setRecentActivity(prev => [newActivity, ...prev].slice(0, 10));
+  }, []);
+
+  // Profile actions
+  const updateProfile = useCallback((updates: Partial<GameContextType['userProfile']>) => {
+    setUserProfile(prev => ({ ...prev, ...updates }));
   }, []);
 
   return (
     <GameContext.Provider value={{
-      hasCompletedOnboarding,
-      playStyle,
-      completeOnboarding,
-      setPlayStyle,
-      arenaScore,
-      arenaRank,
-      hasJoinedArena,
-      joinArena,
-      submitArenaScore,
-      resetArena,
-      hasJoinedPool,
-      joinPool,
-      resetPool,
+      fingerPlayers,
+      fingerComments,
+      fingerPoolValue,
+      fingerGameActive,
       hasJoinedFinger,
       fingerPosition,
+      addFingerPlayer,
+      addFingerComment,
+      setFingerPoolValue,
+      setFingerGameActive,
       joinFinger,
       setFingerPosition,
-      resetFinger,
+      resetFingerGame,
+      poolParticipants,
+      poolValue,
+      hasJoinedPool,
+      addPoolParticipant,
+      setPoolValue,
+      joinPool,
+      resetPoolGame,
       recentActivity,
       addActivity,
-      clearActivity,
+      isTestMode,
+      setTestMode,
+      userProfile,
+      updateProfile,
     }}>
       {children}
     </GameContext.Provider>

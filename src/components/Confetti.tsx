@@ -3,34 +3,40 @@ import { useEffect, useState } from 'react';
 interface ConfettiPiece {
   id: number;
   left: number;
-  delay: number;
   color: string;
-  rotation: number;
+  delay: number;
+  size: number;
 }
 
-const COLORS = [
-  'hsl(151, 100%, 50%)', // Primary green
-  'hsl(51, 100%, 50%)',  // Yellow
-  'hsl(43, 100%, 50%)',  // Gold
-  'hsl(0, 0%, 100%)',    // White
-];
-
-export const Confetti = ({ duration = 3000 }: { duration?: number }) => {
+export const Confetti = ({ duration = 5000 }: { duration?: number }) => {
   const [pieces, setPieces] = useState<ConfettiPiece[]>([]);
   const [show, setShow] = useState(true);
 
   useEffect(() => {
-    const newPieces: ConfettiPiece[] = Array.from({ length: 50 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      delay: Math.random() * 0.5,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      rotation: Math.random() * 360,
-    }));
+    const colors = [
+      'hsl(43 70% 69%)', // gold
+      'hsl(175 85% 38%)', // teal
+      'hsl(210 10% 70%)', // silver
+      'hsl(30 50% 50%)', // bronze
+    ];
+
+    const newPieces: ConfettiPiece[] = [];
+    for (let i = 0; i < 50; i++) {
+      newPieces.push({
+        id: i,
+        left: Math.random() * 100,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        delay: Math.random() * 2,
+        size: 8 + Math.random() * 8,
+      });
+    }
     setPieces(newPieces);
 
-    const timer = setTimeout(() => setShow(false), duration);
-    return () => clearTimeout(timer);
+    const timeout = setTimeout(() => {
+      setShow(false);
+    }, duration);
+
+    return () => clearTimeout(timeout);
   }, [duration]);
 
   if (!show) return null;
@@ -43,10 +49,11 @@ export const Confetti = ({ duration = 3000 }: { duration?: number }) => {
           className="confetti-piece"
           style={{
             left: `${piece.left}%`,
-            animationDelay: `${piece.delay}s`,
             backgroundColor: piece.color,
-            transform: `rotate(${piece.rotation}deg)`,
-            borderRadius: Math.random() > 0.5 ? '50%' : '0',
+            width: `${piece.size}px`,
+            height: `${piece.size}px`,
+            animationDelay: `${piece.delay}s`,
+            borderRadius: Math.random() > 0.5 ? '50%' : '2px',
           }}
         />
       ))}

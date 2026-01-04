@@ -56,10 +56,12 @@ export default {
           DEFAULT: "hsl(var(--money))",
           foreground: "hsl(var(--money-foreground))",
         },
-        gold: "hsl(var(--gold))",
+        gold: {
+          DEFAULT: "hsl(var(--gold))",
+          foreground: "hsl(var(--gold-foreground))",
+        },
         silver: "hsl(var(--silver))",
         bronze: "hsl(var(--bronze))",
-        test: "hsl(var(--test))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -80,10 +82,6 @@ export default {
         "accordion-up": {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
-        },
-        pulse: {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.5" },
         },
       },
       animation: {

@@ -2,14 +2,11 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 
 export type TransactionType = 
   | 'deposit' 
-  | 'arena_entry' 
-  | 'arena_win'
-  | 'streak_entry'
-  | 'streak_win'
+  | 'finger_entry' 
+  | 'finger_win'
   | 'pool_entry'
   | 'pool_win'
-  | 'finger_entry'
-  | 'finger_win';
+  | 'rank_reward';
 
 export interface Transaction {
   id: string;
@@ -30,8 +27,16 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [balance, setBalance] = useState(12500);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [balance, setBalance] = useState(15000);
+  const [transactions, setTransactions] = useState<Transaction[]>([
+    {
+      id: 'initial_1',
+      type: 'deposit',
+      amount: 15000,
+      description: 'Welcome bonus',
+      timestamp: new Date(Date.now() - 86400000),
+    }
+  ]);
 
   const addTransaction = useCallback((type: TransactionType, amount: number, description: string) => {
     const newTransaction: Transaction = {
@@ -46,7 +51,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const addFunds = useCallback((amount: number) => {
     setBalance(prev => prev + amount);
-    addTransaction('deposit', amount, 'Demo funds added');
+    addTransaction('deposit', amount, 'Funds added');
   }, [addTransaction]);
 
   const deductFunds = useCallback((amount: number, type: TransactionType, description: string): boolean => {

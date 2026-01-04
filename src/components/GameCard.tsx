@@ -1,17 +1,16 @@
-import { ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface GameCardProps {
   title: string;
   description: string;
-  icon: ReactNode;
-  entry: number;
-  info: string;
+  icon: React.ReactNode;
+  entry?: number;
+  poolValue?: number;
+  countdown?: string;
   path: string;
-  accentColor?: 'primary' | 'secondary';
-  ctaText?: string;
   badge?: string;
+  isLive?: boolean;
 }
 
 export const GameCard = ({
@@ -19,54 +18,69 @@ export const GameCard = ({
   description,
   icon,
   entry,
-  info,
+  poolValue,
+  countdown,
   path,
-  accentColor = 'primary',
-  ctaText = 'Join',
   badge,
+  isLive,
 }: GameCardProps) => {
   const navigate = useNavigate();
 
+  const formatMoney = (amount: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   return (
     <div 
-      className="card-premium cursor-pointer group"
       onClick={() => navigate(path)}
+      className="card-game cursor-pointer group"
     >
-      <div className="flex items-start gap-4">
-        <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0 ${
-          accentColor === 'primary' ? 'bg-primary/15' : 'bg-secondary/15'
-        }`} style={{ boxShadow: accentColor === 'primary' ? 'var(--glow-primary)' : 'var(--glow-secondary)' }}>
-          {icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-bold text-lg text-foreground">{title}</h3>
-            {badge && (
-              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                accentColor === 'primary' 
-                  ? 'bg-primary/20 text-primary' 
-                  : 'bg-secondary/20 text-secondary'
-              }`}>
-                {badge}
-              </span>
-            )}
+      <div className="relative z-10 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center group-hover:glow-primary transition-all">
+            {icon}
           </div>
-          <p className="text-sm text-muted-foreground mb-3">{description}</p>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 text-sm">
-              <span className={`font-bold ${accentColor === 'primary' ? 'text-primary' : 'text-secondary'}`}>
-                ₦{entry.toLocaleString()}
-              </span>
-              <span className="text-muted-foreground text-xs">{info}</span>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-foreground">{title}</h3>
+              {badge && (
+                <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary rounded-full">
+                  {badge}
+                </span>
+              )}
+              {isLive && (
+                <span className="live-indicator">
+                  <span className="live-dot" />
+                  Live
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">{description}</p>
+            <div className="flex items-center gap-3 text-xs">
+              {entry && (
+                <span className="text-primary font-semibold">
+                  Entry: {formatMoney(entry)}
+                </span>
+              )}
+              {poolValue && (
+                <span className="text-money font-semibold">
+                  Pool: {formatMoney(poolValue)}
+                </span>
+              )}
+              {countdown && (
+                <span className="text-muted-foreground">
+                  {countdown}
+                </span>
+              )}
             </div>
           </div>
         </div>
-        <div className={`flex items-center gap-1 font-bold text-sm ${
-          accentColor === 'primary' ? 'text-primary' : 'text-secondary'
-        } group-hover:translate-x-1 transition-transform`}>
-          {ctaText}
-          <ChevronRight className="w-4 h-4" />
-        </div>
+        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
       </div>
     </div>
   );
