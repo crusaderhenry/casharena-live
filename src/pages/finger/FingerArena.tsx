@@ -8,7 +8,18 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useCrusader } from '@/hooks/useCrusader';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { useAudio } from '@/contexts/AudioContext';
-import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users } from 'lucide-react';
+import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const AI_COMMENTS = [
   'Go!', '💨', 'Mine!', 'Here!', '👀', 'Now!', 'Yes!', '🔥', 'Me!', 'Ha!',
@@ -437,18 +448,59 @@ export const FingerArena = () => {
       {/* Header */}
       <div className="bg-card/98 backdrop-blur-xl border-b border-border/50 p-4 sticky top-0 z-10">
         <div className="flex items-center justify-between mb-3">
-          <div>
-            <h1 className="font-bold text-foreground flex items-center gap-2">
-              <span className="live-dot" />
-              Live Finger Arena
-            </h1>
-            <p className="text-xs text-muted-foreground flex items-center gap-2">
-              <span>Last comment standing wins!</span>
-              <span className="inline-flex items-center gap-1">
-                <Users className="w-3 h-3" />
-                {audienceCount} watching
-              </span>
-            </p>
+          <div className="flex items-center gap-3">
+            {/* Leave Button */}
+            {isSpectator ? (
+              <button
+                onClick={() => navigate('/home')}
+                className="p-2 rounded-full bg-muted text-muted-foreground hover:bg-muted/80 transition-all"
+                title="Leave Arena"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            ) : (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    className="p-2 rounded-full bg-muted text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-all"
+                    title="Leave Arena"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Leave the Arena?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      ⚠️ You're an active player in this game. If you leave now and a winner is determined before you return, you may lose your chance to win!
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Stay in Game</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => navigate('/home')}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Leave Anyway
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+
+            <div>
+              <h1 className="font-bold text-foreground flex items-center gap-2">
+                <span className="live-dot" />
+                Live Finger Arena
+              </h1>
+              <p className="text-xs text-muted-foreground flex items-center gap-2">
+                <span>Last comment standing wins!</span>
+                <span className="inline-flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {audienceCount} watching
+                </span>
+              </p>
+            </div>
           </div>
           <div className="text-right">
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
