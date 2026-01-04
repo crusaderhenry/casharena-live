@@ -2,22 +2,56 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { TestControls } from '@/components/TestControls';
+import { CrusaderHost } from '@/components/CrusaderHost';
 import { useGame, mockPlayers } from '@/contexts/GameContext';
+import { useCrusader } from '@/hooks/useCrusader';
+import { useAudio } from '@/contexts/AudioContext';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
 import { ChevronLeft, Zap, Lock, Users } from 'lucide-react';
+
+const CRUSADER_LOBBY_MESSAGES = [
+  "What's good everyone! Get ready for some ACTION! 🔥",
+  "Yo! The energy in here is ELECTRIC! Let's GO!",
+  "Welcome legends! Your boy Crusader is hyped!",
+  "Fingers ready, minds sharp - this is gonna be WILD!",
+];
 
 export const FingerLobby = () => {
   const navigate = useNavigate();
   const { isTestMode, resetFingerGame } = useGame();
+  const crusader = useCrusader();
+  const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
+  const { play } = useSounds();
+  const { buttonClick } = useHaptics();
   const [countdown, setCountdown] = useState(60);
   const [entryClosed, setEntryClosed] = useState(false);
+  const [crusaderMessage, setCrusaderMessage] = useState(CRUSADER_LOBBY_MESSAGES[0]);
 
   const poolValue = mockPlayers.length * 700;
+
+  // Start lobby music and Crusader welcome
+  useEffect(() => {
+    playBackgroundMusic('lobby');
+    crusader.welcomeLobby();
+    
+    // Rotate Crusader messages
+    const messageInterval = setInterval(() => {
+      setCrusaderMessage(CRUSADER_LOBBY_MESSAGES[Math.floor(Math.random() * CRUSADER_LOBBY_MESSAGES.length)]);
+    }, 8000);
+
+    return () => {
+      stopBackgroundMusic();
+      clearInterval(messageInterval);
+    };
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 10 && !entryClosed) {
           setEntryClosed(true);
+          play('countdown');
         }
         if (prev <= 0) {
           clearInterval(timer);
@@ -28,7 +62,7 @@ export const FingerLobby = () => {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [navigate, entryClosed]);
+  }, [navigate, entryClosed, play]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -37,6 +71,8 @@ export const FingerLobby = () => {
   };
 
   const handleTestStart = () => {
+    play('click');
+    buttonClick();
     navigate('/finger/arena');
   };
 
@@ -46,13 +82,19 @@ export const FingerLobby = () => {
     setEntryClosed(false);
   };
 
+  const handleBack = () => {
+    play('click');
+    buttonClick();
+    navigate('/finger');
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="p-4 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4 pt-2">
           <button 
-            onClick={() => navigate('/finger')}
+            onClick={handleBack}
             className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -62,6 +104,9 @@ export const FingerLobby = () => {
             <p className="text-sm text-muted-foreground">Waiting for game to start</p>
           </div>
         </div>
+
+        {/* Crusader Host */}
+        <CrusaderHost isLive message={crusaderMessage} />
 
         {/* Test Controls */}
         <TestControls
@@ -79,7 +124,7 @@ export const FingerLobby = () => {
                 {entryClosed ? 'Entry Closed' : 'Game Starts In'}
               </span>
             </div>
-            <p className={`timer-display ${entryClosed ? 'text-destructive' : ''}`}>
+            <p className={`timer-display ${entryClosed ? 'text-destructive' : ''} ${countdown <= 10 ? 'animate-pulse' : ''}`}>
               {formatTime(countdown)}
             </p>
             {entryClosed && (
@@ -128,12 +173,13 @@ export const FingerLobby = () => {
         {/* Tips */}
         <div className="card-panel border-primary/30 bg-primary/5">
           <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
-            💡 Pro Tips
+            💡 Pro Tips from Crusader
           </h3>
           <ul className="text-sm text-muted-foreground space-y-1.5">
             <li>• Keep your finger ready on the send button</li>
             <li>• Short messages are faster to type</li>
             <li>• Watch the timer - strike at the last second!</li>
+            <li>• Stay calm when others are spamming!</li>
           </ul>
         </div>
       </div>
