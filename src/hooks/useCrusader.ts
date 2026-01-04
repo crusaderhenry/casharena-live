@@ -73,8 +73,8 @@ const CRUSADER_PHRASES = {
   ],
 };
 
-// Voice ID for Brian (bold confident male) - can be changed to African voice
-const CRUSADER_VOICE_ID = "nPczCjzI2devNBz1zQrb"; // Brian
+// Voice ID for Daniel (authoritative British male) - bold confident host voice
+const CRUSADER_VOICE_ID = "onwK4e9ZLuTAKqWW03F9"; // Daniel
 
 export const useCrusader = () => {
   const { settings } = useAudio();
