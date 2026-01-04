@@ -42,11 +42,11 @@ serve(async (req) => {
           text,
           model_id: "eleven_turbo_v2_5",
           voice_settings: {
-            stability: 0.65, // Higher for more consistent natural tone
-            similarity_boost: 0.9, // High to match your actual voice
-            style: 0.15, // Low to stay true to natural voice
+            stability: 0.55, // Balanced for natural with some energy
+            similarity_boost: 0.85, // High to match your voice
+            style: 0.25, // Slight expressiveness for game excitement
             use_speaker_boost: true,
-            speed: 1.0, // Natural speaking pace
+            speed: 1.05, // Touch faster for energy
           },
         }),
       }
