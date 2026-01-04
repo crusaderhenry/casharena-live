@@ -1,5 +1,7 @@
-import { Home, Zap, Sparkles, Trophy, User, Wallet } from 'lucide-react';
+import { Home, Zap, Sparkles, Trophy, Wallet } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const navItems = [
   { icon: Home, label: 'Home', path: '/home' },
@@ -12,8 +14,12 @@ const navItems = [
 export const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { play } = useSounds();
+  const { buttonClick } = useHaptics();
 
   const handleNav = (path: string) => {
+    play('click');
+    buttonClick();
     navigate(path);
   };
 

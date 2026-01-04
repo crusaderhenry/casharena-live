@@ -5,12 +5,16 @@ import { WalletCard } from '@/components/WalletCard';
 import { TestControls } from '@/components/TestControls';
 import { useWallet } from '@/contexts/WalletContext';
 import { useGame, mockPlayers } from '@/contexts/GameContext';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
 import { ChevronLeft, Sparkles, Users, Clock, Shield } from 'lucide-react';
 
 export const PoolMain = () => {
   const navigate = useNavigate();
   const { balance, deductFunds } = useWallet();
   const { hasJoinedPool, joinPool, resetPoolGame, isTestMode, addPoolParticipant, poolValue } = useGame();
+  const { play } = useSounds();
+  const { buttonClick, success } = useHaptics();
   
   const [countdown, setCountdown] = useState({ days: 3, hours: 14, minutes: 22 });
 
@@ -32,8 +36,16 @@ export const PoolMain = () => {
 
   const handleJoin = () => {
     if (deductFunds(1000, 'pool_entry', 'Lucky Pool Entry')) {
+      play('success');
+      success();
       joinPool();
     }
+  };
+
+  const handleBack = () => {
+    play('click');
+    buttonClick();
+    navigate('/home');
   };
 
   const handleTestStart = () => {
@@ -65,7 +77,7 @@ export const PoolMain = () => {
         {/* Header */}
         <div className="flex items-center gap-4 pt-2">
           <button 
-            onClick={() => navigate('/home')}
+            onClick={handleBack}
             className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
           >
             <ChevronLeft className="w-5 h-5" />
