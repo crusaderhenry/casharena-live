@@ -15,18 +15,11 @@ import { MockFunding } from "@/pages/onboarding/MockFunding";
 
 // Main
 import { Home } from "@/pages/Home";
-import { Leaderboard } from "@/pages/Leaderboard";
 
 // Arena
 import { ArenaMain } from "@/pages/arena/ArenaMain";
 import { ArenaChallenge } from "@/pages/arena/ArenaChallenge";
 import { ArenaLeaderboard } from "@/pages/arena/ArenaLeaderboard";
-
-// Streak
-import { StreakMain } from "@/pages/streak/StreakMain";
-import { StreakDashboard } from "@/pages/streak/StreakDashboard";
-import { StreakTask } from "@/pages/streak/StreakTask";
-import { StreakBroken } from "@/pages/streak/StreakBroken";
 
 // Pool
 import { PoolMain } from "@/pages/pool/PoolMain";
@@ -69,19 +62,10 @@ const App = () => (
                 {/* Home */}
                 <Route path="/home" element={<Home />} />
                 
-                {/* Global Leaderboard */}
-                <Route path="/leaderboard" element={<Leaderboard />} />
-                
                 {/* Arena */}
                 <Route path="/arena" element={<ArenaMain />} />
                 <Route path="/arena/challenge" element={<ArenaChallenge />} />
                 <Route path="/arena/leaderboard" element={<ArenaLeaderboard />} />
-                
-                {/* Streak */}
-                <Route path="/streak" element={<StreakMain />} />
-                <Route path="/streak/dashboard" element={<StreakDashboard />} />
-                <Route path="/streak/task" element={<StreakTask />} />
-                <Route path="/streak/broken" element={<StreakBroken />} />
                 
                 {/* Pool */}
                 <Route path="/pool" element={<PoolMain />} />

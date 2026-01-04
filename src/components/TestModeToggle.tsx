@@ -1,5 +1,5 @@
 import { useState, createContext, useContext, ReactNode } from 'react';
-import { Zap, FlaskConical } from 'lucide-react';
+import { FlaskConical, Play, Square, RotateCcw } from 'lucide-react';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -46,13 +46,79 @@ export const TestModeToggle = () => {
       onClick={handleToggle}
       className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all ${
         isTestMode 
-          ? 'bg-primary/20 border-primary text-primary glow-primary' 
-          : 'bg-card border-border text-muted-foreground hover:border-primary/50'
+          ? 'bg-test/20 border-test text-test' 
+          : 'bg-card border-border text-muted-foreground hover:border-test/50'
       }`}
-      title={isTestMode ? 'Test Mode: ON (Skip timers)' : 'Test Mode: OFF'}
+      style={isTestMode ? { boxShadow: '0 0 20px hsl(280 100% 60% / 0.4)' } : {}}
+      title={isTestMode ? 'Test Mode: ON' : 'Test Mode: OFF'}
     >
       <FlaskConical className="w-5 h-5" />
     </button>
+  );
+};
+
+interface TestControlsProps {
+  onStart: () => void;
+  onEnd: () => void;
+  onReset: () => void;
+  isStarted?: boolean;
+  startLabel?: string;
+  endLabel?: string;
+}
+
+export const TestControls = ({ 
+  onStart, 
+  onEnd, 
+  onReset, 
+  isStarted = false,
+  startLabel = 'Start Test',
+  endLabel = 'End Test'
+}: TestControlsProps) => {
+  const { isTestMode } = useTestMode();
+  const { play } = useSounds();
+  const { buttonClick } = useHaptics();
+
+  if (!isTestMode) return null;
+
+  const handleAction = (action: () => void, sound: 'click' | 'success' = 'click') => {
+    action();
+    play(sound);
+    buttonClick();
+  };
+
+  return (
+    <div className="test-panel space-y-3">
+      <div className="flex items-center gap-2 text-test font-semibold text-sm">
+        <FlaskConical className="w-4 h-4" />
+        Test Mode Controls
+      </div>
+      <div className="flex gap-2">
+        {!isStarted ? (
+          <button
+            onClick={() => handleAction(onStart, 'success')}
+            className="btn-test flex items-center gap-2 flex-1"
+          >
+            <Play className="w-4 h-4" />
+            {startLabel}
+          </button>
+        ) : (
+          <button
+            onClick={() => handleAction(onEnd, 'success')}
+            className="btn-test flex items-center gap-2 flex-1"
+          >
+            <Square className="w-4 h-4" />
+            {endLabel}
+          </button>
+        )}
+        <button
+          onClick={() => handleAction(onReset)}
+          className="btn-test flex items-center gap-2 px-3"
+        >
+          <RotateCcw className="w-4 h-4" />
+          Reset
+        </button>
+      </div>
+    </div>
   );
 };
 
@@ -72,9 +138,9 @@ export const SkipTimerButton = ({ onSkip, label = 'Start Now' }: { onSkip: () =>
   return (
     <button
       onClick={handleSkip}
-      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/20 border border-primary text-primary text-sm font-medium transition-all hover:bg-primary/30 animate-pulse"
+      className="btn-test flex items-center gap-2"
     >
-      <Zap className="w-4 h-4" />
+      <Play className="w-4 h-4" />
       {label}
     </button>
   );
