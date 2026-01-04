@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { GameProvider } from "@/contexts/GameContext";
+import { AudioProvider } from "@/contexts/AudioContext";
 import { NotificationProvider } from "@/components/PushNotification";
 
 // Main
@@ -36,39 +37,41 @@ const App = () => (
     <TooltipProvider>
       <WalletProvider>
         <GameProvider>
-          <NotificationProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                {/* Redirect root to home */}
-                <Route path="/" element={<Navigate to="/home" replace />} />
-                
-                {/* Home */}
-                <Route path="/home" element={<Home />} />
-                
-                {/* Fastest Finger */}
-                <Route path="/finger" element={<FingerMain />} />
-                <Route path="/finger/lobby" element={<FingerLobby />} />
-                <Route path="/finger/arena" element={<FingerArena />} />
-                <Route path="/finger/results" element={<FingerResults />} />
-                
-                {/* Lucky Pool */}
-                <Route path="/pool" element={<PoolMain />} />
-                <Route path="/pool/draw" element={<PoolDraw />} />
-                <Route path="/pool/result" element={<PoolResult />} />
-                
-                {/* Other screens */}
-                <Route path="/rank" element={<RankScreen />} />
-                <Route path="/profile" element={<ProfileScreen />} />
-                <Route path="/wallet" element={<WalletMain />} />
-                <Route path="/wallet/history" element={<TransactionHistory />} />
-                
-                {/* Catch-all */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </NotificationProvider>
+          <AudioProvider>
+            <NotificationProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  {/* Redirect root to home */}
+                  <Route path="/" element={<Navigate to="/home" replace />} />
+                  
+                  {/* Home */}
+                  <Route path="/home" element={<Home />} />
+                  
+                  {/* Fastest Finger */}
+                  <Route path="/finger" element={<FingerMain />} />
+                  <Route path="/finger/lobby" element={<FingerLobby />} />
+                  <Route path="/finger/arena" element={<FingerArena />} />
+                  <Route path="/finger/results" element={<FingerResults />} />
+                  
+                  {/* Lucky Pool */}
+                  <Route path="/pool" element={<PoolMain />} />
+                  <Route path="/pool/draw" element={<PoolDraw />} />
+                  <Route path="/pool/result" element={<PoolResult />} />
+                  
+                  {/* Other screens */}
+                  <Route path="/rank" element={<RankScreen />} />
+                  <Route path="/profile" element={<ProfileScreen />} />
+                  <Route path="/wallet" element={<WalletMain />} />
+                  <Route path="/wallet/history" element={<TransactionHistory />} />
+                  
+                  {/* Catch-all */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </NotificationProvider>
+          </AudioProvider>
         </GameProvider>
       </WalletProvider>
     </TooltipProvider>

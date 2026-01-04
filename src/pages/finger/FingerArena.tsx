@@ -5,13 +5,17 @@ import { TestControls } from '@/components/TestControls';
 import { useGame, mockPlayers, Comment } from '@/contexts/GameContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useCommentary } from '@/hooks/useCommentary';
-import { Send, Crown, Clock, Trophy } from 'lucide-react';
+import { useCrusader } from '@/hooks/useCrusader';
+import { useAudio } from '@/contexts/AudioContext';
+import { Send, Crown, Clock, Mic } from 'lucide-react';
 
 const AI_COMMENTS = [
   'Go!', '💨', 'Mine!', 'Here!', '👀', 'Now!', 'Yes!', '🔥', 'Me!', 'Ha!',
   'Try me', 'Too slow', 'Catch up', 'Easy', 'Next!', '😎', 'Winner', 'Last!',
   'Nope!', 'Watch this', 'Coming through', '⚡', 'Not yet!', 'Boom!', '🚀',
+  'Lol', 'Nah', 'Mine!!!', '🏆', 'Let\'s go!', 'EZ', 'GG', 'Wait', 'Yo!',
+  'Bruh', 'Cap', 'Facts', 'W', 'No way', 'Fr fr', 'Yooo', '💀', 'Bet',
+  'Clutch!', 'Top 3 locked', 'Not today!', 'Incoming!', 'Move!', 'Quick!',
 ];
 
 interface TopThree {
@@ -22,10 +26,11 @@ interface TopThree {
 
 export const FingerArena = () => {
   const navigate = useNavigate();
-  const { isTestMode, resetFingerGame, userProfile, fingerComments, addFingerComment } = useGame();
+  const { isTestMode, resetFingerGame, userProfile } = useGame();
   const { play } = useSounds();
   const { vibrate, buttonClick } = useHaptics();
-  const { announceLeaderChange, announceTimerLow, announceGameStart, announceGameEnd } = useCommentary();
+  const crusader = useCrusader();
+  const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   
   const [timer, setTimer] = useState(60);
   const [gameTime, setGameTime] = useState(0);
@@ -36,8 +41,25 @@ export const FingerArena = () => {
   const [localComments, setLocalComments] = useState<Comment[]>([]);
   const [topThree, setTopThree] = useState<TopThree[]>([]);
   const [lastLeader, setLastLeader] = useState('');
+  const [isShaking, setIsShaking] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const hasAnnouncedStart = useRef(false);
+  const lastHypeRef = useRef(0);
+
+  // Start background music
+  useEffect(() => {
+    playBackgroundMusic('arena');
+    return () => stopBackgroundMusic();
+  }, []);
+
+  // Screen shake when timer < 10
+  useEffect(() => {
+    if (timer <= 10 && timer > 0 && !isGameOver) {
+      setIsShaking(true);
+    } else {
+      setIsShaking(false);
+    }
+  }, [timer, isGameOver]);
 
   // Update top 3 from comments
   useEffect(() => {
@@ -56,29 +78,29 @@ export const FingerArena = () => {
 
     // Announce leader changes
     if (top[0] && top[0].name !== lastLeader && lastLeader !== '') {
-      announceLeaderChange(top[0].name);
+      crusader.announceLeaderChange(top[0].name);
       play('leaderChange');
     }
     if (top[0]) {
       setLastLeader(top[0].name);
     }
-  }, [localComments, lastLeader, announceLeaderChange, play]);
+  }, [localComments, lastLeader, crusader, play]);
 
   // Start with some initial comments
   useEffect(() => {
-    const initialComments: Comment[] = mockPlayers.slice(0, 3).map((player, i) => ({
+    const initialComments: Comment[] = mockPlayers.slice(0, 5).map((player, i) => ({
       id: `init_${i}`,
       playerId: player.id,
       playerName: player.name,
       playerAvatar: player.avatar,
       text: AI_COMMENTS[Math.floor(Math.random() * AI_COMMENTS.length)],
-      timestamp: new Date(Date.now() - (3 - i) * 1000),
+      timestamp: new Date(Date.now() - (5 - i) * 1000),
     }));
     setLocalComments(initialComments);
     showSystemMessage('Game started! Be the last commenter!');
     
     if (!hasAnnouncedStart.current) {
-      setTimeout(() => announceGameStart(), 500);
+      setTimeout(() => crusader.announceGameStart(), 500);
       hasAnnouncedStart.current = true;
     }
   }, []);
@@ -88,12 +110,13 @@ export const FingerArena = () => {
     setTimeout(() => setSystemMessage(''), 3000);
   };
 
-  // AI comments simulation
+  // AI comments simulation - MORE FREQUENT for busy feel
   useEffect(() => {
     if (isGameOver) return;
 
     const interval = setInterval(() => {
-      const chance = timer < 20 ? 0.55 : timer < 40 ? 0.35 : 0.25;
+      // Much higher chance for busy chat
+      const chance = timer < 15 ? 0.85 : timer < 30 ? 0.7 : timer < 45 ? 0.5 : 0.4;
       
       if (Math.random() < chance) {
         const randomPlayer = mockPlayers[Math.floor(Math.random() * mockPlayers.length)];
@@ -108,16 +131,35 @@ export const FingerArena = () => {
           timestamp: new Date(),
         };
         
-        setLocalComments(prev => [newComment, ...prev].slice(0, 50));
+        setLocalComments(prev => [newComment, ...prev].slice(0, 100));
         setTimer(60);
-        showSystemMessage(`⏱️ Timer reset - ${randomPlayer.name} is leading!`);
+        
+        // Only show system message occasionally to avoid spam
+        if (Math.random() > 0.7) {
+          showSystemMessage(`⏱️ ${randomPlayer.name} reset the timer!`);
+        }
       }
-    }, 800 + Math.random() * 1500);
+    }, 300 + Math.random() * 600); // Much faster interval: 300-900ms
 
     return () => clearInterval(interval);
   }, [timer, isGameOver]);
 
-  // Timer countdown with sound effects
+  // Random hype from Crusader
+  useEffect(() => {
+    if (isGameOver) return;
+    
+    const interval = setInterval(() => {
+      const now = Date.now();
+      if (now - lastHypeRef.current > 15000 && Math.random() > 0.6) {
+        crusader.randomHype();
+        lastHypeRef.current = now;
+      }
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [isGameOver, crusader]);
+
+  // Timer countdown with sound effects and Crusader
   useEffect(() => {
     if (isGameOver) return;
 
@@ -128,22 +170,23 @@ export const FingerArena = () => {
           return 0;
         }
         
-        // Timer sound effects
+        // Timer sound effects and screen shake
         if (prev <= 10) {
           play('urgent');
           vibrate('heavy');
+          playBackgroundMusic('tense');
         } else if (prev <= 30) {
           play('tick');
         }
         
-        // Commentary for low timer
-        announceTimerLow(prev);
+        // Crusader commentary for low timer
+        crusader.announceTimerLow(prev);
         
         return prev - 1;
       });
       
       setGameTime(prev => {
-        if (prev >= 1200) { // 20 minutes max
+        if (prev >= 1200) {
           endGame(true);
           return prev;
         }
@@ -152,16 +195,20 @@ export const FingerArena = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isGameOver, play, vibrate, announceTimerLow]);
+  }, [isGameOver, play, vibrate, crusader, playBackgroundMusic]);
 
   const endGame = (timeout = false) => {
     setIsGameOver(true);
     setShowFreezeScreen(true);
+    setIsShaking(false);
+    stopBackgroundMusic();
     play('gameOver');
     vibrate('success');
     
-    const winner = topThree[0]?.name || 'Unknown';
-    announceGameEnd(winner);
+    crusader.announceGameOver();
+    if (topThree[0]) {
+      crusader.announceWinner(topThree[0].name);
+    }
     showSystemMessage(timeout ? '⏰ Game auto-ended - 20 min limit!' : '🏆 60 seconds passed - Game over!');
   };
 
@@ -195,13 +242,18 @@ export const FingerArena = () => {
       timestamp: new Date(),
     };
 
-    setLocalComments(prev => [newComment, ...prev].slice(0, 50));
+    setLocalComments(prev => [newComment, ...prev].slice(0, 100));
     setTimer(60);
     setInputValue('');
     showSystemMessage("⏱️ Timer reset - You're leading!");
     
     play('send');
     buttonClick();
+    
+    // Crusader might comment on close calls
+    if (timer < 10) {
+      crusader.announceCloseCall();
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -212,7 +264,6 @@ export const FingerArena = () => {
   };
 
   const handleTestEnd = () => {
-    // Make user the winner
     const winningComment: Comment = {
       id: `user_win_${Date.now()}`,
       playerId: 'user',
@@ -234,10 +285,11 @@ export const FingerArena = () => {
     setLocalComments([]);
     setTopThree([]);
     setLastLeader('');
+    setIsShaking(false);
     hasAnnouncedStart.current = false;
   };
 
-  // Freeze Screen - Shows winners before transitioning
+  // Freeze Screen
   if (showFreezeScreen) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
@@ -246,7 +298,7 @@ export const FingerArena = () => {
           <p className="text-muted-foreground">Winners determined!</p>
         </div>
 
-        {/* Podium Display - 2nd, 1st, 3rd */}
+        {/* Podium Display */}
         <div className="flex items-end justify-center gap-3 mb-8 w-full max-w-sm">
           {/* 2nd Place */}
           <div className="flex flex-col items-center flex-1">
@@ -289,7 +341,7 @@ export const FingerArena = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className={`min-h-screen bg-background flex flex-col ${isShaking ? 'animate-intense-shake' : ''}`}>
       {/* Header */}
       <div className="bg-card/98 backdrop-blur-xl border-b border-border/50 p-4 sticky top-0 z-10">
         <div className="flex items-center justify-between mb-3">
@@ -310,9 +362,9 @@ export const FingerArena = () => {
         </div>
         
         {/* Timer */}
-        <div className={`text-center py-3 rounded-xl transition-all ${timer < 15 ? 'bg-destructive/20 border border-destructive/50 animate-pulse' : 'bg-primary/10 border border-primary/30'}`}>
+        <div className={`text-center py-3 rounded-xl transition-all ${timer < 15 ? 'bg-destructive/20 border-2 border-destructive/50' : timer < 30 ? 'bg-orange-500/20 border border-orange-500/50' : 'bg-primary/10 border border-primary/30'}`}>
           <p className="text-xs text-muted-foreground mb-1">Time Until Winner</p>
-          <p className={`timer-display ${timer < 15 ? 'timer-urgent' : ''}`}>{timer}s</p>
+          <p className={`timer-display ${timer < 15 ? 'timer-urgent animate-pulse' : timer < 30 ? 'text-orange-400' : ''}`}>{timer}s</p>
         </div>
 
         {/* Live Top 3 Podium */}
@@ -349,6 +401,16 @@ export const FingerArena = () => {
           </div>
         </div>
 
+        {/* Crusader Host Bar */}
+        <div className="mt-2 flex items-center gap-2 bg-primary/10 rounded-lg px-3 py-1.5 border border-primary/30">
+          <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-sm">
+            🎙️
+          </div>
+          <span className="text-xs text-primary font-medium">Crusader</span>
+          <Mic className="w-3 h-3 text-primary animate-pulse" />
+          <span className="text-[10px] text-muted-foreground ml-1">Hosting live</span>
+        </div>
+
         {/* System Message */}
         {systemMessage && (
           <div className="mt-2 text-center text-sm text-primary font-medium animate-fade-in">
@@ -378,41 +440,39 @@ export const FingerArena = () => {
         ref={chatRef}
         className="flex-1 overflow-y-auto p-4 flex flex-col-reverse"
       >
-        <div className="space-y-2">
-          {localComments.map((comment, index) => {
+        <div className="space-y-1.5">
+          {localComments.slice(0, 30).map((comment, index) => {
             const isLeader = comment.playerName === topThree[0]?.name;
             const isUser = comment.playerId === 'user';
             
             return (
               <div
                 key={comment.id}
-                className={`flex items-start gap-3 p-3 rounded-xl animate-slide-up ${
+                className={`flex items-start gap-2 p-2 rounded-lg animate-slide-up ${
                   isUser 
                     ? 'bg-primary/15 border border-primary/30' 
                     : isLeader
                       ? 'bg-card border border-gold/30'
-                      : 'bg-card border border-border/50'
+                      : 'bg-card/50 border border-border/30'
                 }`}
-                style={{ animationDelay: `${index * 20}ms` }}
+                style={{ animationDelay: `${index * 10}ms` }}
               >
-                <div className={`w-10 h-10 rounded-full bg-card-elevated flex items-center justify-center text-lg ${isLeader ? 'ring-2 ring-gold' : ''}`}>
+                <div className={`w-8 h-8 rounded-full bg-card-elevated flex items-center justify-center text-sm shrink-0 ${isLeader ? 'ring-1 ring-gold' : ''}`}>
                   {comment.playerAvatar}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className={`font-bold text-sm ${
+                  <div className="flex items-center gap-1.5">
+                    <p className={`font-bold text-xs ${
                       isUser ? 'text-primary' : 
                       isLeader ? 'text-gold' : 'text-foreground'
                     }`}>
                       {comment.playerName}
                     </p>
                     {isLeader && (
-                      <span className="text-[10px] bg-gold/20 text-gold px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1">
-                        <Crown className="w-3 h-3" /> LEADER
-                      </span>
+                      <Crown className="w-3 h-3 text-gold" />
                     )}
                   </div>
-                  <p className="text-foreground">{comment.text}</p>
+                  <p className="text-foreground text-sm">{comment.text}</p>
                 </div>
               </div>
             );
