@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '@/components/Avatar';
 import { LiveTimer } from '@/components/Countdown';
-import { SkipTimerButton, useTestMode } from '@/components/TestModeToggle';
+import { TestControls, useTestMode } from '@/components/TestModeToggle';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { Send, AlertTriangle, Zap } from 'lucide-react';
+import { Send, AlertTriangle, Zap, Crown, Clock } from 'lucide-react';
 
 interface Comment {
   id: string;
@@ -18,6 +18,7 @@ const AI_COMMENTS = [
   'Go!', '💨', 'Mine!', 'Here!', '👀', 'Now!', 'Yes!', '🔥', 'Me!', 'Ha!',
   'Try me', 'Too slow', 'Catch up', 'Easy', 'Next!', '😎', 'Winner', 'Last!',
   'Nope!', 'Watch this', 'Coming through', '⚡', 'Not yet!', 'Boom!', '🚀',
+  'Mine mine', 'Gotcha', 'Nice try', 'Keep up!', 'Almost!', 'Nah', '💪',
 ];
 
 const AI_PLAYERS = [
@@ -34,12 +35,13 @@ export const FingerArena = () => {
   const [currentLeader, setCurrentLeader] = useState('');
   const [gameTime, setGameTime] = useState(0);
   const [isGameOver, setIsGameOver] = useState(false);
+  const [systemMessage, setSystemMessage] = useState('');
   const chatRef = useRef<HTMLDivElement>(null);
   const { play } = useSounds();
-  const { buttonClick, success } = useHaptics();
+  const { buttonClick, success, warning } = useHaptics();
   const { isTestMode } = useTestMode();
 
-  // Start with some initial comments for social feel
+  // Start with some initial comments
   useEffect(() => {
     const initialComments: Comment[] = [
       { id: 'init_1', user: 'Emeka A.', text: 'Let\'s go! 🔥', timestamp: new Date(Date.now() - 5000) },
@@ -48,15 +50,20 @@ export const FingerArena = () => {
     ];
     setComments(initialComments);
     setCurrentLeader('Kemi L.');
+    showSystemMessage('Game started! Be the last commenter!');
   }, []);
 
-  // AI comments simulation - more frequent and varied
+  const showSystemMessage = (msg: string) => {
+    setSystemMessage(msg);
+    setTimeout(() => setSystemMessage(''), 3000);
+  };
+
+  // AI comments simulation
   useEffect(() => {
     if (isGameOver) return;
 
     const interval = setInterval(() => {
-      // Higher chance of AI commenting for more lively feel
-      const chance = timer < 20 ? 0.6 : timer < 40 ? 0.4 : 0.3;
+      const chance = timer < 20 ? 0.55 : timer < 40 ? 0.35 : 0.25;
       
       if (Math.random() < chance) {
         const randomPlayer = AI_PLAYERS[Math.floor(Math.random() * AI_PLAYERS.length)];
@@ -72,6 +79,7 @@ export const FingerArena = () => {
         setComments(prev => [newComment, ...prev].slice(0, 50));
         setCurrentLeader(randomPlayer);
         setTimer(60);
+        showSystemMessage(`⏱️ Timer reset - ${randomPlayer} is leading!`);
         play('click');
       }
     }, 800 + Math.random() * 1500);
@@ -87,20 +95,18 @@ export const FingerArena = () => {
       setTimer(prev => {
         if (prev <= 10 && prev > 0) {
           play('countdown');
+          warning();
         }
         if (prev <= 1) {
-          setIsGameOver(true);
-          play('win');
-          success();
+          endGame();
           return 0;
         }
         return prev - 1;
       });
       
       setGameTime(prev => {
-        // Max game duration: 20 minutes
-        if (prev >= 1200) {
-          setIsGameOver(true);
+        if (prev >= 1200) { // 20 minutes max
+          endGame(true);
           return prev;
         }
         return prev + 1;
@@ -108,9 +114,16 @@ export const FingerArena = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isGameOver, play, success]);
+  }, [isGameOver]);
 
-  // Navigate to results when game over
+  const endGame = (timeout = false) => {
+    setIsGameOver(true);
+    play('win');
+    success();
+    showSystemMessage(timeout ? '⏰ Game auto-ended - 20 min limit!' : '🏆 60 seconds passed - Game over!');
+  };
+
+  // Navigate to results
   useEffect(() => {
     if (isGameOver) {
       const lastThreeCommenters = comments.slice(0, 3).map(c => c.user);
@@ -123,7 +136,7 @@ export const FingerArena = () => {
             position: lastThreeCommenters.indexOf('You') + 1,
           } 
         });
-      }, 2000);
+      }, 2500);
     }
   }, [isGameOver, comments, navigate]);
 
@@ -141,6 +154,7 @@ export const FingerArena = () => {
     setCurrentLeader('You');
     setTimer(60);
     setInputValue('');
+    showSystemMessage('⏱️ Timer reset - You\'re leading!');
     play('success');
     buttonClick();
   };
@@ -152,8 +166,8 @@ export const FingerArena = () => {
     }
   };
 
-  const handleEndGame = () => {
-    // Add user as winner before ending
+  const handleTestEnd = () => {
+    // Make user the winner
     const winningComment: Comment = {
       id: `user_win_${Date.now()}`,
       user: 'You',
@@ -162,12 +176,18 @@ export const FingerArena = () => {
     };
     setComments(prev => [winningComment, ...prev]);
     setCurrentLeader('You');
-    setIsGameOver(true);
-    play('win');
-    success();
+    endGame();
   };
 
-  // Scroll to show latest
+  const handleTestReset = () => {
+    setTimer(60);
+    setGameTime(0);
+    setIsGameOver(false);
+    setCurrentLeader('');
+    setComments([]);
+  };
+
+  // Scroll to top
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = 0;
@@ -177,11 +197,12 @@ export const FingerArena = () => {
   if (isGameOver) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-        <div className="w-24 h-24 rounded-full bg-secondary/20 flex items-center justify-center mb-6 animate-pulse">
-          <AlertTriangle className="w-12 h-12 text-secondary" />
+        <div className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center mb-6 glow-strong animate-bounce-in">
+          <Crown className="w-12 h-12 text-primary" />
         </div>
-        <h1 className="text-2xl font-bold text-foreground mb-2">Game Over!</h1>
-        <p className="text-muted-foreground">Calculating winners...</p>
+        <h1 className="text-2xl font-black text-foreground mb-2">Game Over!</h1>
+        <p className="text-muted-foreground mb-4">Calculating winners...</p>
+        <p className="text-lg font-bold text-primary">{currentLeader} wins!</p>
       </div>
     );
   }
@@ -189,43 +210,59 @@ export const FingerArena = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <div className="bg-card border-b border-border p-4 sticky top-0 z-10">
+      <div className="bg-card/98 backdrop-blur-xl border-b border-border/50 p-4 sticky top-0 z-10">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h1 className="font-bold text-foreground flex items-center gap-2">
-              <Zap className="w-5 h-5 text-secondary" />
+              <Zap className="w-5 h-5 text-primary" />
               Live Finger Arena
             </h1>
             <p className="text-xs text-muted-foreground">Last comment standing wins!</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-muted-foreground">Game Time</p>
-            <p className="font-medium text-foreground">{Math.floor(gameTime / 60)}:{(gameTime % 60).toString().padStart(2, '0')}</p>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="w-3 h-3" />
+              Game Time
+            </div>
+            <p className="font-bold text-foreground">{Math.floor(gameTime / 60)}:{(gameTime % 60).toString().padStart(2, '0')}</p>
           </div>
         </div>
         
         {/* Timer */}
-        <div className={`text-center py-3 rounded-xl ${timer < 15 ? 'bg-destructive/20 animate-pulse' : 'bg-secondary/10'}`}>
+        <div className={`text-center py-3 rounded-xl ${timer < 15 ? 'bg-destructive/20 animate-pulse border border-destructive/50' : 'bg-primary/10 border border-primary/30'}`}>
           <p className="text-xs text-muted-foreground mb-1">Time Until Winner</p>
           <LiveTimer seconds={timer} size="lg" warning={timer < 15} />
         </div>
 
         {/* Current Leader */}
         {currentLeader && (
-          <div className={`mt-3 flex items-center justify-center gap-2 rounded-xl p-2 ${
-            currentLeader === 'You' ? 'bg-primary/20 border border-primary/50' : 'bg-muted/50'
+          <div className={`mt-3 flex items-center justify-center gap-2 rounded-xl p-2.5 ${
+            currentLeader === 'You' ? 'bg-primary/20 border border-primary/50 glow-primary' : 'bg-muted/50 border border-border/50'
           }`}>
-            <Avatar name={currentLeader} size="sm" isWinner={currentLeader === 'You'} />
+            <Crown className={`w-4 h-4 ${currentLeader === 'You' ? 'text-primary' : 'text-muted-foreground'}`} />
             <span className={`font-bold ${currentLeader === 'You' ? 'text-primary' : 'text-foreground'}`}>
               {currentLeader === 'You' ? '🔥 You\'re leading!' : `${currentLeader} is leading`}
             </span>
           </div>
         )}
 
-        {/* Test Mode - End Game Button */}
+        {/* System Message */}
+        {systemMessage && (
+          <div className="mt-2 text-center text-sm text-secondary font-medium animate-fade-in">
+            {systemMessage}
+          </div>
+        )}
+
+        {/* Test Controls */}
         {isTestMode && (
-          <div className="mt-3 flex justify-center">
-            <SkipTimerButton onSkip={handleEndGame} label="End Game & See Winner" />
+          <div className="mt-3">
+            <TestControls
+              onStart={() => {}}
+              onEnd={handleTestEnd}
+              onReset={handleTestReset}
+              isStarted={true}
+              endLabel="End & Win"
+            />
           </div>
         )}
       </div>
@@ -241,24 +278,26 @@ export const FingerArena = () => {
               key={comment.id}
               className={`flex items-start gap-3 p-3 rounded-xl animate-slide-up ${
                 comment.user === 'You' 
-                  ? 'bg-primary/10 border border-primary/30' 
+                  ? 'bg-primary/15 border border-primary/30' 
                   : comment.user === currentLeader
-                    ? 'bg-secondary/10 border border-secondary/30'
-                    : 'bg-card'
+                    ? 'bg-secondary/15 border border-secondary/30'
+                    : 'bg-card border border-border/50'
               }`}
-              style={{ animationDelay: `${index * 30}ms` }}
+              style={{ animationDelay: `${index * 20}ms` }}
             >
               <Avatar name={comment.user} size="sm" isWinner={comment.user === currentLeader} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className={`font-medium text-sm ${
+                  <p className={`font-bold text-sm ${
                     comment.user === 'You' ? 'text-primary' : 
                     comment.user === currentLeader ? 'text-secondary' : 'text-foreground'
                   }`}>
                     {comment.user}
                   </p>
                   {comment.user === currentLeader && (
-                    <span className="text-[10px] bg-secondary/20 text-secondary px-1.5 py-0.5 rounded-full">Leader</span>
+                    <span className="text-[10px] bg-secondary/20 text-secondary px-1.5 py-0.5 rounded-full font-bold">
+                      LEADER
+                    </span>
                   )}
                 </div>
                 <p className="text-foreground">{comment.text}</p>
@@ -269,7 +308,7 @@ export const FingerArena = () => {
       </div>
 
       {/* Input */}
-      <div className="bg-card border-t border-border p-4 sticky bottom-0">
+      <div className="bg-card/98 backdrop-blur-xl border-t border-border/50 p-4 sticky bottom-0">
         <div className="flex gap-2">
           <input
             type="text"
@@ -277,12 +316,12 @@ export const FingerArena = () => {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Type to claim the lead..."
-            className="flex-1 bg-muted rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 bg-muted/50 border border-border/50 rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
           <button
             onClick={handleSend}
             disabled={!inputValue.trim()}
-            className="btn-secondary px-4 disabled:opacity-50"
+            className="btn-primary px-5 disabled:opacity-50"
           >
             <Send className="w-5 h-5" />
           </button>

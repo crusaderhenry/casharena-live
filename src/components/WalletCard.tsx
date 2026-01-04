@@ -1,6 +1,8 @@
-import { Plus } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useState, useEffect } from 'react';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface WalletCardProps {
   compact?: boolean;
@@ -8,6 +10,8 @@ interface WalletCardProps {
 
 export const WalletCard = ({ compact = false }: WalletCardProps) => {
   const { balance, addFunds } = useWallet();
+  const { play } = useSounds();
+  const { success } = useHaptics();
   const [displayBalance, setDisplayBalance] = useState(balance);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -38,14 +42,16 @@ export const WalletCard = ({ compact = false }: WalletCardProps) => {
 
   const handleAddFunds = () => {
     addFunds(5000);
+    play('coin');
+    success();
   };
 
   if (compact) {
     return (
-      <div className="flex items-center gap-3 bg-card rounded-xl px-4 py-3 border border-border">
+      <div className="flex items-center gap-3 bg-card rounded-xl px-4 py-3 border border-border/50">
         <div className="flex-1">
-          <p className="text-xs text-muted-foreground">Balance</p>
-          <p className={`text-xl font-bold text-money ${isAnimating ? 'animate-count-up' : ''}`}>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Balance</p>
+          <p className={`text-xl font-black text-money ${isAnimating ? 'animate-count-up' : ''}`}>
             ₦{displayBalance.toLocaleString()}
           </p>
         </div>
@@ -61,25 +67,30 @@ export const WalletCard = ({ compact = false }: WalletCardProps) => {
   }
 
   return (
-    <div className="bg-gradient-to-br from-card to-card-elevated rounded-2xl p-5 border border-border glow-primary">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <p className="text-sm text-muted-foreground mb-1">Available Balance</p>
-          <p className={`balance-display ${isAnimating ? 'animate-count-up' : ''}`}>
-            ₦{displayBalance.toLocaleString()}
-          </p>
+    <div className="card-premium glow-primary relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+      
+      <div className="relative">
+        <div className="flex items-start justify-between mb-5">
+          <div>
+            <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Available Balance</p>
+            <p className={`text-4xl font-black text-money tracking-tight ${isAnimating ? 'animate-count-up' : ''}`}>
+              ₦{displayBalance.toLocaleString()}
+            </p>
+          </div>
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center glow-primary">
+            <Sparkles className="w-7 h-7 text-primary" />
+          </div>
         </div>
-        <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-          <span className="text-2xl">💰</span>
-        </div>
+        <button
+          onClick={handleAddFunds}
+          className="w-full btn-primary flex items-center justify-center gap-2"
+        >
+          <Plus className="w-5 h-5" />
+          Add Demo Funds (+₦5,000)
+        </button>
       </div>
-      <button
-        onClick={handleAddFunds}
-        className="w-full btn-primary flex items-center justify-center gap-2"
-      >
-        <Plus className="w-5 h-5" />
-        Add Demo Funds (+₦5,000)
-      </button>
     </div>
   );
 };

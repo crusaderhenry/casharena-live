@@ -13,20 +13,12 @@ interface GameContextType {
   hasJoinedArena: boolean;
   joinArena: () => void;
   submitArenaScore: (score: number) => void;
-  
-  // Streak
-  currentStreak: number;
-  streakCompleted: boolean;
-  hasJoinedStreak: boolean;
-  joinStreak: () => void;
-  completeStreakTask: () => void;
-  breakStreak: () => void;
+  resetArena: () => void;
   
   // Pool
-  poolOdds: number;
   hasJoinedPool: boolean;
   joinPool: () => void;
-  drawPool: () => { winner: boolean; amount: number };
+  resetPool: () => void;
   
   // Fastest Finger
   hasJoinedFinger: boolean;
@@ -38,6 +30,7 @@ interface GameContextType {
   // Recent Activity
   recentActivity: Array<{ id: string; text: string; type: string; timestamp: Date }>;
   addActivity: (text: string, type: string) => void;
+  clearActivity: () => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -52,13 +45,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [arenaRank, setArenaRank] = useState(0);
   const [hasJoinedArena, setHasJoinedArena] = useState(false);
   
-  // Streak state
-  const [currentStreak, setCurrentStreak] = useState(0);
-  const [streakCompleted, setStreakCompleted] = useState(false);
-  const [hasJoinedStreak, setHasJoinedStreak] = useState(false);
-  
   // Pool state
-  const [poolOdds, setPoolOdds] = useState(1);
   const [hasJoinedPool, setHasJoinedPool] = useState(false);
   
   // Fastest Finger state
@@ -87,34 +74,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setArenaRank(Math.floor(Math.random() * 10) + 1);
   }, []);
 
-  const joinStreak = useCallback(() => {
-    setHasJoinedStreak(true);
-    setCurrentStreak(0);
-    setStreakCompleted(false);
-  }, []);
-
-  const completeStreakTask = useCallback(() => {
-    setCurrentStreak(prev => prev + 1);
-    setStreakCompleted(true);
-  }, []);
-
-  const breakStreak = useCallback(() => {
-    setCurrentStreak(0);
-    setStreakCompleted(false);
+  const resetArena = useCallback(() => {
+    setHasJoinedArena(false);
+    setArenaScore(0);
+    setArenaRank(0);
   }, []);
 
   const joinPool = useCallback(() => {
     setHasJoinedPool(true);
-    setPoolOdds(prev => Math.min(prev + 0.5, 5));
   }, []);
 
-  const drawPool = useCallback(() => {
-    const isWinner = Math.random() < (poolOdds * 0.1);
-    const amount = isWinner ? Math.floor(Math.random() * 50000) + 10000 : 0;
+  const resetPool = useCallback(() => {
     setHasJoinedPool(false);
-    setPoolOdds(1);
-    return { winner: isWinner, amount };
-  }, [poolOdds]);
+  }, []);
 
   const joinFinger = useCallback(() => {
     setHasJoinedFinger(true);
@@ -140,6 +112,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRecentActivity(prev => [newActivity, ...prev.slice(0, 9)]);
   }, []);
 
+  const clearActivity = useCallback(() => {
+    setRecentActivity([{ id: '1', text: 'Welcome to CashArena!', type: 'info', timestamp: new Date() }]);
+  }, []);
+
   return (
     <GameContext.Provider value={{
       hasCompletedOnboarding,
@@ -151,16 +127,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       hasJoinedArena,
       joinArena,
       submitArenaScore,
-      currentStreak,
-      streakCompleted,
-      hasJoinedStreak,
-      joinStreak,
-      completeStreakTask,
-      breakStreak,
-      poolOdds,
+      resetArena,
       hasJoinedPool,
       joinPool,
-      drawPool,
+      resetPool,
       hasJoinedFinger,
       fingerPosition,
       joinFinger,
@@ -168,6 +138,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       resetFinger,
       recentActivity,
       addActivity,
+      clearActivity,
     }}>
       {children}
     </GameContext.Provider>

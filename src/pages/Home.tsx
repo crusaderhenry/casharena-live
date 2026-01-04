@@ -4,20 +4,17 @@ import { SocialFeed } from '@/components/SocialFeed';
 import { BottomNav } from '@/components/BottomNav';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { TestModeToggle } from '@/components/TestModeToggle';
-import { Swords, Flame, Sparkles, Zap } from 'lucide-react';
-import { useGame } from '@/contexts/GameContext';
+import { Swords, Sparkles, Zap, Shield } from 'lucide-react';
 
 export const Home = () => {
-  const { currentStreak } = useGame();
-
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="p-4 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between pt-2">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">CashArena</h1>
-            <p className="text-sm text-muted-foreground">Let's win today! 🔥</p>
+            <h1 className="text-2xl font-black text-foreground tracking-tight">CashArena</h1>
+            <p className="text-sm text-muted-foreground">Fair play. Real wins. 💰</p>
           </div>
           <div className="flex items-center gap-2">
             <TestModeToggle />
@@ -31,54 +28,52 @@ export const Home = () => {
         {/* Wallet */}
         <WalletCard />
 
+        {/* Fairness Notice */}
+        <div className="fairness-badge">
+          <Shield className="w-4 h-4" />
+          <span>All games are fair, transparent, and skill/luck based</span>
+        </div>
+
         {/* Game Cards */}
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
             Games
           </h2>
           
           <GameCard
             title="Daily Cash Arena"
-            description="Skill-based daily challenge"
+            description="Fair skill-based challenge"
             icon={<Swords className="w-6 h-6 text-primary" />}
             entry={500}
             info="Ends in 14h"
             path="/arena"
             accentColor="primary"
-            ctaText="Join"
-          />
-          
-          <GameCard
-            title="Streak to Win"
-            description="Daily consistency wins"
-            icon={<Flame className="w-6 h-6 text-secondary" />}
-            entry={300}
-            info={currentStreak > 0 ? `Day ${currentStreak}` : 'Start now'}
-            path="/streak"
-            accentColor="secondary"
-            ctaText="Continue"
+            ctaText="Play"
+            badge="Fair"
           />
           
           <GameCard
             title="Smart Lucky Pool"
-            description="Luck with smart odds"
-            icon={<Sparkles className="w-6 h-6 text-primary" />}
+            description="One random winner takes all"
+            icon={<Sparkles className="w-6 h-6 text-secondary" />}
             entry={1000}
-            info="Draw in 2h 30m"
+            info="Draw in 2h"
             path="/pool"
-            accentColor="primary"
+            accentColor="secondary"
             ctaText="Join"
+            badge="Transparent"
           />
           
           <GameCard
             title="Fastest Finger"
             description="Last comment wins the pool"
-            icon={<Zap className="w-6 h-6 text-secondary" />}
+            icon={<Zap className="w-6 h-6 text-primary" />}
             entry={700}
-            info="Next in 15m"
+            info="Live"
             path="/finger"
-            accentColor="secondary"
-            ctaText="Join Lobby"
+            accentColor="primary"
+            ctaText="Enter"
+            badge="Live"
           />
         </div>
 

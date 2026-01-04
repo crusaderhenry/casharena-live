@@ -59,6 +59,7 @@ export default {
         gold: "hsl(var(--gold))",
         silver: "hsl(var(--silver))",
         bronze: "hsl(var(--bronze))",
+        test: "hsl(var(--test))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -69,7 +70,7 @@ export default {
         "3xl": "calc(var(--radius) + 16px)",
       },
       fontFamily: {
-        sans: ["Space Grotesk", "system-ui", "sans-serif"],
+        sans: ["Inter", "system-ui", "sans-serif"],
       },
       keyframes: {
         "accordion-down": {
