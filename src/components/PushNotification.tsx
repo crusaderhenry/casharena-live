@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { Trophy, Zap, Bell, Sparkles, X } from 'lucide-react';
+import { Trophy, Zap, Bell, X } from 'lucide-react';
 
 interface PushNotification {
   id: string;
-  type: 'game_reminder' | 'win' | 'pool_reminder' | 'game_starting';
+  type: 'game_reminder' | 'win' | 'game_starting';
   title: string;
   message: string;
   icon?: React.ReactNode;
@@ -33,8 +33,6 @@ const getIcon = (type: PushNotification['type']) => {
       return <Zap className="w-5 h-5 text-primary" />;
     case 'win':
       return <Trophy className="w-5 h-5 text-gold" />;
-    case 'pool_reminder':
-      return <Sparkles className="w-5 h-5 text-primary" />;
     case 'game_starting':
       return <Bell className="w-5 h-5 text-primary" />;
     default:
@@ -92,26 +90,31 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     });
   }, [showNotification]);
 
-  // Simulate periodic game reminders
+  // Simulate periodic game reminders for Fastest Finger only
   useEffect(() => {
     const interval = setInterval(() => {
       if (Math.random() > 0.7) {
-        const types = [
+        const notifications = [
           {
             type: 'game_reminder' as const,
             title: '⚡ Game Starting Soon!',
             message: 'Fastest Finger starts in 5 minutes',
           },
           {
-            type: 'pool_reminder' as const,
-            title: '🎰 Lucky Pool Update',
-            message: 'Pool is now at ₦145,000! Join before the draw',
+            type: 'game_starting' as const,
+            title: '🎮 Live Game Alert!',
+            message: 'A Fastest Finger game is live now!',
+          },
+          {
+            type: 'game_reminder' as const,
+            title: '🏆 Prize Pool Growing!',
+            message: 'More players joining — bigger prizes!',
           },
         ];
-        const randomType = types[Math.floor(Math.random() * types.length)];
-        showNotification(randomType);
+        const randomNotif = notifications[Math.floor(Math.random() * notifications.length)];
+        showNotification(randomNotif);
       }
-    }, 45000); // Every 45 seconds
+    }, 60000); // Every 60 seconds
 
     return () => clearInterval(interval);
   }, [showNotification]);

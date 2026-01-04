@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { WalletCard } from '@/components/WalletCard';
 import { BottomNav } from '@/components/BottomNav';
 import { TestModeToggle } from '@/components/TestControls';
+import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutorial';
 import { Zap, Trophy, Users, Clock, ChevronRight, Flame } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +14,7 @@ export const Home = () => {
   const navigate = useNavigate();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
+  const { showOnboarding, completeOnboarding } = useOnboarding();
   const [countdown, setCountdown] = useState(300); // 5 minutes
   const [playerCount, setPlayerCount] = useState(23);
 
@@ -66,6 +68,8 @@ export const Home = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
+      {/* Onboarding Tutorial for first-time users */}
+      {showOnboarding && <OnboardingTutorial onComplete={completeOnboarding} />}
       <div className="p-4 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between pt-2">
