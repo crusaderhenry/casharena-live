@@ -8,6 +8,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useCrusader } from '@/hooks/useCrusader';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { useAudio } from '@/contexts/AudioContext';
+import { useToast } from '@/hooks/use-toast';
 import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut } from 'lucide-react';
 import {
   AlertDialog,
@@ -51,6 +52,7 @@ export const FingerArena = () => {
   const crusader = useCrusader();
   const { simulatePlayerVoice } = useVoiceChat();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
+  const { toast } = useToast();
   
   const [timer, setTimer] = useState(GAME_SETTINGS.commentTimerSeconds);
   const [gameTime, setGameTime] = useState(GAME_SETTINGS.gameDurationSeconds);
@@ -76,18 +78,31 @@ export const FingerArena = () => {
     timerRef.current = timer;
   }, [timer]);
 
-  // Simulate live audience count
+  // Simulate live audience count and occasional player leaves
   useEffect(() => {
+    if (isGameOver) return;
+
     const interval = setInterval(() => {
       setAudienceCount((prev) => {
         const step = Math.ceil(Math.random() * 3);
         const delta = Math.random() > 0.55 ? step : -step;
+        
+        // Occasionally show a player left notification
+        if (delta < 0 && Math.random() > 0.7) {
+          const leavingPlayer = mockPlayers[Math.floor(Math.random() * mockPlayers.length)];
+          toast({
+            title: `${leavingPlayer.avatar} ${leavingPlayer.name} left the arena`,
+            description: "One less competitor!",
+            duration: 3000,
+          });
+        }
+        
         return Math.max(0, prev + delta);
       });
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isGameOver, toast]);
 
   // Start background music
   useEffect(() => {
