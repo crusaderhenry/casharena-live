@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { Avatar } from '@/components/Avatar';
 import { TestControls, useTestMode } from '@/components/TestModeToggle';
-import { ChevronLeft, Zap, Lock, Users, Lightbulb, Timer } from 'lucide-react';
+import { ChevronLeft, Zap, Lock, Users } from 'lucide-react';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -63,26 +63,25 @@ export const FingerLobby = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background safe-bottom">
-      <div className="px-5 pt-6 pb-8 space-y-6">
+    <div className="min-h-screen bg-background pb-24">
+      <div className="p-4 space-y-6">
         {/* Header */}
-        <header className="flex items-center gap-4 animate-slide-down">
+        <div className="flex items-center gap-4 pt-2">
           <button 
             onClick={() => {
               play('click');
               buttonClick();
               navigate('/finger');
             }}
-            className="btn-icon"
+            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-foreground">Game Lobby</h1>
+            <h1 className="text-xl font-bold text-foreground">Fastest Finger Lobby</h1>
             <p className="text-sm text-muted-foreground">Waiting for game to start</p>
           </div>
-          <span className="badge-live">Live</span>
-        </header>
+        </div>
 
         {/* Test Controls */}
         <TestControls
@@ -94,63 +93,53 @@ export const FingerLobby = () => {
         />
 
         {/* Countdown */}
-        <div className={`card-premium text-center transition-all duration-300 animate-slide-up ${
-          entryClosed ? 'border-destructive/50' : 'card-glow'
-        }`}>
-          <div className="flex items-center justify-center gap-2 mb-3">
-            {entryClosed ? (
-              <Lock className="w-5 h-5 text-destructive" />
-            ) : (
-              <Timer className="w-5 h-5 text-primary" />
-            )}
+        <div className={`card-premium text-center ${entryClosed ? 'border-destructive/50' : 'glow-primary'}`}>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Zap className={`w-6 h-6 ${entryClosed ? 'text-destructive' : 'text-primary'}`} />
             <span className="text-sm text-muted-foreground font-medium">
               {entryClosed ? 'Entry Closed' : 'Game Starts In'}
             </span>
           </div>
-          <p className={`timer-display ${entryClosed ? 'timer-warning' : ''}`}>
+          <p className={`timer-display ${entryClosed ? 'text-destructive' : ''}`}>
             {formatTime(countdown)}
           </p>
           {entryClosed && (
-            <div className="flex items-center justify-center gap-2 mt-4 text-destructive">
+            <div className="flex items-center justify-center gap-2 mt-3 text-destructive">
               <Lock className="w-4 h-4" />
-              <span className="text-sm font-bold">No more entries allowed</span>
+              <span className="text-sm font-bold">No more entries</span>
             </div>
           )}
         </div>
 
         {/* Pool Info */}
-        <div className="grid grid-cols-2 gap-3 animate-slide-up" style={{ animationDelay: '50ms' }}>
+        <div className="grid grid-cols-2 gap-3">
           <div className="card-premium text-center">
-            <p className="stat-label">Participants</p>
-            <p className="text-3xl font-extrabold text-foreground flex items-center justify-center gap-2">
-              <Users className="w-6 h-6 text-primary" />
+            <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Participants</p>
+            <p className="text-2xl font-black text-foreground flex items-center justify-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
               {MOCK_PLAYERS.length}
             </p>
           </div>
           <div className="card-premium text-center">
-            <p className="stat-label">Total Pool</p>
-            <p className="text-3xl font-extrabold text-money">₦{poolValue.toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Total Pool</p>
+            <p className="text-2xl font-black text-money">₦{poolValue.toLocaleString()}</p>
           </div>
         </div>
 
-        {/* Participants Grid */}
-        <div className="space-y-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-            Players in Lobby ({MOCK_PLAYERS.length})
+        {/* Participants */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+            Players in Lobby
           </h3>
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-4 gap-3">
             {MOCK_PLAYERS.map((player, index) => (
-              <div 
-                key={index} 
-                className="flex flex-col items-center animate-scale-in" 
-                style={{ animationDelay: `${index * 20}ms` }}
-              >
+              <div key={index} className="flex flex-col items-center animate-scale-in" style={{ animationDelay: `${index * 30}ms` }}>
                 <Avatar 
                   name={player} 
-                  size="sm" 
+                  size="md" 
                   isWinner={player === 'You'}
                 />
-                <p className={`text-2xs mt-2 truncate w-full text-center font-medium ${
+                <p className={`text-xs mt-1.5 truncate w-full text-center font-medium ${
                   player === 'You' ? 'text-primary' : 'text-muted-foreground'
                 }`}>
                   {player === 'You' ? 'You' : player.split(' ')[0]}
@@ -161,28 +150,14 @@ export const FingerLobby = () => {
         </div>
 
         {/* Tips */}
-        <div className="card-premium border-primary/20 bg-primary/5 animate-slide-up" style={{ animationDelay: '150ms' }}>
-          <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
-            <Lightbulb className="w-5 h-5 text-primary" />
-            Pro Tips
+        <div className="card-premium border-primary/30 bg-primary/5">
+          <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
+            💡 Pro Tips
           </h3>
-          <ul className="text-sm text-muted-foreground space-y-2">
-            <li className="flex items-start gap-2">
-              <span className="text-primary">•</span>
-              Keep your finger ready on the send button
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-primary">•</span>
-              Short messages are faster to type
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-primary">•</span>
-              Watch the timer - strike at the last second!
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-primary">•</span>
-              Use the voice room to distract opponents 😎
-            </li>
+          <ul className="text-sm text-muted-foreground space-y-1.5">
+            <li>• Keep your finger ready on the send button</li>
+            <li>• Short messages are faster to type</li>
+            <li>• Watch the timer - strike at the last second!</li>
           </ul>
         </div>
       </div>

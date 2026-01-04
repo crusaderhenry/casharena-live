@@ -1,8 +1,6 @@
 import { ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useSounds } from '@/hooks/useSounds';
-import { useHaptics } from '@/hooks/useHaptics';
 
 interface GameCardProps {
   title: string;
@@ -14,7 +12,6 @@ interface GameCardProps {
   accentColor?: 'primary' | 'secondary';
   ctaText?: string;
   badge?: string;
-  badgeType?: 'live' | 'gold' | 'neutral';
 }
 
 export const GameCard = ({
@@ -27,66 +24,46 @@ export const GameCard = ({
   accentColor = 'primary',
   ctaText = 'Join',
   badge,
-  badgeType = 'neutral',
 }: GameCardProps) => {
   const navigate = useNavigate();
-  const { play } = useSounds();
-  const { buttonClick } = useHaptics();
-
-  const handleClick = () => {
-    play('click');
-    buttonClick();
-    navigate(path);
-  };
-
-  const badgeClasses = {
-    live: 'badge-live',
-    gold: 'badge-gold',
-    neutral: 'badge-neutral',
-  };
 
   return (
     <div 
-      className="card-interactive group"
-      onClick={handleClick}
+      className="card-premium cursor-pointer group"
+      onClick={() => navigate(path)}
     >
       <div className="flex items-start gap-4">
-        <div className={`
-          w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0
-          transition-all duration-300 group-hover:scale-105
-          ${accentColor === 'primary' 
-            ? 'bg-primary/15 shadow-glow' 
-            : 'bg-secondary/15 shadow-glow-gold'
-          }
-        `}>
+        <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0 ${
+          accentColor === 'primary' ? 'bg-primary/15' : 'bg-secondary/15'
+        }`} style={{ boxShadow: accentColor === 'primary' ? 'var(--glow-primary)' : 'var(--glow-secondary)' }}>
           {icon}
         </div>
-        
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <h3 className="font-bold text-lg text-foreground">{title}</h3>
             {badge && (
-              <span className={badgeClasses[badgeType]}>
+              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                accentColor === 'primary' 
+                  ? 'bg-primary/20 text-primary' 
+                  : 'bg-secondary/20 text-secondary'
+              }`}>
                 {badge}
               </span>
             )}
           </div>
-          
-          <p className="text-sm text-muted-foreground mb-3 line-clamp-1">{description}</p>
-          
-          <div className="flex items-center gap-4">
-            <span className={`font-bold ${accentColor === 'primary' ? 'text-primary' : 'text-secondary'}`}>
-              ₦{entry.toLocaleString()}
-            </span>
-            <span className="text-muted-foreground text-xs font-medium">{info}</span>
+          <p className="text-sm text-muted-foreground mb-3">{description}</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4 text-sm">
+              <span className={`font-bold ${accentColor === 'primary' ? 'text-primary' : 'text-secondary'}`}>
+                ₦{entry.toLocaleString()}
+              </span>
+              <span className="text-muted-foreground text-xs">{info}</span>
+            </div>
           </div>
         </div>
-        
-        <div className={`
-          flex items-center gap-1 font-bold text-sm 
-          transition-all duration-300 group-hover:translate-x-1
-          ${accentColor === 'primary' ? 'text-primary' : 'text-secondary'}
-        `}>
+        <div className={`flex items-center gap-1 font-bold text-sm ${
+          accentColor === 'primary' ? 'text-primary' : 'text-secondary'
+        } group-hover:translate-x-1 transition-transform`}>
           {ctaText}
           <ChevronRight className="w-4 h-4" />
         </div>

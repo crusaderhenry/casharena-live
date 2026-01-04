@@ -44,18 +44,15 @@ export const TestModeToggle = () => {
   return (
     <button
       onClick={handleToggle}
-      className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+      className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all ${
         isTestMode 
-          ? 'border-test text-test' 
+          ? 'bg-test/20 border-test text-test' 
           : 'bg-card border-border text-muted-foreground hover:border-test/50'
       }`}
-      style={isTestMode ? { 
-        boxShadow: '0 0 20px hsl(280 70% 55% / 0.4)',
-        background: 'linear-gradient(135deg, hsl(280 70% 55% / 0.2) 0%, hsl(280 70% 40% / 0.1) 100%)'
-      } : {}}
+      style={isTestMode ? { boxShadow: '0 0 20px hsl(280 100% 60% / 0.4)' } : {}}
+      title={isTestMode ? 'Test Mode: ON' : 'Test Mode: OFF'}
     >
-      <FlaskConical className="w-4 h-4" />
-      <span className="text-xs font-bold">{isTestMode ? 'TEST ON' : 'Test'}</span>
+      <FlaskConical className="w-5 h-5" />
     </button>
   );
 };
@@ -75,7 +72,7 @@ export const TestControls = ({
   onReset, 
   isStarted = false,
   startLabel = 'Start Test',
-  endLabel = 'Force End'
+  endLabel = 'End Test'
 }: TestControlsProps) => {
   const { isTestMode } = useTestMode();
   const { play } = useSounds();
@@ -91,9 +88,9 @@ export const TestControls = ({
 
   return (
     <div className="test-panel space-y-3">
-      <div className="flex items-center gap-2 text-test font-bold text-sm">
+      <div className="flex items-center gap-2 text-test font-semibold text-sm">
         <FlaskConical className="w-4 h-4" />
-        Test Mode Active
+        Test Mode Controls
       </div>
       <div className="flex gap-2">
         {!isStarted ? (
@@ -118,8 +115,33 @@ export const TestControls = ({
           className="btn-test flex items-center gap-2 px-3"
         >
           <RotateCcw className="w-4 h-4" />
+          Reset
         </button>
       </div>
     </div>
+  );
+};
+
+export const SkipTimerButton = ({ onSkip, label = 'Start Now' }: { onSkip: () => void; label?: string }) => {
+  const { isTestMode } = useTestMode();
+  const { play } = useSounds();
+  const { buttonClick } = useHaptics();
+
+  if (!isTestMode) return null;
+
+  const handleSkip = () => {
+    onSkip();
+    play('success');
+    buttonClick();
+  };
+
+  return (
+    <button
+      onClick={handleSkip}
+      className="btn-test flex items-center gap-2"
+    >
+      <Play className="w-4 h-4" />
+      {label}
+    </button>
   );
 };
