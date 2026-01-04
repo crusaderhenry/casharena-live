@@ -8,7 +8,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useCrusader } from '@/hooks/useCrusader';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { useAudio } from '@/contexts/AudioContext';
-import { Send, Crown, Clock, Mic } from 'lucide-react';
+import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users } from 'lucide-react';
 
 const AI_COMMENTS = [
   'Go!', '💨', 'Mine!', 'Here!', '👀', 'Now!', 'Yes!', '🔥', 'Me!', 'Ha!',
@@ -25,17 +25,24 @@ interface TopThree {
   comment: string;
 }
 
+// Game settings (would come from backend in production)
+const GAME_SETTINGS = {
+  gameDurationSeconds: 30 * 60, // 30 minutes
+  commentTimerSeconds: 60, // 60 seconds between comments
+  dangerThresholdMinutes: 5, // Last 5 minutes is danger zone
+};
+
 export const FingerArena = () => {
   const navigate = useNavigate();
-  const { isTestMode, resetFingerGame, userProfile } = useGame();
+  const { isTestMode, resetFingerGame, userProfile, fingerPoolValue } = useGame();
   const { play } = useSounds();
   const { vibrate, buttonClick } = useHaptics();
   const crusader = useCrusader();
   const { simulatePlayerVoice } = useVoiceChat();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   
-  const [timer, setTimer] = useState(60);
-  const [gameTime, setGameTime] = useState(0);
+  const [timer, setTimer] = useState(GAME_SETTINGS.commentTimerSeconds);
+  const [gameTime, setGameTime] = useState(GAME_SETTINGS.gameDurationSeconds);
   const [inputValue, setInputValue] = useState('');
   const [isGameOver, setIsGameOver] = useState(false);
   const [showFreezeScreen, setShowFreezeScreen] = useState(false);
@@ -44,15 +51,29 @@ export const FingerArena = () => {
   const [topThree, setTopThree] = useState<TopThree[]>([]);
   const [lastLeader, setLastLeader] = useState('');
   const [isShaking, setIsShaking] = useState(false);
+  const [isSpectator, setIsSpectator] = useState(false);
+  const [hostMuted, setHostMuted] = useState(false);
+  const [audienceMuted, setAudienceMuted] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const hasAnnouncedStart = useRef(false);
   const lastHypeRef = useRef(0);
+  const timerRef = useRef(GAME_SETTINGS.commentTimerSeconds);
+
+  // Keep timer ref in sync
+  useEffect(() => {
+    timerRef.current = timer;
+  }, [timer]);
 
   // Start background music
   useEffect(() => {
     playBackgroundMusic('arena');
     return () => stopBackgroundMusic();
   }, []);
+
+  // Handle host mute
+  useEffect(() => {
+    crusader.setEnabled(!hostMuted);
+  }, [hostMuted, crusader]);
 
   // Screen shake when timer < 10
   useEffect(() => {
@@ -62,6 +83,9 @@ export const FingerArena = () => {
       setIsShaking(false);
     }
   }, [timer, isGameOver]);
+
+  // Check for game time danger zone
+  const isGameTimeDanger = gameTime <= GAME_SETTINGS.dangerThresholdMinutes * 60;
 
   // Update top 3 from comments
   useEffect(() => {
@@ -118,7 +142,8 @@ export const FingerArena = () => {
 
     const interval = setInterval(() => {
       // Much higher chance for busy chat
-      const chance = timer < 15 ? 0.85 : timer < 30 ? 0.7 : timer < 45 ? 0.5 : 0.4;
+      const currentTimer = timerRef.current;
+      const chance = currentTimer < 15 ? 0.85 : currentTimer < 30 ? 0.7 : currentTimer < 45 ? 0.5 : 0.4;
       
       if (Math.random() < chance) {
         const randomPlayer = mockPlayers[Math.floor(Math.random() * mockPlayers.length)];
@@ -134,10 +159,11 @@ export const FingerArena = () => {
         };
         
         setLocalComments(prev => [newComment, ...prev].slice(0, 100));
-        setTimer(60);
+        // Reset timer to 60 when AI comment comes in
+        setTimer(GAME_SETTINGS.commentTimerSeconds);
         
-        // Simulate player voice chat occasionally
-        if (Math.random() > 0.85) {
+        // Simulate player voice chat occasionally (respect audience mute)
+        if (Math.random() > 0.85 && !audienceMuted) {
           simulatePlayerVoice(randomPlayer.name);
         }
         
@@ -149,7 +175,7 @@ export const FingerArena = () => {
     }, 300 + Math.random() * 600); // Much faster interval: 300-900ms
 
     return () => clearInterval(interval);
-  }, [timer, isGameOver]);
+  }, [isGameOver, audienceMuted]);
 
   // Random hype from Crusader
   useEffect(() => {
@@ -166,7 +192,7 @@ export const FingerArena = () => {
     return () => clearInterval(interval);
   }, [isGameOver, crusader]);
 
-  // Timer countdown with sound effects and Crusader
+  // Comment timer countdown (resets on new comment)
   useEffect(() => {
     if (isGameOver) return;
 
@@ -191,18 +217,27 @@ export const FingerArena = () => {
         
         return prev - 1;
       });
-      
-      setGameTime(prev => {
-        if (prev >= 1200) {
-          endGame(true);
-          return prev;
-        }
-        return prev + 1;
-      });
     }, 1000);
 
     return () => clearInterval(interval);
   }, [isGameOver, play, vibrate, crusader, playBackgroundMusic]);
+
+  // Game time countdown (30 min total)
+  useEffect(() => {
+    if (isGameOver) return;
+
+    const interval = setInterval(() => {
+      setGameTime(prev => {
+        if (prev <= 1) {
+          endGame(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isGameOver]);
 
   const endGame = (timeout = false) => {
     setIsGameOver(true);
@@ -212,11 +247,34 @@ export const FingerArena = () => {
     play('gameOver');
     vibrate('success');
     
+    // Announce game over first
     crusader.announceGameOver();
-    if (topThree[0]) {
-      crusader.announceWinner(topThree[0].name);
+    
+    // Announce all winners
+    if (topThree.length > 0) {
+      // Announce 1st place winner
+      setTimeout(() => {
+        if (topThree[0]) {
+          crusader.announceWinner(topThree[0].name, 1);
+        }
+      }, 2000);
+      
+      // Announce 2nd place
+      setTimeout(() => {
+        if (topThree[1]) {
+          crusader.announceWinner(topThree[1].name, 2);
+        }
+      }, 4000);
+      
+      // Announce 3rd place
+      setTimeout(() => {
+        if (topThree[2]) {
+          crusader.announceWinner(topThree[2].name, 3);
+        }
+      }, 6000);
     }
-    showSystemMessage(timeout ? '⏰ Game auto-ended - 20 min limit!' : '🏆 60 seconds passed - Game over!');
+    
+    showSystemMessage(timeout ? '⏰ Game time ended - 30 min limit!' : '🏆 60 seconds passed - Game over!');
   };
 
   // Navigate to results after freeze screen
@@ -227,18 +285,18 @@ export const FingerArena = () => {
         navigate('/finger/results', { 
           state: { 
             winners: lastThreeCommenters,
-            totalPool: 23 * 700,
+            totalPool: fingerPoolValue,
             isWinner: lastThreeCommenters.includes(userProfile.username),
             position: lastThreeCommenters.indexOf(userProfile.username) + 1,
           } 
         });
-      }, 4000);
+      }, 8000); // Extended to allow winner announcements
       return () => clearTimeout(timer);
     }
-  }, [showFreezeScreen, localComments, navigate, userProfile.username]);
+  }, [showFreezeScreen, localComments, navigate, userProfile.username, fingerPoolValue]);
 
   const handleSend = () => {
-    if (!inputValue.trim() || isGameOver) return;
+    if (!inputValue.trim() || isGameOver || isSpectator) return;
 
     const newComment: Comment = {
       id: `user_${Date.now()}`,
@@ -250,7 +308,8 @@ export const FingerArena = () => {
     };
 
     setLocalComments(prev => [newComment, ...prev].slice(0, 100));
-    setTimer(60);
+    // Reset timer to 60 seconds
+    setTimer(GAME_SETTINGS.commentTimerSeconds);
     setInputValue('');
     showSystemMessage("⏱️ Timer reset - You're leading!");
     
@@ -285,8 +344,8 @@ export const FingerArena = () => {
 
   const handleTestReset = () => {
     resetFingerGame();
-    setTimer(60);
-    setGameTime(0);
+    setTimer(GAME_SETTINGS.commentTimerSeconds);
+    setGameTime(GAME_SETTINGS.gameDurationSeconds);
     setIsGameOver(false);
     setShowFreezeScreen(false);
     setLocalComments([]);
@@ -294,6 +353,12 @@ export const FingerArena = () => {
     setLastLeader('');
     setIsShaking(false);
     hasAnnouncedStart.current = false;
+  };
+
+  const formatGameTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   // Freeze Screen
@@ -364,7 +429,23 @@ export const FingerArena = () => {
               <Clock className="w-3 h-3" />
               Game Time
             </div>
-            <p className="font-bold text-foreground">{Math.floor(gameTime / 60)}:{(gameTime % 60).toString().padStart(2, '0')}</p>
+            <p className={`font-bold ${isGameTimeDanger ? 'text-destructive animate-pulse' : 'text-foreground'}`}>
+              {formatGameTime(gameTime)}
+            </p>
+          </div>
+        </div>
+
+        {/* Pool Display */}
+        <div className="bg-gradient-to-r from-primary/20 to-secondary/20 rounded-xl p-3 mb-3 border border-primary/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">💰</span>
+              <span className="text-sm text-muted-foreground">Prize Pool</span>
+            </div>
+            <div className="text-right">
+              <p className="font-black text-xl text-primary">₦{fingerPoolValue.toLocaleString()}</p>
+              <p className="text-[10px] text-muted-foreground">{mockPlayers.length + 10} players</p>
+            </div>
           </div>
         </div>
         
@@ -408,15 +489,45 @@ export const FingerArena = () => {
           </div>
         </div>
 
-        {/* Crusader Host Bar */}
+        {/* Crusader Host Bar with Mute Controls */}
         <div className="mt-2 flex items-center gap-2 bg-primary/10 rounded-lg px-3 py-1.5 border border-primary/30">
           <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-sm">
             🎙️
           </div>
           <span className="text-xs text-primary font-medium">Crusader</span>
-          <Mic className="w-3 h-3 text-primary animate-pulse" />
+          {!hostMuted && <Mic className="w-3 h-3 text-primary animate-pulse" />}
           <span className="text-[10px] text-muted-foreground ml-1">Hosting live</span>
+          
+          <div className="ml-auto flex items-center gap-2">
+            {/* Host Mute */}
+            <button
+              onClick={() => setHostMuted(!hostMuted)}
+              className={`p-1.5 rounded-full transition-all ${hostMuted ? 'bg-destructive/20 text-destructive' : 'bg-primary/20 text-primary'}`}
+              title={hostMuted ? 'Unmute Host' : 'Mute Host'}
+            >
+              {hostMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            </button>
+            
+            {/* Audience Mute */}
+            <button
+              onClick={() => setAudienceMuted(!audienceMuted)}
+              className={`p-1.5 rounded-full transition-all ${audienceMuted ? 'bg-destructive/20 text-destructive' : 'bg-muted text-muted-foreground'}`}
+              title={audienceMuted ? 'Unmute Audience' : 'Mute Audience'}
+            >
+              <Users className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
+
+        {/* Spectator Mode Badge */}
+        {isSpectator && (
+          <div className="mt-2 bg-orange-500/20 border border-orange-500/50 rounded-lg px-3 py-2 text-center">
+            <p className="text-xs text-orange-400 font-medium flex items-center justify-center gap-1">
+              <Users className="w-3 h-3" />
+              Spectator Mode - Watch only
+            </p>
+          </div>
+        )}
 
         {/* System Message */}
         {systemMessage && (
@@ -427,19 +538,29 @@ export const FingerArena = () => {
 
         {/* Test Controls */}
         {isTestMode && (
-          <div className="mt-3">
+          <div className="mt-3 space-y-2">
             <TestControls
               onEnd={handleTestEnd}
               onReset={handleTestReset}
               endLabel="End & Win"
             />
+            <button
+              onClick={() => setIsSpectator(!isSpectator)}
+              className="w-full text-xs py-1.5 rounded bg-muted text-muted-foreground"
+            >
+              Toggle Spectator Mode
+            </button>
           </div>
         )}
       </div>
 
       {/* Voice Room */}
       <div className="px-4 py-2">
-        <VoiceRoom players={mockPlayers.slice(0, 6)} />
+        <VoiceRoom 
+          players={mockPlayers.slice(0, 6)} 
+          audienceMuted={audienceMuted}
+          isSpectator={isSpectator}
+        />
       </div>
 
       {/* Chat Feed */}
@@ -489,23 +610,30 @@ export const FingerArena = () => {
 
       {/* Input */}
       <div className="bg-card/98 backdrop-blur-xl border-t border-border/50 p-4 sticky bottom-0">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type to claim the lead..."
-            className="flex-1 bg-muted/50 border border-border/50 rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!inputValue.trim()}
-            className="btn-primary px-5 disabled:opacity-50"
-          >
-            <Send className="w-5 h-5" />
-          </button>
-        </div>
+        {isSpectator ? (
+          <div className="text-center py-3 bg-muted/50 rounded-xl">
+            <p className="text-sm text-muted-foreground">👀 You're watching as a spectator</p>
+            <p className="text-xs text-muted-foreground mt-1">You can still talk in voice chat</p>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type to claim the lead..."
+              className="flex-1 bg-muted/50 border border-border/50 rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+            <button
+              onClick={handleSend}
+              disabled={!inputValue.trim()}
+              className="btn-primary px-5 disabled:opacity-50"
+            >
+              <Send className="w-5 h-5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

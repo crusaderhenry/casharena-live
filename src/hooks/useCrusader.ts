@@ -58,10 +58,21 @@ const CRUSADER_PHRASES = {
     "It's done! Crusader is EXHAUSTED!",
     "The dust has settled! Champions have risen!",
   ],
-  winner_announce: [
-    "Give it up for {name}! CHAMPION!",
-    "{name} just secured the BAG! Let's go!",
-    "Victory for {name}! Absolutely LEGENDARY!",
+  winner_announce_1st: [
+    "Give it up for {name}! CHAMPION! First place baby!",
+    "{name} just secured the BAG! Our number one winner!",
+    "Victory for {name}! First place, absolutely LEGENDARY!",
+    "And your CHAMPION is {name}! Taking home the gold!",
+  ],
+  winner_announce_2nd: [
+    "In second place, we have {name}! Silver medalist!",
+    "{name} grabs that second spot! Great run!",
+    "Runner up is {name}! So close to the crown!",
+  ],
+  winner_announce_3rd: [
+    "And bronze goes to {name}! Third place finisher!",
+    "{name} rounds out our top 3! Well played!",
+    "Taking third place, give it up for {name}!",
   ],
   hype_random: [
     "This is getting INTENSE!",
@@ -212,9 +223,10 @@ export const useCrusader = () => {
     speak(getRandomPhrase('game_over'));
   }, [speak]);
 
-  const announceWinner = useCallback((winnerName: string) => {
+  const announceWinner = useCallback((winnerName: string, position?: number) => {
     setTimeout(() => {
-      speak(getRandomPhrase('winner_announce', { name: winnerName }));
+      const category = position === 2 ? 'winner_announce_2nd' : position === 3 ? 'winner_announce_3rd' : 'winner_announce_1st';
+      speak(getRandomPhrase(category, { name: winnerName }));
     }, 1500);
   }, [speak]);
 
