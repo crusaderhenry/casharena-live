@@ -42,11 +42,11 @@ serve(async (req) => {
           text,
           model_id: "eleven_turbo_v2_5", // Fast model for real-time
           voice_settings: {
-            stability: 0.4, // Lower for more expressive
-            similarity_boost: 0.75,
-            style: 0.6, // More stylized for commentary
+            stability: 0.6, // Higher for cloned voice consistency
+            similarity_boost: 0.85, // High to stay true to original voice
+            style: 0.4, // Lower to preserve natural clone sound
             use_speaker_boost: true,
-            speed: 1.15, // Slightly faster for excitement
+            speed: 1.1, // Slightly faster for energetic commentary
           },
         }),
       }
