@@ -1,15 +1,24 @@
 import { useState, useEffect } from 'react';
-import { Mic, MicOff, Eye } from 'lucide-react';
+import { Mic, MicOff, Eye, Volume2, VolumeX } from 'lucide-react';
 import { Player } from '@/contexts/GameContext';
 
 interface VoiceRoomProps {
   players: Player[];
   onMicToggle?: (isMuted: boolean) => void;
   audienceMuted?: boolean;
+  onAudienceMuteToggle?: (isMuted: boolean) => void;
+  audienceCount?: number;
   isSpectator?: boolean;
 }
 
-export const VoiceRoom = ({ players, onMicToggle, audienceMuted = false, isSpectator = false }: VoiceRoomProps) => {
+export const VoiceRoom = ({
+  players,
+  onMicToggle,
+  audienceMuted = false,
+  onAudienceMuteToggle,
+  audienceCount,
+  isSpectator = false,
+}: VoiceRoomProps) => {
   const [isMuted, setIsMuted] = useState(true);
   const [speakingPlayers, setSpeakingPlayers] = useState<Set<string>>(new Set());
 
@@ -25,7 +34,7 @@ export const VoiceRoom = ({ players, onMicToggle, audienceMuted = false, isSpect
         const randomIndex = Math.floor(Math.random() * Math.min(players.length, 5));
         const playerId = players[randomIndex]?.id;
         if (playerId) {
-          setSpeakingPlayers(prev => {
+          setSpeakingPlayers((prev) => {
             const next = new Set(prev);
             if (next.has(playerId)) {
               next.delete(playerId);
@@ -47,8 +56,14 @@ export const VoiceRoom = ({ players, onMicToggle, audienceMuted = false, isSpect
   }, [players, audienceMuted]);
 
   const handleMicToggle = () => {
-    setIsMuted(!isMuted);
-    onMicToggle?.(!isMuted);
+    const next = !isMuted;
+    setIsMuted(next);
+    onMicToggle?.(next);
+  };
+
+  const handleAudienceToggle = () => {
+    const next = !audienceMuted;
+    onAudienceMuteToggle?.(next);
   };
 
   const displayPlayers = players.slice(0, 8);
@@ -61,27 +76,51 @@ export const VoiceRoom = ({ players, onMicToggle, audienceMuted = false, isSpect
             <MicOff className="w-4 h-4 text-destructive" />
           ) : (
             <div className="voice-wave">
-              <span /><span /><span /><span /><span />
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
             </div>
           )}
-          <span className="text-sm font-semibold text-foreground">Voice Room</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-foreground">Voice Room</span>
+            {typeof audienceCount === 'number' && (
+              <span className="text-[10px] text-muted-foreground">
+                • {audienceCount} listening
+              </span>
+            )}
+          </div>
           {isSpectator && (
             <span className="px-2 py-0.5 text-[10px] bg-orange-500/20 text-orange-400 rounded-full flex items-center gap-1">
               <Eye className="w-3 h-3" /> Spectator
             </span>
           )}
         </div>
-        <button
-          onClick={handleMicToggle}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-            isMuted 
-              ? 'bg-destructive/20 text-destructive' 
-              : 'bg-primary/20 text-primary avatar-speaking'
-          }`}
-          title={isSpectator ? 'Spectators can still talk' : (isMuted ? 'Unmute' : 'Mute')}
-        >
-          {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* Audience mute (hearing others) */}
+          <button
+            onClick={handleAudienceToggle}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+              audienceMuted ? 'bg-destructive/20 text-destructive' : 'bg-muted text-muted-foreground'
+            }`}
+            title={audienceMuted ? 'Unmute Audience' : 'Mute Audience'}
+          >
+            {audienceMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+          </button>
+
+          {/* Your mic */}
+          <button
+            onClick={handleMicToggle}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+              isMuted ? 'bg-destructive/20 text-destructive' : 'bg-primary/20 text-primary avatar-speaking'
+            }`}
+            title={isSpectator ? 'Spectators can still talk' : isMuted ? 'Unmute' : 'Mute'}
+          >
+            {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -89,7 +128,7 @@ export const VoiceRoom = ({ players, onMicToggle, audienceMuted = false, isSpect
           const isSpeaking = speakingPlayers.has(player.id) && !audienceMuted;
           return (
             <div key={player.id} className="flex flex-col items-center gap-1">
-              <div 
+              <div
                 className={`w-12 h-12 rounded-full bg-card-elevated flex items-center justify-center text-xl transition-all ${
                   isSpeaking ? 'avatar-speaking' : ''
                 } ${audienceMuted ? 'opacity-50' : ''}`}
@@ -101,7 +140,9 @@ export const VoiceRoom = ({ players, onMicToggle, audienceMuted = false, isSpect
               </span>
               {isSpeaking && (
                 <div className="voice-wave scale-75">
-                  <span /><span /><span />
+                  <span />
+                  <span />
+                  <span />
                 </div>
               )}
             </div>
