@@ -2,23 +2,17 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { WalletCard } from '@/components/WalletCard';
-import { TestControls, useTestMode } from '@/components/TestModeToggle';
+import { TestControls } from '@/components/TestControls';
 import { useWallet } from '@/contexts/WalletContext';
 import { useGame } from '@/contexts/GameContext';
 import { ChevronLeft, Zap, Users, Clock, Trophy, MessageSquare } from 'lucide-react';
-import { useSounds } from '@/hooks/useSounds';
-import { useHaptics } from '@/hooks/useHaptics';
 
 export const FingerMain = () => {
   const navigate = useNavigate();
   const { balance, deductFunds } = useWallet();
-  const { hasJoinedFinger, joinFinger, resetFinger, addActivity } = useGame();
-  const { play } = useSounds();
-  const { buttonClick, success } = useHaptics();
-  const { isTestMode } = useTestMode();
+  const { hasJoinedFinger, joinFinger, resetFingerGame, isTestMode } = useGame();
   
   const [countdown, setCountdown] = useState(900);
-  const [isTestStarted, setIsTestStarted] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -36,31 +30,20 @@ export const FingerMain = () => {
   const handleJoin = () => {
     if (deductFunds(700, 'finger_entry', 'Fastest Finger Entry')) {
       joinFinger();
-      addActivity('Joined Fastest Finger lobby', 'finger');
-      play('coin');
-      success();
       navigate('/finger/lobby');
     }
   };
 
   const handleTestStart = () => {
-    setIsTestStarted(true);
     if (!hasJoinedFinger) {
-      if (deductFunds(700, 'finger_entry', 'Fastest Finger Entry')) {
-        joinFinger();
-        addActivity('Joined Fastest Finger lobby', 'finger');
-      }
+      deductFunds(700, 'finger_entry', 'Fastest Finger Entry');
+      joinFinger();
     }
     navigate('/finger/arena');
   };
 
-  const handleTestEnd = () => {
-    navigate('/finger/results');
-  };
-
   const handleTestReset = () => {
-    setIsTestStarted(false);
-    resetFinger();
+    resetFingerGame();
     setCountdown(900);
   };
 
@@ -70,11 +53,7 @@ export const FingerMain = () => {
         {/* Header */}
         <div className="flex items-center gap-4 pt-2">
           <button 
-            onClick={() => {
-              play('click');
-              buttonClick();
-              navigate('/home');
-            }}
+            onClick={() => navigate('/home')}
             className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -90,73 +69,68 @@ export const FingerMain = () => {
         {/* Test Controls */}
         <TestControls
           onStart={handleTestStart}
-          onEnd={handleTestEnd}
           onReset={handleTestReset}
-          isStarted={isTestStarted}
           startLabel="Start Live Game"
-          endLabel="View Results"
         />
 
         {/* Game Info */}
-        <div className="card-premium">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-14 h-14 rounded-xl bg-primary/15 flex items-center justify-center glow-primary">
-              <Zap className="w-7 h-7 text-primary" />
+        <div className="card-game">
+          <div className="relative z-10">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-14 h-14 rounded-xl bg-primary/15 flex items-center justify-center glow-primary">
+                <Zap className="w-7 h-7 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-bold text-lg text-foreground">Live Comment Battle</h2>
+                <p className="text-sm text-muted-foreground">Be the last standing!</p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-bold text-lg text-foreground">Live Comment Battle</h2>
-              <p className="text-sm text-muted-foreground">Be the last standing!</p>
-            </div>
-          </div>
 
-          <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl p-5 mb-4 text-center border border-primary/20">
-            <p className="text-sm text-muted-foreground mb-1">Next Game In</p>
-            <p className="timer-display">{formatTime(countdown)}</p>
-          </div>
+            <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl p-5 mb-4 text-center border border-primary/20">
+              <p className="text-sm text-muted-foreground mb-1">Next Game In</p>
+              <p className="timer-display">{formatTime(countdown)}</p>
+            </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
-              <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Entry</p>
-              <p className="font-bold text-primary">₦700</p>
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
+                <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Entry</p>
+                <p className="font-bold text-primary">₦700</p>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
+                <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Waiting</p>
+                <p className="font-bold text-foreground flex items-center justify-center gap-1">
+                  <Users className="w-4 h-4 text-primary" /> 23
+                </p>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
+                <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Winners</p>
+                <p className="font-bold text-primary flex items-center justify-center gap-1">
+                  <Trophy className="w-4 h-4" /> Top 3
+                </p>
+              </div>
             </div>
-            <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
-              <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Waiting</p>
-              <p className="font-bold text-foreground flex items-center justify-center gap-1">
-                <Users className="w-4 h-4 text-primary" /> 23
-              </p>
-            </div>
-            <div className="bg-muted/30 rounded-xl p-3 text-center border border-border/50">
-              <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Winners</p>
-              <p className="font-bold text-secondary flex items-center justify-center gap-1">
-                <Trophy className="w-4 h-4" /> Top 3
-              </p>
-            </div>
-          </div>
 
-          {hasJoinedFinger ? (
-            <button
-              onClick={() => {
-                play('click');
-                buttonClick();
-                navigate('/finger/lobby');
-              }}
-              className="w-full btn-primary"
-            >
-              Go to Lobby
-            </button>
-          ) : (
-            <button
-              onClick={handleJoin}
-              disabled={balance < 700}
-              className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {balance < 700 ? 'Insufficient Balance' : 'Join Lobby - ₦700'}
-            </button>
-          )}
+            {hasJoinedFinger ? (
+              <button
+                onClick={() => navigate('/finger/lobby')}
+                className="w-full btn-primary"
+              >
+                Go to Lobby
+              </button>
+            ) : (
+              <button
+                onClick={handleJoin}
+                disabled={balance < 700}
+                className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {balance < 700 ? 'Insufficient Balance' : 'Join Lobby - ₦700'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* How to Play */}
-        <div className="card-premium">
+        <div className="card-panel">
           <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-primary" />
             How to Win
@@ -182,22 +156,22 @@ export const FingerMain = () => {
         </div>
 
         {/* Prize Split */}
-        <div className="card-premium">
+        <div className="card-panel">
           <h3 className="font-bold text-foreground mb-3">Prize Distribution</h3>
           <div className="space-y-2">
-            <div className="flex items-center justify-between p-3 bg-gold/10 rounded-xl border border-gold/30">
+            <div className="flex items-center justify-between p-3 rounded-xl podium-1">
               <span className="flex items-center gap-2 font-medium">
                 <span className="text-lg">🥇</span> 1st Place
               </span>
               <span className="font-bold text-gold">50% of pool</span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-silver/10 rounded-xl border border-silver/30">
+            <div className="flex items-center justify-between p-3 rounded-xl podium-2">
               <span className="flex items-center gap-2 font-medium">
                 <span className="text-lg">🥈</span> 2nd Place
               </span>
               <span className="font-bold text-silver">30% of pool</span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-bronze/10 rounded-xl border border-bronze/30">
+            <div className="flex items-center justify-between p-3 rounded-xl podium-3">
               <span className="flex items-center gap-2 font-medium">
                 <span className="text-lg">🥉</span> 3rd Place
               </span>

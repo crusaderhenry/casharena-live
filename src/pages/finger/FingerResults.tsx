@@ -1,20 +1,18 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
-import { Avatar } from '@/components/Avatar';
 import { Confetti } from '@/components/Confetti';
+import { ShareCard } from '@/components/ShareCard';
 import { useWallet } from '@/contexts/WalletContext';
 import { useGame } from '@/contexts/GameContext';
-import { useEffect } from 'react';
-import { useSounds } from '@/hooks/useSounds';
-import { useHaptics } from '@/hooks/useHaptics';
+import { useEffect, useState } from 'react';
+import { Crown } from 'lucide-react';
 
 export const FingerResults = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { addWinnings } = useWallet();
-  const { setFingerPosition, resetFinger, addActivity } = useGame();
-  const { play } = useSounds();
-  const { success, buttonClick } = useHaptics();
+  const { setFingerPosition, resetFingerGame, addActivity, userProfile } = useGame();
+  const [showShare, setShowShare] = useState(false);
 
   const state = location.state as {
     winners: string[];
@@ -23,7 +21,7 @@ export const FingerResults = () => {
     position: number;
   } | undefined;
 
-  const winners = state?.winners ?? ['Adebayo K.', 'Chidinma U.', 'Emeka A.'];
+  const winners = state?.winners ?? ['CryptoKing', 'LuckyAce', 'FastHands'];
   const totalPool = state?.totalPool ?? 16100;
   const isWinner = state?.isWinner ?? false;
   const position = state?.position ?? 0;
@@ -41,15 +39,19 @@ export const FingerResults = () => {
       const prize = prizes[position - 1];
       setFingerPosition(position);
       addWinnings(prize, 'finger_win', `Fastest Finger ${position === 1 ? '1st' : position === 2 ? '2nd' : '3rd'} Place`);
-      addActivity(`Won ₦${prize.toLocaleString()} in Fastest Finger! 🏆`, 'finger');
-      play('win');
-      success();
+      addActivity({
+        type: 'finger_win',
+        playerName: userProfile.username,
+        playerAvatar: userProfile.avatar,
+        amount: prize,
+        position: position,
+      });
     }
     
     return () => {
-      resetFinger();
+      resetFingerGame();
     };
-  }, [isWinner, position]);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background pb-24 flex flex-col">
@@ -72,8 +74,10 @@ export const FingerResults = () => {
         <div className="flex items-end justify-center gap-4 mb-8">
           {/* 2nd Place */}
           <div className="flex flex-col items-center">
-            <Avatar name={winners[1] || 'Player'} size="lg" position={2} />
-            <div className="bg-silver/15 rounded-t-xl px-4 py-6 mt-2 text-center border-t border-l border-r border-silver/30" style={{ height: '80px' }}>
+            <div className="w-14 h-14 rounded-full bg-card-elevated flex items-center justify-center text-2xl border-2 border-silver">
+              🥈
+            </div>
+            <div className="podium-2 rounded-t-xl px-4 py-6 mt-2 text-center" style={{ height: '80px' }}>
               <p className="font-bold text-sm text-foreground">{winners[1]?.split(' ')[0] || '2nd'}</p>
               <p className="text-xs text-silver">₦{prizes[1].toLocaleString()}</p>
             </div>
@@ -82,8 +86,10 @@ export const FingerResults = () => {
           {/* 1st Place */}
           <div className="flex flex-col items-center -mt-4">
             <div className="text-3xl mb-2">👑</div>
-            <Avatar name={winners[0] || 'Player'} size="xl" position={1} isWinner />
-            <div className="bg-gold/15 rounded-t-xl px-6 py-8 mt-2 text-center border-t border-l border-r border-gold/30" style={{ height: '100px' }}>
+            <div className="w-18 h-18 rounded-full bg-card-elevated flex items-center justify-center text-3xl border-2 border-gold avatar-gold animate-winner-glow">
+              🥇
+            </div>
+            <div className="podium-1 rounded-t-xl px-6 py-8 mt-2 text-center" style={{ height: '100px' }}>
               <p className="font-bold text-foreground">{winners[0]?.split(' ')[0] || '1st'}</p>
               <p className="text-sm font-bold text-gold">₦{prizes[0].toLocaleString()}</p>
             </div>
@@ -91,8 +97,10 @@ export const FingerResults = () => {
 
           {/* 3rd Place */}
           <div className="flex flex-col items-center">
-            <Avatar name={winners[2] || 'Player'} size="lg" position={3} />
-            <div className="bg-bronze/15 rounded-t-xl px-4 py-4 mt-2 text-center border-t border-l border-r border-bronze/30" style={{ height: '60px' }}>
+            <div className="w-14 h-14 rounded-full bg-card-elevated flex items-center justify-center text-2xl border-2 border-bronze">
+              🥉
+            </div>
+            <div className="podium-3 rounded-t-xl px-4 py-4 mt-2 text-center" style={{ height: '60px' }}>
               <p className="font-bold text-sm text-foreground">{winners[2]?.split(' ')[0] || '3rd'}</p>
               <p className="text-xs text-bronze">₦{prizes[2].toLocaleString()}</p>
             </div>
@@ -101,15 +109,36 @@ export const FingerResults = () => {
 
         {/* Your Result */}
         {isWinner && (
-          <div className="card-premium border-primary/50 glow-primary text-center mb-6">
+          <div className="card-panel border-primary/50 glow-primary text-center mb-6">
             <p className="text-sm text-muted-foreground mb-2">Your Prize</p>
-            <p className="text-4xl font-black text-money">₦{prizes[position - 1].toLocaleString()}</p>
+            <p className="money-gold text-4xl">₦{prizes[position - 1].toLocaleString()}</p>
             <p className="text-sm text-muted-foreground mt-2">Added to your wallet! ✨</p>
+            <button onClick={() => setShowShare(true)} className="mt-4 btn-outline w-full">
+              Share Your Win
+            </button>
+          </div>
+        )}
+
+        {/* Share Modal */}
+        {showShare && isWinner && (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-sm">
+              <ShareCard
+                username={userProfile.username}
+                avatar={userProfile.avatar}
+                position={position}
+                amount={prizes[position - 1]}
+                gameType="finger"
+              />
+              <button onClick={() => setShowShare(false)} className="w-full mt-4 py-3 text-muted-foreground">
+                Close
+              </button>
+            </div>
           </div>
         )}
 
         {/* Stats */}
-        <div className="card-premium mb-6">
+        <div className="card-panel mb-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center">
               <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Total Pool</p>
@@ -122,31 +151,16 @@ export const FingerResults = () => {
           </div>
         </div>
 
-        {/* Notice */}
-        <div className="text-center mb-8">
-          <p className="text-sm text-muted-foreground">
-            Next Fastest Finger game starts soon!
-          </p>
-        </div>
-
         {/* Actions */}
         <div className="space-y-3">
           <button
-            onClick={() => {
-              play('click');
-              buttonClick();
-              navigate('/finger');
-            }}
+            onClick={() => navigate('/finger')}
             className="w-full btn-outline"
           >
             Join Next Game
           </button>
           <button
-            onClick={() => {
-              play('click');
-              buttonClick();
-              navigate('/home');
-            }}
+            onClick={() => navigate('/home')}
             className="w-full btn-primary"
           >
             Return to Home
