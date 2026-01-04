@@ -1,21 +1,39 @@
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { WalletCard } from '@/components/WalletCard';
+import { SkipTimerButton, useTestMode } from '@/components/TestModeToggle';
 import { useWallet } from '@/contexts/WalletContext';
 import { useGame } from '@/contexts/GameContext';
 import { ChevronLeft, Trophy, Users, Clock, ChevronRight } from 'lucide-react';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
 
 export const ArenaMain = () => {
   const navigate = useNavigate();
   const { balance, deductFunds } = useWallet();
   const { hasJoinedArena, joinArena, addActivity } = useGame();
+  const { play } = useSounds();
+  const { buttonClick, success } = useHaptics();
+  const { isTestMode } = useTestMode();
 
   const handleJoin = () => {
     if (deductFunds(500, 'arena_entry', 'Daily Arena Entry')) {
       joinArena();
       addActivity('Joined Daily Cash Arena', 'arena');
+      play('coin');
+      success();
       navigate('/arena/challenge');
     }
+  };
+
+  const handleSkip = () => {
+    if (!hasJoinedArena) {
+      if (deductFunds(500, 'arena_entry', 'Daily Arena Entry')) {
+        joinArena();
+        addActivity('Joined Daily Cash Arena', 'arena');
+      }
+    }
+    navigate('/arena/challenge');
   };
 
   return (
@@ -24,7 +42,11 @@ export const ArenaMain = () => {
         {/* Header */}
         <div className="flex items-center gap-4 pt-2">
           <button 
-            onClick={() => navigate('/home')}
+            onClick={() => {
+              play('click');
+              buttonClick();
+              navigate('/home');
+            }}
             className="w-10 h-10 rounded-xl bg-card flex items-center justify-center"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -72,11 +94,20 @@ export const ArenaMain = () => {
             <p className="text-sm text-muted-foreground mb-2">Prize Pool</p>
             <p className="text-3xl font-bold text-money">₦423,500</p>
             <p className="text-xs text-muted-foreground mt-1">Top 50 players share rewards</p>
+            {isTestMode && (
+              <div className="mt-3">
+                <SkipTimerButton onSkip={handleSkip} label="Start Challenge Now" />
+              </div>
+            )}
           </div>
 
           {hasJoinedArena ? (
             <button
-              onClick={() => navigate('/arena/challenge')}
+              onClick={() => {
+                play('click');
+                buttonClick();
+                navigate('/arena/challenge');
+              }}
               className="w-full btn-primary flex items-center justify-center gap-2"
             >
               Continue Challenge
@@ -95,7 +126,11 @@ export const ArenaMain = () => {
 
         {/* Leaderboard Preview */}
         <button
-          onClick={() => navigate('/arena/leaderboard')}
+          onClick={() => {
+            play('click');
+            buttonClick();
+            navigate('/arena/leaderboard');
+          }}
           className="w-full card-game flex items-center justify-between"
         >
           <div className="flex items-center gap-3">

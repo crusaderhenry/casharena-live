@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { Avatar } from '@/components/Avatar';
-import { ChevronLeft, Zap, Lock } from 'lucide-react';
+import { SkipTimerButton, useTestMode } from '@/components/TestModeToggle';
+import { ChevronLeft, Zap, Lock, Users } from 'lucide-react';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const MOCK_PLAYERS = [
   'You', 'Adebayo K.', 'Chidinma U.', 'Emeka A.', 'Fatima B.',
@@ -16,14 +19,22 @@ export const FingerLobby = () => {
   const navigate = useNavigate();
   const [countdown, setCountdown] = useState(300); // 5 minutes
   const [entryClosed, setEntryClosed] = useState(false);
+  const { play } = useSounds();
+  const { warning } = useHaptics();
+  const { isTestMode } = useTestMode();
 
   const poolValue = MOCK_PLAYERS.length * 700;
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown(prev => {
-        if (prev <= 60) {
+        if (prev <= 60 && !entryClosed) {
           setEntryClosed(true);
+          play('timer');
+          warning();
+        }
+        if (prev <= 10 && prev > 0) {
+          play('countdown');
         }
         if (prev <= 0) {
           clearInterval(timer);
@@ -34,12 +45,16 @@ export const FingerLobby = () => {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [navigate]);
+  }, [navigate, entryClosed, play, warning]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handleSkip = () => {
+    navigate('/finger/arena');
   };
 
   return (
@@ -76,13 +91,21 @@ export const FingerLobby = () => {
               <span className="text-sm font-medium">No more entries</span>
             </div>
           )}
+          {isTestMode && (
+            <div className="mt-4">
+              <SkipTimerButton onSkip={handleSkip} label="Start Game Now" />
+            </div>
+          )}
         </div>
 
         {/* Pool Info */}
         <div className="grid grid-cols-2 gap-3">
           <div className="card-game text-center">
             <p className="text-xs text-muted-foreground mb-1">Participants</p>
-            <p className="text-2xl font-bold text-foreground">{MOCK_PLAYERS.length}</p>
+            <p className="text-2xl font-bold text-foreground flex items-center justify-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              {MOCK_PLAYERS.length}
+            </p>
           </div>
           <div className="card-game text-center">
             <p className="text-xs text-muted-foreground mb-1">Total Pool</p>
@@ -97,7 +120,7 @@ export const FingerLobby = () => {
           </h3>
           <div className="grid grid-cols-4 gap-3">
             {MOCK_PLAYERS.map((player, index) => (
-              <div key={index} className="flex flex-col items-center">
+              <div key={index} className="flex flex-col items-center animate-scale-in" style={{ animationDelay: `${index * 30}ms` }}>
                 <Avatar 
                   name={player} 
                   size="md" 
@@ -114,7 +137,7 @@ export const FingerLobby = () => {
         </div>
 
         {/* Tips */}
-        <div className="card-game bg-secondary/5">
+        <div className="card-game bg-secondary/5 border-secondary/20">
           <h3 className="font-bold text-foreground mb-2">💡 Pro Tips</h3>
           <ul className="text-sm text-muted-foreground space-y-1">
             <li>• Keep your finger ready on the send button</li>

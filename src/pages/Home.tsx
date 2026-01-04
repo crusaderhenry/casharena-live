@@ -1,7 +1,9 @@
 import { WalletCard } from '@/components/WalletCard';
 import { GameCard } from '@/components/GameCard';
-import { ActivityFeed } from '@/components/ActivityFeed';
+import { SocialFeed } from '@/components/SocialFeed';
 import { BottomNav } from '@/components/BottomNav';
+import { NotificationCenter } from '@/components/NotificationCenter';
+import { TestModeToggle } from '@/components/TestModeToggle';
 import { Swords, Flame, Sparkles, Zap } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 
@@ -17,8 +19,12 @@ export const Home = () => {
             <h1 className="text-2xl font-bold text-foreground">CashArena</h1>
             <p className="text-sm text-muted-foreground">Let's win today! 🔥</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-lg">
-            💎
+          <div className="flex items-center gap-2">
+            <TestModeToggle />
+            <NotificationCenter />
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-lg">
+              💎
+            </div>
           </div>
         </div>
 
@@ -76,8 +82,8 @@ export const Home = () => {
           />
         </div>
 
-        {/* Activity Feed */}
-        <ActivityFeed />
+        {/* Social Feed */}
+        <SocialFeed />
       </div>
       
       <BottomNav />

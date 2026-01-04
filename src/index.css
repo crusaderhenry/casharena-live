@@ -147,11 +147,40 @@
   .skeleton-shimmer {
     @apply animate-pulse bg-muted rounded-lg;
   }
+
+  /* Social card hover effects */
+  .card-social {
+    @apply bg-card rounded-2xl border border-border/50 p-4 transition-all duration-300;
+  }
+
+  .card-social:hover {
+    @apply border-primary/20 bg-card-elevated;
+    transform: translateY(-2px);
+  }
+
+  /* Notification badge pulse */
+  .notification-pulse {
+    animation: notification-pulse 2s ease-in-out infinite;
+  }
 }
 
 @layer utilities {
   .safe-bottom {
     padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+  }
+
+  /* Hide scrollbar */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -161,6 +190,15 @@
   }
   50% {
     box-shadow: 0 0 40px hsl(151 100% 50% / 0.8);
+  }
+}
+
+@keyframes notification-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
   }
 }
 
@@ -232,6 +270,15 @@
   }
 }
 
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
 .animate-slide-up {
   animation: slide-up 0.4s ease-out forwards;
 }
@@ -254,6 +301,12 @@
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, hsl(var(--muted)) 50%, transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }
 
 /* Confetti styles */

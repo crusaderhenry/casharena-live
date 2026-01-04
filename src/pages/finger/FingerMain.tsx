@@ -2,15 +2,21 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { WalletCard } from '@/components/WalletCard';
+import { SkipTimerButton, useTestMode } from '@/components/TestModeToggle';
 import { useWallet } from '@/contexts/WalletContext';
 import { useGame } from '@/contexts/GameContext';
 import { ChevronLeft, Zap, Users, Clock, Trophy } from 'lucide-react';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
 
 export const FingerMain = () => {
   const navigate = useNavigate();
   const { balance, deductFunds } = useWallet();
   const { hasJoinedFinger, joinFinger, addActivity } = useGame();
   const [countdown, setCountdown] = useState(900); // 15 minutes
+  const { play } = useSounds();
+  const { buttonClick, success } = useHaptics();
+  const { isTestMode } = useTestMode();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -29,8 +35,20 @@ export const FingerMain = () => {
     if (deductFunds(700, 'finger_entry', 'Fastest Finger Entry')) {
       joinFinger();
       addActivity('Joined Fastest Finger lobby', 'finger');
+      play('coin');
+      success();
       navigate('/finger/lobby');
     }
+  };
+
+  const handleSkip = () => {
+    if (!hasJoinedFinger) {
+      if (deductFunds(700, 'finger_entry', 'Fastest Finger Entry')) {
+        joinFinger();
+        addActivity('Joined Fastest Finger lobby', 'finger');
+      }
+    }
+    navigate('/finger/lobby');
   };
 
   return (
@@ -67,6 +85,11 @@ export const FingerMain = () => {
           <div className="bg-gradient-to-r from-secondary/10 to-primary/10 rounded-xl p-4 mb-4 text-center">
             <p className="text-sm text-muted-foreground mb-1">Next Game In</p>
             <p className="timer-display">{formatTime(countdown)}</p>
+            {isTestMode && (
+              <div className="mt-3">
+                <SkipTimerButton onSkip={handleSkip} label="Join & Start Now" />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-3 mb-6">
@@ -90,7 +113,11 @@ export const FingerMain = () => {
 
           {hasJoinedFinger ? (
             <button
-              onClick={() => navigate('/finger/lobby')}
+              onClick={() => {
+                play('click');
+                buttonClick();
+                navigate('/finger/lobby');
+              }}
               className="w-full btn-secondary"
             >
               Go to Lobby
@@ -111,19 +138,19 @@ export const FingerMain = () => {
           <h3 className="font-bold text-foreground mb-3">How to Win</h3>
           <ul className="text-sm text-muted-foreground space-y-2">
             <li className="flex items-start gap-2">
-              <span className="text-secondary">1.</span>
+              <span className="text-secondary font-bold">1.</span>
               Pay entry and join the lobby
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-secondary">2.</span>
+              <span className="text-secondary font-bold">2.</span>
               When game starts, send comments as fast as you can
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-secondary">3.</span>
+              <span className="text-secondary font-bold">3.</span>
               Each comment resets the 60-second timer
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-secondary">4.</span>
+              <span className="text-secondary font-bold">4.</span>
               If no one comments for 60 seconds, the last 3 commenters win!
             </li>
           </ul>
@@ -135,19 +162,19 @@ export const FingerMain = () => {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <span className="text-gold">🥇</span> 1st Place
+                <span className="text-lg">🥇</span> 1st Place
               </span>
-              <span className="font-bold text-foreground">50% of pool</span>
+              <span className="font-bold text-primary">50% of pool</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <span className="text-silver">🥈</span> 2nd Place
+                <span className="text-lg">🥈</span> 2nd Place
               </span>
               <span className="font-bold text-foreground">30% of pool</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <span className="text-bronze">🥉</span> 3rd Place
+                <span className="text-lg">🥉</span> 3rd Place
               </span>
               <span className="font-bold text-foreground">20% of pool</span>
             </div>
