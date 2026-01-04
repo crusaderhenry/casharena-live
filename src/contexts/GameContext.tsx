@@ -100,7 +100,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [poolValue, setPoolValueState] = useState(250000);
   const [hasJoinedPool, setHasJoinedPool] = useState(false);
   
-  // Activity
+  // Activity - Fastest Finger focused
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([
     {
       id: '1',
@@ -113,9 +113,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
     {
       id: '2',
-      type: 'pool_join',
+      type: 'finger_win',
       playerName: 'LuckyAce',
       playerAvatar: '🎰',
+      amount: 9450,
+      position: 2,
       timestamp: new Date(Date.now() - 600000),
     },
     {

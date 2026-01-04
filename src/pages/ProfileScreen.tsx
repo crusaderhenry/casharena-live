@@ -3,7 +3,7 @@ import { useGame } from '@/contexts/GameContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ArrowLeft, Edit2, Trophy, Gamepad2, Coins, Volume2, VolumeX, Music, Mic, Bell } from 'lucide-react';
+import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 
@@ -17,10 +17,6 @@ export const ProfileScreen = () => {
   const { buttonClick } = useHaptics();
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState(userProfile.username);
-
-  const formatMoney = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(amount);
-  };
 
   const handleSave = () => {
     updateProfile({ username: newName });
@@ -41,46 +37,102 @@ export const ProfileScreen = () => {
     toggle();
   };
 
+  const stats = [
+    { label: 'Games', value: userProfile.gamesPlayed, icon: Zap, color: 'text-primary' },
+    { label: 'Top 3', value: userProfile.wins, icon: Trophy, color: 'text-gold' },
+    { label: 'Rank', value: `#${userProfile.rank}`, icon: Trophy, color: 'text-primary' },
+  ];
+
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-5">
+        {/* Header */}
         <div className="flex items-center gap-3 pt-2">
-          <button onClick={handleBack} className="p-2 -ml-2">
-            <ArrowLeft className="w-6 h-6 text-foreground" />
+          <button 
+            onClick={handleBack} 
+            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
+          >
+            <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
-          <h1 className="text-2xl font-black text-foreground">Profile</h1>
+          <div>
+            <h1 className="text-xl font-black text-foreground">Profile</h1>
+            <p className="text-sm text-muted-foreground">Your Fastest Finger stats</p>
+          </div>
         </div>
 
-        <div className="card-panel text-center">
-          <div className="w-20 h-20 rounded-full bg-card-elevated flex items-center justify-center text-4xl mx-auto mb-4 border-2 border-primary">
-            {userProfile.avatar}
-          </div>
-          <div className="flex flex-wrap justify-center gap-2 mb-4">
-            {avatarOptions.map((emoji) => (
-              <button 
-                key={emoji} 
-                onClick={() => {
-                  updateProfile({ avatar: emoji });
-                  play('click');
-                  buttonClick();
-                }} 
-                className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${userProfile.avatar === emoji ? 'bg-primary/20 border-2 border-primary' : 'bg-card-elevated'}`}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-          {isEditing ? (
-            <div className="flex gap-2">
-              <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="flex-1 bg-background border border-border rounded-xl px-4 py-2 text-foreground" />
-              <button onClick={handleSave} className="btn-primary px-4">Save</button>
+        {/* Profile Card */}
+        <div className="card-panel border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card">
+          <div className="flex flex-col items-center text-center py-4">
+            <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center text-4xl border-2 border-primary/30 mb-4">
+              {userProfile.avatar}
             </div>
-          ) : (
-            <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 mx-auto text-primary">
-              <span className="text-xl font-bold text-foreground">{userProfile.username}</span>
-              <Edit2 className="w-4 h-4" />
-            </button>
-          )}
+            
+            {/* Avatar Selection */}
+            <div className="flex flex-wrap justify-center gap-2 mb-4">
+              {avatarOptions.map((emoji) => (
+                <button 
+                  key={emoji} 
+                  onClick={() => {
+                    updateProfile({ avatar: emoji });
+                    play('click');
+                    buttonClick();
+                  }} 
+                  className={`w-9 h-9 rounded-full flex items-center justify-center text-lg transition-all ${
+                    userProfile.avatar === emoji 
+                      ? 'bg-primary/20 border-2 border-primary scale-110' 
+                      : 'bg-card-elevated hover:bg-card border border-border/50'
+                  }`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+
+            {isEditing ? (
+              <div className="flex gap-2 w-full max-w-xs">
+                <input 
+                  type="text" 
+                  value={newName} 
+                  onChange={(e) => setNewName(e.target.value)} 
+                  className="flex-1 bg-background border border-border rounded-xl px-4 py-2 text-foreground text-center"
+                  autoFocus
+                />
+                <button onClick={handleSave} className="btn-primary px-4 py-2">Save</button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => setIsEditing(true)} 
+                className="text-xl font-black text-foreground hover:text-primary transition-colors"
+              >
+                {userProfile.username}
+              </button>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">Tap name to edit</p>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-3 gap-3">
+          {stats.map((stat) => (
+            <div key={stat.label} className="card-panel text-center">
+              <stat.icon className={`w-5 h-5 ${stat.color} mx-auto mb-2`} />
+              <p className={`text-2xl font-black ${stat.color}`}>{stat.value}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Total Earnings */}
+        <div className="card-panel border-gold/30 bg-gradient-to-r from-gold/10 to-transparent">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gold/20 flex items-center justify-center">
+              <Coins className="w-6 h-6 text-gold" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Earnings</p>
+              <p className="text-2xl font-black text-gold">₦{userProfile.totalEarnings.toLocaleString()}</p>
+            </div>
+          </div>
         </div>
 
         {/* Audio Settings */}
@@ -95,16 +147,13 @@ export const ProfileScreen = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Music className="w-5 h-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Background Music</p>
-                  <p className="text-xs text-muted-foreground">Ambient game sounds</p>
-                </div>
+                <span className="text-foreground">Music</span>
               </div>
               <button
                 onClick={() => handleToggle(toggleMusic)}
-                className={`w-12 h-6 rounded-full transition-colors ${settings.musicEnabled ? 'bg-primary' : 'bg-muted'}`}
+                className={`w-12 h-7 rounded-full transition-colors ${settings.musicEnabled ? 'bg-primary' : 'bg-muted'}`}
               >
-                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${settings.musicEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                <div className={`w-5 h-5 rounded-full bg-white shadow-md transition-transform mx-1 ${settings.musicEnabled ? 'translate-x-5' : ''}`} />
               </button>
             </div>
 
@@ -112,16 +161,13 @@ export const ProfileScreen = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {settings.sfxEnabled ? <Volume2 className="w-5 h-5 text-muted-foreground" /> : <VolumeX className="w-5 h-5 text-muted-foreground" />}
-                <div>
-                  <p className="text-sm font-medium text-foreground">Sound Effects</p>
-                  <p className="text-xs text-muted-foreground">Button clicks, wins, alerts</p>
-                </div>
+                <span className="text-foreground">Sound Effects</span>
               </div>
               <button
                 onClick={() => handleToggle(toggleSfx)}
-                className={`w-12 h-6 rounded-full transition-colors ${settings.sfxEnabled ? 'bg-primary' : 'bg-muted'}`}
+                className={`w-12 h-7 rounded-full transition-colors ${settings.sfxEnabled ? 'bg-primary' : 'bg-muted'}`}
               >
-                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${settings.sfxEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                <div className={`w-5 h-5 rounded-full bg-white shadow-md transition-transform mx-1 ${settings.sfxEnabled ? 'translate-x-5' : ''}`} />
               </button>
             </div>
 
@@ -129,24 +175,21 @@ export const ProfileScreen = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Mic className="w-5 h-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Crusader Commentary</p>
-                  <p className="text-xs text-muted-foreground">Voice announcements</p>
-                </div>
+                <span className="text-foreground">Crusader Voice</span>
               </div>
               <button
                 onClick={() => handleToggle(toggleCommentary)}
-                className={`w-12 h-6 rounded-full transition-colors ${settings.commentaryEnabled ? 'bg-primary' : 'bg-muted'}`}
+                className={`w-12 h-7 rounded-full transition-colors ${settings.commentaryEnabled ? 'bg-primary' : 'bg-muted'}`}
               >
-                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${settings.commentaryEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                <div className={`w-5 h-5 rounded-full bg-white shadow-md transition-transform mx-1 ${settings.commentaryEnabled ? 'translate-x-5' : ''}`} />
               </button>
             </div>
 
             {/* Volume Slider */}
             <div className="pt-2">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">Master Volume</p>
-                <p className="text-sm text-foreground font-medium">{Math.round(settings.volume * 100)}%</p>
+                <span className="text-sm text-muted-foreground">Master Volume</span>
+                <span className="text-sm text-primary font-medium">{Math.round(settings.volume * 100)}%</span>
               </div>
               <input
                 type="range"
@@ -161,27 +204,14 @@ export const ProfileScreen = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <div className="card-panel text-center">
-            <Trophy className="w-6 h-6 text-primary mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">#{userProfile.rank}</p>
-            <p className="text-xs text-muted-foreground">Rank</p>
-          </div>
-          <div className="card-panel text-center">
-            <Gamepad2 className="w-6 h-6 text-primary mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">{userProfile.gamesPlayed}</p>
-            <p className="text-xs text-muted-foreground">Games</p>
-          </div>
-          <div className="card-panel text-center">
-            <Coins className="w-6 h-6 text-gold mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">{userProfile.wins}</p>
-            <p className="text-xs text-muted-foreground">Wins</p>
-          </div>
-        </div>
-
-        <div className="card-panel">
-          <p className="text-sm text-muted-foreground mb-1">Total Earnings</p>
-          <p className="money-display text-3xl">{formatMoney(userProfile.totalEarnings)}</p>
+        {/* App Info */}
+        <div className="text-center py-4">
+          <p className="text-sm text-muted-foreground">
+            <span className="text-primary font-bold">Fortunes</span>HQ v1.0
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            The live comment battle game
+          </p>
         </div>
       </div>
       <BottomNav />

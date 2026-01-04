@@ -1,30 +1,21 @@
 import { useGame, ActivityItem } from '@/contexts/GameContext';
-import { Trophy, Sparkles, TrendingUp, Users } from 'lucide-react';
+import { Trophy, TrendingUp, Flame } from 'lucide-react';
 
 export const ActivityFeed = () => {
   const { recentActivity } = useGame();
 
   const formatMoney = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+    return `₦${amount.toLocaleString()}`;
   };
 
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'finger_win':
         return <Trophy className="w-4 h-4 text-gold" />;
-      case 'pool_win':
-        return <Sparkles className="w-4 h-4 text-gold" />;
-      case 'pool_join':
-        return <Users className="w-4 h-4 text-primary" />;
       case 'rank_up':
         return <TrendingUp className="w-4 h-4 text-primary" />;
       default:
-        return null;
+        return <Flame className="w-4 h-4 text-primary" />;
     }
   };
 
@@ -36,14 +27,6 @@ export const ActivityFeed = () => {
             won <span className="text-gold font-semibold">{formatMoney(activity.amount || 0)}</span> in Fastest Finger
           </span>
         );
-      case 'pool_win':
-        return (
-          <span>
-            won <span className="text-gold font-semibold">{formatMoney(activity.amount || 0)}</span> in Lucky Pool
-          </span>
-        );
-      case 'pool_join':
-        return <span>joined the weekly pool</span>;
       case 'rank_up':
         return (
           <span>
@@ -63,13 +46,19 @@ export const ActivityFeed = () => {
     return `${Math.floor(seconds / 86400)}d ago`;
   };
 
+  // Filter for Fastest Finger activity only
+  const fingerActivity = recentActivity.filter(a => a.type === 'finger_win' || a.type === 'rank_up');
+
+  if (fingerActivity.length === 0) return null;
+
   return (
     <div className="card-panel">
-      <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">
+      <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+        <Flame className="w-4 h-4 text-primary" />
         Recent Activity
       </h3>
       <div className="space-y-0">
-        {recentActivity.slice(0, 5).map((activity) => (
+        {fingerActivity.slice(0, 5).map((activity) => (
           <div key={activity.id} className="activity-item">
             <div className="w-8 h-8 rounded-full bg-card-elevated flex items-center justify-center text-lg">
               {activity.playerAvatar}
