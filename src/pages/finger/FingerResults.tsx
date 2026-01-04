@@ -5,13 +5,18 @@ import { ShareCard } from '@/components/ShareCard';
 import { useWallet } from '@/contexts/WalletContext';
 import { useGame } from '@/contexts/GameContext';
 import { useEffect, useState } from 'react';
-import { Crown } from 'lucide-react';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
+import { useNotifications } from '@/components/PushNotification';
 
 export const FingerResults = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { addWinnings } = useWallet();
   const { setFingerPosition, resetFingerGame, addActivity, userProfile } = useGame();
+  const { play } = useSounds();
+  const { success, buttonClick } = useHaptics();
+  const { announceWin } = useNotifications();
   const [showShare, setShowShare] = useState(false);
 
   const state = location.state as {
@@ -46,6 +51,11 @@ export const FingerResults = () => {
         amount: prize,
         position: position,
       });
+      
+      // Play win sound and haptics
+      play('win');
+      success();
+      announceWin(prize, position);
     }
     
     return () => {

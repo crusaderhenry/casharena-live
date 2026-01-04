@@ -1,5 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface GameCardProps {
   title: string;
@@ -25,6 +27,8 @@ export const GameCard = ({
   isLive,
 }: GameCardProps) => {
   const navigate = useNavigate();
+  const { play } = useSounds();
+  const { buttonClick } = useHaptics();
 
   const formatMoney = (amount: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -35,9 +39,15 @@ export const GameCard = ({
     }).format(amount);
   };
 
+  const handleClick = () => {
+    play('click');
+    buttonClick();
+    navigate(path);
+  };
+
   return (
     <div 
-      onClick={() => navigate(path)}
+      onClick={handleClick}
       className="card-game cursor-pointer group"
     >
       <div className="relative z-10 flex items-center justify-between">

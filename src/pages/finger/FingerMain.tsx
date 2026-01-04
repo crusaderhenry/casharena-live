@@ -5,12 +5,16 @@ import { WalletCard } from '@/components/WalletCard';
 import { TestControls } from '@/components/TestControls';
 import { useWallet } from '@/contexts/WalletContext';
 import { useGame } from '@/contexts/GameContext';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
 import { ChevronLeft, Zap, Users, Clock, Trophy, MessageSquare } from 'lucide-react';
 
 export const FingerMain = () => {
   const navigate = useNavigate();
   const { balance, deductFunds } = useWallet();
   const { hasJoinedFinger, joinFinger, resetFingerGame, isTestMode } = useGame();
+  const { play } = useSounds();
+  const { buttonClick, success } = useHaptics();
   
   const [countdown, setCountdown] = useState(900);
 
@@ -29,9 +33,17 @@ export const FingerMain = () => {
 
   const handleJoin = () => {
     if (deductFunds(700, 'finger_entry', 'Fastest Finger Entry')) {
+      play('success');
+      success();
       joinFinger();
       navigate('/finger/lobby');
     }
+  };
+
+  const handleBack = () => {
+    play('click');
+    buttonClick();
+    navigate('/home');
   };
 
   const handleTestStart = () => {
@@ -53,7 +65,7 @@ export const FingerMain = () => {
         {/* Header */}
         <div className="flex items-center gap-4 pt-2">
           <button 
-            onClick={() => navigate('/home')}
+            onClick={handleBack}
             className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
           >
             <ChevronLeft className="w-5 h-5" />

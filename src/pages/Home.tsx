@@ -3,13 +3,29 @@ import { GameCard } from '@/components/GameCard';
 import { ActivityFeed } from '@/components/ActivityFeed';
 import { BottomNav } from '@/components/BottomNav';
 import { TestModeToggle } from '@/components/TestControls';
-import { Zap, Sparkles, Trophy, User } from 'lucide-react';
+import { Zap, Sparkles, Trophy } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
 
 export const Home = () => {
   const { fingerPoolValue, poolValue, userProfile } = useGame();
   const navigate = useNavigate();
+  const { play } = useSounds();
+  const { buttonClick } = useHaptics();
+
+  const handleProfileClick = () => {
+    play('click');
+    buttonClick();
+    navigate('/profile');
+  };
+
+  const handleRankClick = () => {
+    play('click');
+    buttonClick();
+    navigate('/rank');
+  };
 
   const formatMoney = (amount: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -34,7 +50,7 @@ export const Home = () => {
           <div className="flex items-center gap-2">
             <TestModeToggle />
             <button 
-              onClick={() => navigate('/profile')}
+              onClick={handleProfileClick}
               className="w-10 h-10 rounded-full bg-card-elevated flex items-center justify-center text-xl border border-border/50 hover:border-primary/50 transition-colors"
             >
               {userProfile.avatar}
@@ -47,7 +63,7 @@ export const Home = () => {
 
         {/* Rank Teaser */}
         <div 
-          onClick={() => navigate('/rank')}
+          onClick={handleRankClick}
           className="card-panel cursor-pointer hover:border-primary/40 transition-all flex items-center justify-between"
         >
           <div className="flex items-center gap-3">
