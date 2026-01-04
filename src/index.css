@@ -1,402 +1,290 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 @layer base {
   :root {
     --background: 0 0% 3%;
     --foreground: 0 0% 98%;
-
     --card: 0 0% 6%;
+    --card-elevated: 0 0% 10%;
     --card-foreground: 0 0% 98%;
-    --card-elevated: 0 0% 9%;
-
     --popover: 0 0% 6%;
     --popover-foreground: 0 0% 98%;
-
-    --primary: 145 100% 45%;
+    --primary: 145 85% 45%;
     --primary-foreground: 0 0% 2%;
-
     --secondary: 45 100% 50%;
     --secondary-foreground: 0 0% 2%;
-
     --muted: 0 0% 12%;
     --muted-foreground: 0 0% 55%;
-
-    --accent: 145 100% 45%;
-    --accent-foreground: 0 0% 2%;
-
-    --destructive: 0 72% 51%;
+    --accent: 145 60% 25%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 98%;
-
-    --success: 145 100% 45%;
+    --border: 0 0% 18%;
+    --input: 0 0% 15%;
+    --ring: 145 85% 45%;
+    --radius: 0.75rem;
+    
+    /* Custom colors */
+    --success: 145 85% 45%;
     --success-foreground: 0 0% 2%;
-
-    --border: 0 0% 14%;
-    --input: 0 0% 12%;
-    --ring: 145 100% 45%;
-
-    --radius: 1rem;
-
-    /* Premium glow effects */
-    --glow-primary: 0 0 30px hsl(145 100% 45% / 0.35);
-    --glow-secondary: 0 0 30px hsl(45 100% 50% / 0.35);
-    --glow-strong: 0 0 50px hsl(145 100% 45% / 0.5);
-
-    /* Money colors */
-    --money: 145 100% 45%;
+    --money: 145 85% 50%;
     --money-foreground: 0 0% 2%;
     --gold: 45 100% 50%;
     --silver: 0 0% 70%;
-    --bronze: 25 70% 45%;
-
-    /* Test mode */
-    --test: 280 100% 60%;
+    --bronze: 30 60% 50%;
+    --test: 280 70% 55%;
+    
+    /* Voice room */
+    --voice-active: 145 85% 45%;
+    --voice-ring: 145 85% 45%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
 
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
   }
 }
 
 @layer components {
-  .glow-primary {
-    box-shadow: var(--glow-primary);
-  }
-
-  .glow-secondary {
-    box-shadow: var(--glow-secondary);
-  }
-
-  .glow-strong {
-    box-shadow: var(--glow-strong);
-  }
-
-  .text-money {
-    @apply text-primary;
-    text-shadow: 0 0 20px hsl(145 100% 45% / 0.5);
-  }
-
-  .text-gold {
-    color: hsl(var(--gold));
-    text-shadow: 0 0 15px hsl(45 100% 50% / 0.5);
-  }
-
-  .card-game {
-    @apply bg-card rounded-2xl border border-border/60 p-4 transition-all duration-300;
-    background: linear-gradient(180deg, hsl(0 0% 7%) 0%, hsl(0 0% 5%) 100%);
-  }
-
-  .card-game:hover {
-    @apply border-primary/40;
-    box-shadow: var(--glow-primary);
-  }
-
-  .card-premium {
-    @apply bg-card rounded-2xl p-5 transition-all duration-300;
-    background: linear-gradient(135deg, hsl(0 0% 8%) 0%, hsl(0 0% 4%) 100%);
-    border: 1px solid hsl(0 0% 15%);
-  }
-
-  .card-premium:hover {
-    border-color: hsl(145 100% 45% / 0.3);
-    box-shadow: var(--glow-primary);
-  }
-
+  /* Buttons */
   .btn-primary {
-    @apply bg-primary text-primary-foreground font-bold rounded-xl px-6 py-3.5 transition-all duration-200;
-    background: linear-gradient(135deg, hsl(145 100% 50%) 0%, hsl(145 100% 40%) 100%);
+    @apply bg-primary text-primary-foreground font-bold py-4 px-6 rounded-2xl transition-all duration-200 active:scale-[0.98];
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.3), inset 0 1px 0 hsl(0 0% 100% / 0.1);
   }
-
+  
   .btn-primary:hover {
-    box-shadow: var(--glow-primary);
-    transform: translateY(-2px);
+    box-shadow: 0 0 50px hsl(var(--primary) / 0.5), inset 0 1px 0 hsl(0 0% 100% / 0.15);
   }
-
-  .btn-primary:active {
-    transform: translateY(0);
-  }
-
+  
   .btn-secondary {
-    @apply font-bold rounded-xl px-6 py-3.5 transition-all duration-200;
-    background: linear-gradient(135deg, hsl(45 100% 55%) 0%, hsl(45 100% 45%) 100%);
-    color: hsl(0 0% 2%);
+    @apply bg-secondary text-secondary-foreground font-bold py-4 px-6 rounded-2xl transition-all duration-200 active:scale-[0.98];
+    box-shadow: 0 0 30px hsl(var(--secondary) / 0.3), inset 0 1px 0 hsl(0 0% 100% / 0.1);
   }
-
-  .btn-secondary:hover {
-    box-shadow: var(--glow-secondary);
-    transform: translateY(-2px);
-  }
-
+  
   .btn-outline {
-    @apply border-2 border-primary text-primary font-bold rounded-xl px-6 py-3.5 transition-all duration-200 bg-transparent;
+    @apply border-2 border-border text-foreground font-bold py-4 px-6 rounded-2xl transition-all duration-200 active:scale-[0.98] hover:border-primary hover:text-primary;
   }
-
-  .btn-outline:hover {
-    @apply bg-primary/10;
-    box-shadow: var(--glow-primary);
+  
+  .btn-ghost {
+    @apply text-muted-foreground font-medium py-3 px-4 rounded-xl transition-all duration-200 hover:bg-muted/50 hover:text-foreground;
   }
-
+  
   .btn-test {
     @apply font-bold rounded-xl px-4 py-2.5 transition-all duration-200 text-sm;
-    background: linear-gradient(135deg, hsl(280 100% 65%) 0%, hsl(280 100% 50%) 100%);
+    background: linear-gradient(135deg, hsl(280 70% 60%) 0%, hsl(280 70% 50%) 100%);
     color: white;
   }
-
+  
   .btn-test:hover {
-    box-shadow: 0 0 20px hsl(280 100% 60% / 0.5);
-    transform: translateY(-1px);
+    box-shadow: 0 0 20px hsl(280 70% 55% / 0.5);
   }
 
-  .balance-display {
-    @apply text-4xl font-black text-money tracking-tight;
+  /* Cards */
+  .card-premium {
+    @apply bg-card rounded-3xl p-5 border border-border/60;
+    background: linear-gradient(180deg, hsl(0 0% 8%) 0%, hsl(0 0% 5%) 100%);
+  }
+  
+  .card-game {
+    @apply bg-card rounded-2xl p-4 border border-border/50 transition-all duration-200;
+  }
+  
+  .card-game:hover {
+    @apply border-primary/40;
+  }
+  
+  .card-highlight {
+    @apply bg-card rounded-3xl p-5 border-2 border-primary/50;
+    box-shadow: 0 0 40px hsl(var(--primary) / 0.15), inset 0 1px 0 hsl(var(--primary) / 0.1);
+  }
+  
+  .test-panel {
+    @apply bg-card rounded-xl border-2 p-4;
+    border-color: hsl(280 70% 55% / 0.5);
+    background: linear-gradient(135deg, hsl(280 70% 55% / 0.1) 0%, hsl(280 70% 40% / 0.05) 100%);
   }
 
+  /* Glow Effects */
+  .glow-primary {
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.35);
+  }
+  
+  .glow-secondary {
+    box-shadow: 0 0 30px hsl(var(--secondary) / 0.35);
+  }
+  
+  .glow-strong {
+    box-shadow: 0 0 60px hsl(var(--primary) / 0.5), 0 0 120px hsl(var(--primary) / 0.2);
+  }
+  
+  .glow-gold {
+    box-shadow: 0 0 40px hsl(var(--gold) / 0.5);
+  }
+
+  /* Voice Room */
+  .voice-ring {
+    animation: voice-pulse 1.5s ease-in-out infinite;
+  }
+  
+  .voice-wave {
+    @apply flex items-center gap-0.5;
+  }
+  
+  .voice-wave span {
+    @apply w-0.5 bg-primary rounded-full;
+    animation: voice-wave 0.5s ease-in-out infinite;
+  }
+  
+  .voice-wave span:nth-child(2) { animation-delay: 0.1s; }
+  .voice-wave span:nth-child(3) { animation-delay: 0.2s; }
+  .voice-wave span:nth-child(4) { animation-delay: 0.3s; }
+
+  /* Timer */
   .timer-display {
     @apply text-5xl font-black tabular-nums tracking-tight;
+    text-shadow: 0 0 40px hsl(var(--secondary) / 0.6);
     color: hsl(var(--secondary));
-    text-shadow: 0 0 30px hsl(45 100% 50% / 0.6);
   }
 
-  .avatar-ring {
-    @apply ring-2 ring-primary ring-offset-2 ring-offset-background rounded-full;
+  /* Money text */
+  .text-money {
+    @apply font-black;
+    color: hsl(var(--money));
+    text-shadow: 0 0 20px hsl(var(--money) / 0.4);
   }
-
-  .winner-glow {
-    animation: winner-pulse 2s ease-in-out infinite;
+  
+  .text-gold {
+    color: hsl(var(--gold));
+    text-shadow: 0 0 20px hsl(var(--gold) / 0.5);
   }
-
-  .skeleton-shimmer {
-    @apply animate-pulse bg-muted rounded-lg;
+  
+  .text-silver {
+    color: hsl(var(--silver));
   }
-
-  /* Premium card styles */
-  .card-social {
-    @apply bg-card rounded-2xl border border-border/50 p-4 transition-all duration-300;
-    background: linear-gradient(180deg, hsl(0 0% 7%) 0%, hsl(0 0% 5%) 100%);
-  }
-
-  .card-social:hover {
-    @apply border-primary/20 bg-card-elevated;
-    transform: translateY(-2px);
-  }
-
-  /* Notification badge pulse */
-  .notification-pulse {
-    animation: notification-pulse 2s ease-in-out infinite;
+  
+  .text-bronze {
+    color: hsl(var(--bronze));
   }
 
   /* Fairness badge */
   .fairness-badge {
-    @apply bg-primary/10 border border-primary/30 rounded-lg px-3 py-2 text-sm text-primary flex items-center gap-2;
+    @apply flex items-center justify-center gap-2 text-xs font-semibold text-primary bg-primary/10 py-2.5 px-4 rounded-full border border-primary/30;
   }
 
-  /* Test mode panel */
-  .test-panel {
-    @apply bg-card rounded-xl border-2 p-4;
-    border-color: hsl(280 100% 60% / 0.5);
-    background: linear-gradient(135deg, hsl(280 100% 60% / 0.1) 0%, hsl(280 100% 40% / 0.05) 100%);
+  /* Balance display */
+  .balance-display {
+    @apply text-4xl font-black tracking-tight;
+    color: hsl(var(--money));
+    text-shadow: 0 0 30px hsl(var(--money) / 0.5);
+  }
+
+  /* Safe area */
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+
+  /* Winner glow */
+  .winner-glow {
+    animation: winner-glow 2s ease-in-out infinite;
+  }
+
+  /* Share button */
+  .share-btn {
+    @apply flex items-center justify-center gap-2 bg-card border border-border/50 rounded-2xl py-3 px-4 text-sm font-semibold transition-all duration-200;
+  }
+  
+  .share-btn:hover {
+    @apply border-primary/50 text-primary;
   }
 }
 
 @layer utilities {
+  .animate-slide-up {
+    animation: slide-up 0.4s ease-out forwards;
+  }
+  
+  .animate-scale-in {
+    animation: scale-in 0.3s ease-out forwards;
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.4s ease-out forwards;
+  }
+  
+  .animate-bounce-in {
+    animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  }
+  
+  .animate-spin-slow {
+    animation: spin 3s linear infinite;
+  }
+  
   .safe-bottom {
     padding-bottom: calc(5rem + env(safe-area-inset-bottom));
-  }
-
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 0.5rem);
-  }
-
-  /* Hide scrollbar */
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-}
-
-@keyframes winner-pulse {
-  0%, 100% {
-    box-shadow: 0 0 20px hsl(145 100% 45% / 0.4);
-  }
-  50% {
-    box-shadow: 0 0 50px hsl(145 100% 45% / 0.8);
-  }
-}
-
-@keyframes notification-pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
   }
 }
 
 @keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes bounce-in {
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-  70% {
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
+  0% { opacity: 0; transform: scale(0.3); }
+  50% { transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
-@keyframes count-up {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes voice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--voice-ring) / 0.4); }
+  50% { box-shadow: 0 0 0 8px hsl(var(--voice-ring) / 0); }
 }
 
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
+@keyframes voice-wave {
+  0%, 100% { height: 8px; }
+  50% { height: 20px; }
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-@keyframes spin-slow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes scroll-highlight {
-  0%, 100% {
-    background-color: hsl(145 100% 45% / 0.1);
-  }
-  50% {
-    background-color: hsl(145 100% 45% / 0.3);
-  }
-}
-
-.animate-slide-up {
-  animation: slide-up 0.4s ease-out forwards;
-}
-
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out forwards;
-}
-
-.animate-scale-in {
-  animation: scale-in 0.3s ease-out forwards;
-}
-
-.animate-bounce-in {
-  animation: bounce-in 0.6s ease-out forwards;
-}
-
-.animate-count-up {
-  animation: count-up 0.3s ease-out forwards;
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-.animate-shimmer {
-  background: linear-gradient(90deg, transparent, hsl(var(--muted)) 50%, transparent);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-.animate-spin-slow {
-  animation: spin-slow 3s linear infinite;
-}
-
-.animate-scroll-highlight {
-  animation: scroll-highlight 0.5s ease-out;
-}
-
-/* Confetti styles */
-.confetti-piece {
-  position: fixed;
-  width: 10px;
-  height: 10px;
-  top: -10px;
-  animation: confetti-fall 3s linear forwards;
+@keyframes winner-glow {
+  0%, 100% { filter: drop-shadow(0 0 10px hsl(var(--primary) / 0.5)); }
+  50% { filter: drop-shadow(0 0 25px hsl(var(--primary) / 0.8)); }
 }
 
 @keyframes confetti-fall {
-  0% {
-    top: -10px;
-    transform: rotate(0deg);
-    opacity: 1;
-  }
-  100% {
-    top: 100vh;
-    transform: rotate(720deg);
-    opacity: 0;
-  }
+  0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
 }
+
+.confetti-piece {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  animation: confetti-fall 3s ease-in-out forwards;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 4px; }

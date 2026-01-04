@@ -7,19 +7,9 @@ import { WalletProvider } from "@/contexts/WalletContext";
 import { GameProvider } from "@/contexts/GameContext";
 import { TestModeProvider } from "@/components/TestModeToggle";
 
-// Onboarding
-import { Welcome } from "@/pages/onboarding/Welcome";
-import { HowItWorks } from "@/pages/onboarding/HowItWorks";
-import { PlayStyle } from "@/pages/onboarding/PlayStyle";
-import { MockFunding } from "@/pages/onboarding/MockFunding";
-
 // Main
 import { Home } from "@/pages/Home";
-
-// Arena
-import { ArenaMain } from "@/pages/arena/ArenaMain";
-import { ArenaChallenge } from "@/pages/arena/ArenaChallenge";
-import { ArenaLeaderboard } from "@/pages/arena/ArenaLeaderboard";
+import { Rank } from "@/pages/Rank";
 
 // Pool
 import { PoolMain } from "@/pages/pool/PoolMain";
@@ -50,22 +40,11 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
-                {/* Redirect root to onboarding */}
-                <Route path="/" element={<Navigate to="/onboarding/welcome" replace />} />
-                
-                {/* Onboarding */}
-                <Route path="/onboarding/welcome" element={<Welcome />} />
-                <Route path="/onboarding/how-it-works" element={<HowItWorks />} />
-                <Route path="/onboarding/play-style" element={<PlayStyle />} />
-                <Route path="/onboarding/funding" element={<MockFunding />} />
+                <Route path="/" element={<Navigate to="/home" replace />} />
                 
                 {/* Home */}
                 <Route path="/home" element={<Home />} />
-                
-                {/* Arena */}
-                <Route path="/arena" element={<ArenaMain />} />
-                <Route path="/arena/challenge" element={<ArenaChallenge />} />
-                <Route path="/arena/leaderboard" element={<ArenaLeaderboard />} />
+                <Route path="/rank" element={<Rank />} />
                 
                 {/* Pool */}
                 <Route path="/pool" element={<PoolMain />} />

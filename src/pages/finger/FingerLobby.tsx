@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { Avatar } from '@/components/Avatar';
 import { TestControls, useTestMode } from '@/components/TestModeToggle';
-import { ChevronLeft, Zap, Lock, Users } from 'lucide-react';
+import { ChevronLeft, Zap, Lock, Users, MessageSquare } from 'lucide-react';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -63,8 +63,8 @@ export const FingerLobby = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="p-4 space-y-6">
+    <div className="min-h-screen bg-background pb-28">
+      <div className="p-4 space-y-5">
         {/* Header */}
         <div className="flex items-center gap-4 pt-2">
           <button 
@@ -78,8 +78,12 @@ export const FingerLobby = () => {
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-foreground">Fastest Finger Lobby</h1>
+            <h1 className="text-xl font-bold text-foreground">Game Lobby</h1>
             <p className="text-sm text-muted-foreground">Waiting for game to start</p>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-primary px-3 py-1.5 bg-primary/10 rounded-full border border-primary/30">
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            Live
           </div>
         </div>
 
@@ -93,20 +97,20 @@ export const FingerLobby = () => {
         />
 
         {/* Countdown */}
-        <div className={`card-premium text-center ${entryClosed ? 'border-destructive/50' : 'glow-primary'}`}>
+        <div className={`card-premium text-center ${entryClosed ? 'border-destructive/50' : 'glow-primary border-primary/30'}`}>
           <div className="flex items-center justify-center gap-2 mb-2">
             <Zap className={`w-6 h-6 ${entryClosed ? 'text-destructive' : 'text-primary'}`} />
             <span className="text-sm text-muted-foreground font-medium">
               {entryClosed ? 'Entry Closed' : 'Game Starts In'}
             </span>
           </div>
-          <p className={`timer-display ${entryClosed ? 'text-destructive' : ''}`}>
+          <p className={`timer-display ${entryClosed ? 'text-destructive' : ''}`} style={entryClosed ? { textShadow: '0 0 40px hsl(0 75% 55% / 0.6)' } : {}}>
             {formatTime(countdown)}
           </p>
           {entryClosed && (
             <div className="flex items-center justify-center gap-2 mt-3 text-destructive">
               <Lock className="w-4 h-4" />
-              <span className="text-sm font-bold">No more entries</span>
+              <span className="text-sm font-bold">No more entries allowed</span>
             </div>
           )}
         </div>
@@ -126,20 +130,20 @@ export const FingerLobby = () => {
           </div>
         </div>
 
-        {/* Participants */}
-        <div className="space-y-2">
+        {/* Participants Grid */}
+        <div className="space-y-3">
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-            Players in Lobby
+            Players in Lobby ({MOCK_PLAYERS.length})
           </h3>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-5 gap-3">
             {MOCK_PLAYERS.map((player, index) => (
               <div key={index} className="flex flex-col items-center animate-scale-in" style={{ animationDelay: `${index * 30}ms` }}>
                 <Avatar 
                   name={player} 
-                  size="md" 
+                  size="sm" 
                   isWinner={player === 'You'}
                 />
-                <p className={`text-xs mt-1.5 truncate w-full text-center font-medium ${
+                <p className={`text-[10px] mt-1.5 truncate w-full text-center font-medium ${
                   player === 'You' ? 'text-primary' : 'text-muted-foreground'
                 }`}>
                   {player === 'You' ? 'You' : player.split(' ')[0]}
@@ -152,12 +156,14 @@ export const FingerLobby = () => {
         {/* Tips */}
         <div className="card-premium border-primary/30 bg-primary/5">
           <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
-            💡 Pro Tips
+            <MessageSquare className="w-5 h-5 text-primary" />
+            Pro Tips
           </h3>
           <ul className="text-sm text-muted-foreground space-y-1.5">
             <li>• Keep your finger ready on the send button</li>
             <li>• Short messages are faster to type</li>
             <li>• Watch the timer - strike at the last second!</li>
+            <li>• Use the voice room to distract opponents 😎</li>
           </ul>
         </div>
       </div>

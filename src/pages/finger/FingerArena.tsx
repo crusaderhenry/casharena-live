@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '@/components/Avatar';
+import { VoiceRoom } from '@/components/VoiceRoom';
 import { LiveTimer } from '@/components/Countdown';
 import { TestControls, useTestMode } from '@/components/TestModeToggle';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { Send, AlertTriangle, Zap, Crown, Clock } from 'lucide-react';
+import { Send, Zap, Crown, Clock, AlertTriangle } from 'lucide-react';
 
 interface Comment {
   id: string;
@@ -18,14 +19,18 @@ const AI_COMMENTS = [
   'Go!', '💨', 'Mine!', 'Here!', '👀', 'Now!', 'Yes!', '🔥', 'Me!', 'Ha!',
   'Try me', 'Too slow', 'Catch up', 'Easy', 'Next!', '😎', 'Winner', 'Last!',
   'Nope!', 'Watch this', 'Coming through', '⚡', 'Not yet!', 'Boom!', '🚀',
-  'Mine mine', 'Gotcha', 'Nice try', 'Keep up!', 'Almost!', 'Nah', '💪',
 ];
 
 const AI_PLAYERS = [
   'Adebayo K.', 'Chidinma U.', 'Emeka A.', 'Fatima B.', 'Grace O.',
   'Henry I.', 'Ifeoma C.', 'John D.', 'Kemi L.', 'Ladi M.',
-  'Musa N.', 'Ngozi P.', 'Olumide R.', 'Patricia S.', 'Queen T.',
 ];
+
+interface FingerArenaProps {
+  gameMode: 'winner_takes_all' | 'top_3';
+  entryFee: number;
+  totalPlayers: number;
+}
 
 export const FingerArena = () => {
   const navigate = useNavigate();
@@ -33,6 +38,7 @@ export const FingerArena = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [currentLeader, setCurrentLeader] = useState('');
+  const [top3, setTop3] = useState<string[]>([]);
   const [gameTime, setGameTime] = useState(0);
   const [isGameOver, setIsGameOver] = useState(false);
   const [systemMessage, setSystemMessage] = useState('');
@@ -41,7 +47,7 @@ export const FingerArena = () => {
   const { buttonClick, success, warning } = useHaptics();
   const { isTestMode } = useTestMode();
 
-  // Start with some initial comments
+  // Start with initial comments
   useEffect(() => {
     const initialComments: Comment[] = [
       { id: 'init_1', user: 'Emeka A.', text: 'Let\'s go! 🔥', timestamp: new Date(Date.now() - 5000) },
@@ -50,6 +56,7 @@ export const FingerArena = () => {
     ];
     setComments(initialComments);
     setCurrentLeader('Kemi L.');
+    setTop3(['Kemi L.', 'Grace O.', 'Emeka A.']);
     showSystemMessage('Game started! Be the last commenter!');
   }, []);
 
@@ -58,12 +65,21 @@ export const FingerArena = () => {
     setTimeout(() => setSystemMessage(''), 3000);
   };
 
+  // Update top 3 when comments change
+  const updateTop3 = (newLeader: string) => {
+    setTop3(prev => {
+      const filtered = prev.filter(p => p !== newLeader);
+      return [newLeader, ...filtered].slice(0, 3);
+    });
+    setCurrentLeader(newLeader);
+  };
+
   // AI comments simulation
   useEffect(() => {
     if (isGameOver) return;
 
     const interval = setInterval(() => {
-      const chance = timer < 20 ? 0.55 : timer < 40 ? 0.35 : 0.25;
+      const chance = timer < 20 ? 0.6 : timer < 40 ? 0.4 : 0.25;
       
       if (Math.random() < chance) {
         const randomPlayer = AI_PLAYERS[Math.floor(Math.random() * AI_PLAYERS.length)];
@@ -77,9 +93,9 @@ export const FingerArena = () => {
         };
         
         setComments(prev => [newComment, ...prev].slice(0, 50));
-        setCurrentLeader(randomPlayer);
+        updateTop3(randomPlayer);
         setTimer(60);
-        showSystemMessage(`⏱️ Timer reset - ${randomPlayer} is leading!`);
+        showSystemMessage(`⏱️ Timer reset - ${randomPlayer.split(' ')[0]} is leading!`);
         play('click');
       }
     }, 800 + Math.random() * 1500);
@@ -126,19 +142,18 @@ export const FingerArena = () => {
   // Navigate to results
   useEffect(() => {
     if (isGameOver) {
-      const lastThreeCommenters = comments.slice(0, 3).map(c => c.user);
       setTimeout(() => {
         navigate('/finger/results', { 
           state: { 
-            winners: lastThreeCommenters,
+            winners: top3,
             totalPool: 23 * 700,
-            isWinner: lastThreeCommenters.includes('You'),
-            position: lastThreeCommenters.indexOf('You') + 1,
+            isWinner: top3.includes('You'),
+            position: top3.indexOf('You') + 1,
           } 
         });
       }, 2500);
     }
-  }, [isGameOver, comments, navigate]);
+  }, [isGameOver, top3, navigate]);
 
   const handleSend = () => {
     if (!inputValue.trim() || isGameOver) return;
@@ -151,7 +166,7 @@ export const FingerArena = () => {
     };
 
     setComments(prev => [newComment, ...prev].slice(0, 50));
-    setCurrentLeader('You');
+    updateTop3('You');
     setTimer(60);
     setInputValue('');
     showSystemMessage('⏱️ Timer reset - You\'re leading!');
@@ -167,7 +182,6 @@ export const FingerArena = () => {
   };
 
   const handleTestEnd = () => {
-    // Make user the winner
     const winningComment: Comment = {
       id: `user_win_${Date.now()}`,
       user: 'You',
@@ -175,6 +189,7 @@ export const FingerArena = () => {
       timestamp: new Date(),
     };
     setComments(prev => [winningComment, ...prev]);
+    setTop3(['You', top3[0] === 'You' ? top3[1] : top3[0], top3[1] === 'You' ? top3[2] : top3[1]]);
     setCurrentLeader('You');
     endGame();
   };
@@ -184,10 +199,10 @@ export const FingerArena = () => {
     setGameTime(0);
     setIsGameOver(false);
     setCurrentLeader('');
+    setTop3([]);
     setComments([]);
   };
 
-  // Scroll to top
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = 0;
@@ -217,7 +232,7 @@ export const FingerArena = () => {
               <Zap className="w-5 h-5 text-primary" />
               Live Finger Arena
             </h1>
-            <p className="text-xs text-muted-foreground">Last comment standing wins!</p>
+            <p className="text-xs text-muted-foreground">Last comment wins!</p>
           </div>
           <div className="text-right">
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -229,42 +244,59 @@ export const FingerArena = () => {
         </div>
         
         {/* Timer */}
-        <div className={`text-center py-3 rounded-xl ${timer < 15 ? 'bg-destructive/20 animate-pulse border border-destructive/50' : 'bg-primary/10 border border-primary/30'}`}>
+        <div className={`text-center py-4 rounded-2xl mb-3 ${timer < 15 ? 'bg-destructive/20 animate-pulse border border-destructive/50' : 'bg-primary/10 border border-primary/30'}`}>
           <p className="text-xs text-muted-foreground mb-1">Time Until Winner</p>
           <LiveTimer seconds={timer} size="lg" warning={timer < 15} />
         </div>
 
-        {/* Current Leader */}
-        {currentLeader && (
-          <div className={`mt-3 flex items-center justify-center gap-2 rounded-xl p-2.5 ${
-            currentLeader === 'You' ? 'bg-primary/20 border border-primary/50 glow-primary' : 'bg-muted/50 border border-border/50'
-          }`}>
-            <Crown className={`w-4 h-4 ${currentLeader === 'You' ? 'text-primary' : 'text-muted-foreground'}`} />
-            <span className={`font-bold ${currentLeader === 'You' ? 'text-primary' : 'text-foreground'}`}>
-              {currentLeader === 'You' ? '🔥 You\'re leading!' : `${currentLeader} is leading`}
-            </span>
+        {/* Live Top 3 Panel */}
+        <div className="bg-muted/30 rounded-2xl p-3 mb-3 border border-border/50">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 text-center">Live Rankings</p>
+          <div className="flex items-center justify-center gap-4">
+            {top3.map((player, i) => (
+              <div key={player} className="flex flex-col items-center">
+                <div className={`relative ${i === 0 ? 'winner-glow' : ''}`}>
+                  <Avatar name={player} size="md" position={i + 1} isWinner={i === 0} />
+                  <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    i === 0 ? 'bg-gold text-black' :
+                    i === 1 ? 'bg-silver text-black' :
+                    'bg-bronze text-white'
+                  }`}>
+                    {i + 1}
+                  </div>
+                </div>
+                <p className={`text-[10px] mt-1 font-bold truncate max-w-[60px] ${
+                  player === 'You' ? 'text-primary' : 'text-muted-foreground'
+                }`}>
+                  {player === 'You' ? 'You' : player.split(' ')[0]}
+                </p>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
 
         {/* System Message */}
         {systemMessage && (
-          <div className="mt-2 text-center text-sm text-secondary font-medium animate-fade-in">
+          <div className="text-center text-sm text-secondary font-bold animate-fade-in bg-secondary/10 rounded-xl py-2 mb-3">
             {systemMessage}
           </div>
         )}
 
         {/* Test Controls */}
         {isTestMode && (
-          <div className="mt-3">
-            <TestControls
-              onStart={() => {}}
-              onEnd={handleTestEnd}
-              onReset={handleTestReset}
-              isStarted={true}
-              endLabel="End & Win"
-            />
-          </div>
+          <TestControls
+            onStart={() => {}}
+            onEnd={handleTestEnd}
+            onReset={handleTestReset}
+            isStarted={true}
+            endLabel="End & Win"
+          />
         )}
+      </div>
+
+      {/* Voice Room */}
+      <div className="px-4 pt-3">
+        <VoiceRoom />
       </div>
 
       {/* Chat Feed */}
