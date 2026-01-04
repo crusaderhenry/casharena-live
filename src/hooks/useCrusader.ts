@@ -73,8 +73,8 @@ const CRUSADER_PHRASES = {
   ],
 };
 
-// Voice ID for Daniel (authoritative British male) - bold confident host voice
-const CRUSADER_VOICE_ID = "onwK4e9ZLuTAKqWW03F9"; // Daniel
+// Voice ID for custom cloned voice - user's personal Crusader voice
+const CRUSADER_VOICE_ID = "I26ofw8CwlRZ6PZzoFaX"; // Custom clone
 
 export const useCrusader = () => {
   const { settings } = useAudio();

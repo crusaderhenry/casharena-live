@@ -24,9 +24,9 @@ serve(async (req) => {
       throw new Error("Text is required");
     }
 
-    // Use Daniel voice (authoritative British male) for Crusader
-    // Daniel - onwK4e9ZLuTAKqWW03F9
-    const selectedVoiceId = voiceId || "onwK4e9ZLuTAKqWW03F9";
+    // Use custom cloned voice for Crusader
+    // Custom clone - I26ofw8CwlRZ6PZzoFaX
+    const selectedVoiceId = voiceId || "I26ofw8CwlRZ6PZzoFaX";
 
     console.log(`Generating TTS for: "${text.substring(0, 50)}..." with voice: ${selectedVoiceId}`);
 
