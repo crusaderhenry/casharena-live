@@ -39,6 +39,7 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
   const [kycVerified, setKycVerified] = useState(false);
   const [kycName, setKycName] = useState({ firstName: '', lastName: '' });
   const [nameMismatchError, setNameMismatchError] = useState(false);
+  const [payoutDisabledError, setPayoutDisabledError] = useState(false);
 
   // Check KYC status on open
   useEffect(() => {
@@ -232,7 +233,14 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
       }
     } catch (err: any) {
       console.error('Withdrawal error:', err);
-      toast.error(err.message || 'Withdrawal failed');
+      const errorMessage = err.message || '';
+      
+      // Check for Paystack payout disabled error
+      if (errorMessage.includes('third party payouts') || errorMessage.includes('cannot initiate')) {
+        setPayoutDisabledError(true);
+      } else {
+        toast.error(errorMessage || 'Withdrawal failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -466,6 +474,59 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
           <div className="flex justify-end">
             <Button onClick={() => setNameMismatchError(false)}>
               Try Different Account
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Paystack Payout Disabled Error Dialog */}
+      <Dialog open={payoutDisabledError} onOpenChange={setPayoutDisabledError}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              Withdrawals Temporarily Unavailable
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/30">
+              <p className="text-sm text-foreground font-medium mb-2">
+                Our payment provider is currently unable to process withdrawals.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                This is usually a temporary issue with our payment gateway. Your balance is safe and will remain in your wallet.
+              </p>
+            </div>
+
+            <div className="p-4 bg-amber-500/10 rounded-lg border border-amber-500/30">
+              <p className="text-sm font-medium text-amber-600 mb-2">What's happening?</p>
+              <p className="text-sm text-muted-foreground mb-3">
+                The payment provider has not yet enabled transfers/payouts on our merchant account, or there's a temporary restriction.
+              </p>
+              <p className="text-sm font-medium text-amber-600 mb-2">What you can do:</p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                <li>Try again later (usually resolved within 24-48 hours)</li>
+                <li>Contact support if this persists</li>
+                <li>Your funds are safe in your wallet</li>
+              </ul>
+            </div>
+
+            <div className="text-xs text-muted-foreground text-center">
+              Error: Payment provider payout restriction
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setPayoutDisabledError(false)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              setPayoutDisabledError(false);
+              // Could add a support link here
+              toast.info('Please contact support for assistance');
+            }}>
+              Contact Support
             </Button>
           </div>
         </DialogContent>
