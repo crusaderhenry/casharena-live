@@ -113,7 +113,8 @@ export const FingerArena = () => {
     }
   }, [game?.countdown, game?.status, isGameOver, isTestMode]);
 
-  // Local winner countdown tick (only when live/test)
+  // Local winner countdown tick (only when live/test) - for display only
+  // Game over is determined by server status, not local timer
   useEffect(() => {
     if (isGameOver) return;
 
@@ -123,11 +124,15 @@ export const FingerArena = () => {
     const interval = setInterval(() => {
       setTimer((prev) => {
         if (prev <= 1) {
-          setIsGameOver(true);
-          setShowFreezeScreen(true);
-          stopBackgroundMusic();
-          play('gameOver');
-          vibrate('success');
+          // In test mode, end the game locally
+          if (isTestMode) {
+            setIsGameOver(true);
+            setShowFreezeScreen(true);
+            stopBackgroundMusic();
+            play('gameOver');
+            vibrate('success');
+          }
+          // In live mode, don't end locally - wait for server status change
           return 0;
         }
         return prev - 1;
