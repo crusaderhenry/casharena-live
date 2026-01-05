@@ -245,6 +245,9 @@ export type Database = {
       }
       platform_settings: {
         Row: {
+          default_comment_timer: number
+          default_entry_fee: number
+          default_max_duration: number
           id: string
           platform_cut_percent: number
           platform_name: string
@@ -254,6 +257,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          default_comment_timer?: number
+          default_entry_fee?: number
+          default_max_duration?: number
           id?: string
           platform_cut_percent?: number
           platform_name?: string
@@ -263,6 +269,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          default_comment_timer?: number
+          default_entry_fee?: number
+          default_max_duration?: number
           id?: string
           platform_cut_percent?: number
           platform_name?: string
