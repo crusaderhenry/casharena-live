@@ -207,7 +207,8 @@ export const FingerLobby = () => {
     sessionStorage.setItem('micCheckComplete', 'true');
   };
 
-  const poolValue = game?.pool_value || 0;
+  // Calculate effective prize pool: pool_value + sponsored_amount for sponsored games
+  const poolValue = (game?.pool_value || 0) + (game?.is_sponsored ? (game?.sponsored_amount || 0) : 0);
   const playerCount = participants.length || game?.participant_count || 0;
   const gameName = game?.name || 'Fastest Finger';
   const isGameLive = game?.status === 'live';
