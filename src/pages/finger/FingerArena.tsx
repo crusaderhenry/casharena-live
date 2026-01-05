@@ -42,7 +42,7 @@ export const FingerArena = () => {
   
   const { isTestMode, resetFingerGame, userProfile } = useGame();
   const { profile, user } = useAuth();
-  const { game, comments, participants, winners, sendComment, loading } = useLiveGame();
+  const { game, comments, participants, winners, sendComment, loading, joinGame, canJoinGame } = useLiveGame();
   const { play } = useSounds();
   const { vibrate, buttonClick } = useHaptics();
   const crusader = useCrusaderHost();
@@ -92,6 +92,7 @@ export const FingerArena = () => {
   const [finalizationPhase, setFinalizationPhase] = useState<'calculating' | 'retrying' | 'stuck'>('calculating');
   const [retryAttempt, setRetryAttempt] = useState(0);
   const [showManualResultsBtn, setShowManualResultsBtn] = useState(false);
+  const [joiningFromSpectator, setJoiningFromSpectator] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const hasAnnouncedStart = useRef(false);
   const hasNavigatedToResults = useRef(false);
@@ -106,6 +107,34 @@ export const FingerArena = () => {
   const audienceCount = testScenario?.playerCount || participants.length || game?.participant_count || 0;
   const isGameTimeDanger = isEndingSoon || gameTime <= 5 * 60;
   const isTimerUrgent = timer <= 15;
+  
+  // Spectator-to-participant join logic (10+ mins remaining)
+  const canAffordEntry = (profile?.wallet_balance || 0) >= (game?.entry_fee || 700) || game?.is_sponsored;
+  const gameJoinStatus = canJoinGame(game);
+  const canJoinFromSpectator = isSpectator && gameJoinStatus.canJoin && game?.status === 'live';
+  
+  const handleJoinFromSpectator = async () => {
+    if (!game || joiningFromSpectator || !profile) return;
+    
+    if (!canAffordEntry) {
+      play('error');
+      return;
+    }
+    
+    setJoiningFromSpectator(true);
+    const success = await joinGame(game.id);
+    
+    if (success) {
+      play('success');
+      buttonClick();
+      setIsSpectator(false); // Switch from spectator to participant
+      toast({ title: 'Joined!', description: 'You are now in the pool!' });
+    } else {
+      play('error');
+      toast({ title: 'Join failed', description: 'Could not join the pool', variant: 'destructive' });
+    }
+    setJoiningFromSpectator(false);
+  };
 
   // Track last server countdown to detect resets
   const lastServerCountdownRef = useRef<number>(game?.countdown || 60);
@@ -1049,13 +1078,32 @@ export const FingerArena = () => {
           </button>
         </div>
 
-        {/* Spectator Mode Badge */}
+        {/* Spectator Mode Badge with Join Option */}
         {isSpectator && (
-          <div className="mt-3 bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-2 text-center">
-            <p className="text-xs text-orange-400 font-medium flex items-center justify-center gap-1">
-              <Users className="w-3 h-3" />
+          <div className="mt-3 bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-3">
+            <p className="text-xs text-orange-400 font-medium flex items-center justify-center gap-1 mb-2">
+              <Eye className="w-3 h-3" />
               Spectator Mode - Watch only
             </p>
+            {/* Show Join Pool button if 10+ mins remaining */}
+            {canJoinFromSpectator && (
+              <button
+                onClick={handleJoinFromSpectator}
+                disabled={joiningFromSpectator || !canAffordEntry}
+                className="w-full py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-primary to-primary/80 text-primary-foreground disabled:opacity-50"
+              >
+                <Zap className="w-4 h-4" />
+                {joiningFromSpectator ? 'Joining...' : 
+                 !canAffordEntry ? `Need ₦${((game?.entry_fee || 700) - (profile?.wallet_balance || 0)).toLocaleString()} more` :
+                 game?.is_sponsored ? 'Join Pool FREE' :
+                 `Join Pool — ₦${(game?.entry_fee || 700).toLocaleString()}`}
+              </button>
+            )}
+            {!canJoinFromSpectator && game?.status === 'live' && (
+              <p className="text-xs text-muted-foreground text-center">
+                Less than 10 mins remaining - entries closed
+              </p>
+            )}
           </div>
         )}
 

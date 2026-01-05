@@ -178,6 +178,30 @@ export const FingerLobby = () => {
     setJoining(false);
   };
 
+  const handleSwitchToJoin = async () => {
+    if (!profile || joining || !game) return;
+    
+    // Check balance
+    const fee = game.entry_fee || 700;
+    if (profile.wallet_balance < fee && !game.is_sponsored) {
+      play('error');
+      return;
+    }
+
+    setJoining(true);
+    const success = await joinGame(game.id);
+    
+    if (success) {
+      play('success');
+      buttonClick();
+      setIsSpectator(false); // Switch from spectator to participant
+      await refreshProfile();
+    } else {
+      play('error');
+    }
+    setJoining(false);
+  };
+
   const handleMicCheckComplete = () => {
     setMicCheckComplete(true);
     sessionStorage.setItem('micCheckComplete', 'true');
@@ -300,13 +324,29 @@ export const FingerLobby = () => {
                     Enter Arena Now
                   </button>
                 ) : isSpectator ? (
-                  <button
-                    onClick={handleEnterArena}
-                    className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-orange-500 to-orange-600 text-white"
-                  >
-                    <Eye className="w-5 h-5" />
-                    Watch Arena
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={handleEnterArena}
+                      className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                    >
+                      <Eye className="w-5 h-5" />
+                      Watch Arena
+                    </button>
+                    {/* Show "Join Pool" option if 10+ mins remaining */}
+                    {gameJoinStatus.canJoin && (
+                      <button
+                        onClick={handleSwitchToJoin}
+                        disabled={!canAfford || joining}
+                        className="w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-primary to-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Zap className="w-5 h-5" />
+                        {joining ? 'Joining...' : 
+                         !canAfford ? `Need ₦${(entryFee - balance).toLocaleString()} more` : 
+                         game?.is_sponsored ? 'Switch to Join FREE' :
+                         `Switch to Join — ₦${entryFee.toLocaleString()}`}
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="flex items-center justify-center gap-2 py-2 text-destructive">
