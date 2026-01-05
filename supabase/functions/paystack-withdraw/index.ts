@@ -269,16 +269,54 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (transferError: unknown) {
-      // Refund on failure
       const rawMessage = transferError instanceof Error ? transferError.message : 'Withdrawal failed';
       console.error('Transfer failed:', transferError);
 
-      // Provide user-friendly error messages
-      let userMessage = rawMessage;
-      if (rawMessage.includes('balance is not enough')) {
-        userMessage = 'Withdrawals are temporarily unavailable. Please try again later or contact support.';
+      // Check if it's a temporary issue (like insufficient Paystack balance)
+      const isRetryable = rawMessage.includes('balance is not enough') || 
+                          rawMessage.includes('temporarily unavailable');
+
+      if (isRetryable) {
+        // Keep as pending for manual processing - don't refund
+        await supabase
+          .from('wallet_transactions')
+          .update({
+            status: 'pending',
+            description: 'Withdrawal pending - awaiting processing',
+          })
+          .eq('reference', reference);
+
+        // Unlock wallet but keep balance deducted
+        await supabase
+          .from('profiles')
+          .update({ wallet_locked: false })
+          .eq('id', user.id);
+
+        // Log for admin attention
+        await supabase.from('payment_provider_logs').insert({
+          provider: 'paystack',
+          reference: reference,
+          event_type: 'withdrawal_pending',
+          payload: { amount, error: rawMessage, requires_manual_processing: true },
+          status: 'pending',
+          user_id: user.id,
+        });
+
+        console.log(`Withdrawal queued for manual processing: ${reference}`);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            test_mode: false,
+            message: 'Withdrawal submitted. You will be notified when complete.',
+            reference: reference,
+            status: 'pending',
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
+      // For other errors, refund immediately
       await supabase
         .from('profiles')
         .update({
@@ -296,7 +334,7 @@ Deno.serve(async (req) => {
         .eq('reference', reference);
 
       return new Response(
-        JSON.stringify({ error: userMessage }),
+        JSON.stringify({ error: rawMessage }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
