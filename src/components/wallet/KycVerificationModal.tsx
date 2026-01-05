@@ -17,6 +17,8 @@ interface KycVerificationModalProps {
 export const KycVerificationModal = ({ open, onOpenChange, onVerified }: KycVerificationModalProps) => {
   const [kycType, setKycType] = useState<'nin' | 'bvn'>('nin');
   const [kycNumber, setKycNumber] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [verifiedName, setVerifiedName] = useState({ firstName: '', lastName: '' });
@@ -29,6 +31,11 @@ export const KycVerificationModal = ({ open, onOpenChange, onVerified }: KycVeri
 
     if (!/^\d+$/.test(kycNumber)) {
       toast.error(`${kycType.toUpperCase()} must contain only numbers`);
+      return;
+    }
+
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error('Please enter your first and last name');
       return;
     }
 
@@ -45,6 +52,8 @@ export const KycVerificationModal = ({ open, onOpenChange, onVerified }: KycVeri
         body: {
           type: kycType,
           number: kycNumber,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
         },
       });
 
@@ -70,6 +79,8 @@ export const KycVerificationModal = ({ open, onOpenChange, onVerified }: KycVeri
         onOpenChange(false);
         setSuccess(false);
         setKycNumber('');
+        setFirstName('');
+        setLastName('');
       }, 2000);
 
     } catch (err: unknown) {
@@ -80,6 +91,8 @@ export const KycVerificationModal = ({ open, onOpenChange, onVerified }: KycVeri
       setLoading(false);
     }
   };
+
+  const isFormValid = kycNumber.length === 11 && firstName.trim() && lastName.trim();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -103,7 +116,7 @@ export const KycVerificationModal = ({ open, onOpenChange, onVerified }: KycVeri
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg border border-muted">
               <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-muted-foreground">
@@ -137,6 +150,33 @@ export const KycVerificationModal = ({ open, onOpenChange, onVerified }: KycVeri
               </RadioGroup>
             </div>
 
+            {/* Name inputs */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="first-name">First Name</Label>
+                <Input
+                  id="first-name"
+                  type="text"
+                  placeholder="First name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="last-name">Last Name</Label>
+                <Input
+                  id="last-name"
+                  type="text"
+                  placeholder="Last name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground -mt-3">
+              Enter your name exactly as it appears on your {kycType.toUpperCase()}
+            </p>
+
             <div className="space-y-2">
               <Label htmlFor="kyc-number">{kycType.toUpperCase()} Number</Label>
               <Input
@@ -162,7 +202,7 @@ export const KycVerificationModal = ({ open, onOpenChange, onVerified }: KycVeri
 
             <Button
               onClick={handleVerify}
-              disabled={loading || kycNumber.length !== 11}
+              disabled={loading || !isFormValid}
               className="w-full"
               size="lg"
             >
