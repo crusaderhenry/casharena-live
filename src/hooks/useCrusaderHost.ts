@@ -42,6 +42,13 @@ export const AVAILABLE_HOSTS: HostConfig[] = [
     emoji: '🎤',
     description: 'Smooth and confident host',
   },
+  {
+    id: 'adaobi',
+    name: 'Adaobi',
+    voiceId: 'V0PuVTP8lJVnkKNavZmc',
+    emoji: '👸',
+    description: 'Warm Igbo queen, encouraging and graceful energy',
+  },
 ];
 
 // Get host by ID
@@ -143,8 +150,83 @@ const DEFAULT_PRIZE_CALLOUT_PHRASES = {
   },
 };
 
+// Adaobi's warm Igbo-influenced prize callout phrases
+const ADAOBI_PRIZE_CALLOUT_PHRASES = {
+  value_highlight: (pool: number, isSponsored: boolean) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    const sponsorNote = isSponsored ? ' And my dear, this one is sponsored!' : '';
+    return [
+      `Nwanne m, ${formattedPool} naira is waiting for you!${sponsorNote}`,
+      `My people, ${formattedPool} naira is on the table. Who will claim it?`,
+      `Chai! ${formattedPool} naira! This is your moment, nwanne!`,
+      `Listen well, ${formattedPool} naira could change everything today!`,
+    ];
+  },
+  value_vague: () => [
+    `This prize is beautiful, my dear. Someone will smile today!`,
+    `Real blessing is waiting for the right person!`,
+    `Nwanne, this money can do wonderful things!`,
+    `The winner today will celebrate with their family!`,
+    `Blessings are upon whoever takes this prize home!`,
+  ],
+  milestone: (pool: number, _isSponsored: boolean) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return [
+      `Chineke! The pool has reached ${formattedPool} naira! This is big!`,
+      `${formattedPool} naira now! My heart is full watching this grow!`,
+      `We have crossed ${formattedPool} naira! God is good!`,
+    ];
+  },
+  danger_mode: (pool: number) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return [
+      `Time is going, nwanne! ${formattedPool} naira still waiting!`,
+      `Hurry now! ${formattedPool} naira is almost claimed!`,
+      `The clock is warning us... ${formattedPool} naira needs an owner!`,
+      `Final moments! Who will take ${formattedPool} naira home to family?`,
+    ];
+  },
+  leader_prize: (name: string, pool: number) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return [
+      `${name} is holding ${formattedPool} naira with steady hands! Will they keep it?`,
+      `Look at ${name}! They have their eyes on ${formattedPool} naira!`,
+      `${name} has taken the blessing of ${formattedPool} naira!`,
+    ];
+  },
+  sponsored: (pool: number, sponsoredAmount: number) => {
+    const formattedSponsored = formatPoolForSpeech(sponsoredAmount);
+    return [
+      `This game is sponsored! ${formattedSponsored} naira, free for all! What a gift!`,
+      `Nwanne, hear this! ${formattedSponsored} naira and no entry fee! God bless the sponsor!`,
+      `Free entry, real money! ${formattedSponsored} naira waiting for you!`,
+    ];
+  },
+  silence_breaker: (pool: number) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return [
+      `My dear people, why so quiet? ${formattedPool} naira is still here!`,
+      `Hello? ${formattedPool} naira is waiting patiently for someone!`,
+      `${formattedPool} naira sitting there... who has the courage?`,
+    ];
+  },
+  late_game: (pool: number, leader: string | null) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return leader ? [
+      `${leader} is so close to ${formattedPool} naira... will anyone challenge?`,
+      `${formattedPool} naira is almost in ${leader}'s hands!`,
+      `Someone must act now! ${leader} is taking ${formattedPool} naira!`,
+    ] : [
+      `${formattedPool} naira is searching for its owner!`,
+      `Someone will claim ${formattedPool} naira very soon!`,
+      `The prize is ready... ${formattedPool} naira for the worthy one!`,
+    ];
+  },
+};
+
 // Get prize callout phrases based on host
-const getPrizeCalloutPhrases = (_hostId: string) => {
+const getPrizeCalloutPhrases = (hostId: string) => {
+  if (hostId === 'adaobi') return ADAOBI_PRIZE_CALLOUT_PHRASES;
   return DEFAULT_PRIZE_CALLOUT_PHRASES;
 };
 
@@ -228,8 +310,89 @@ const DEFAULT_GAME_PHRASES = {
   ],
 };
 
+// Adaobi's warm Igbo-influenced game phrases
+const ADAOBI_GAME_PHRASES = {
+  welcome: (participants: number, pool: number) => [
+    `Welcome, my beautiful people! ${participants} players are here, fighting for ${formatPoolForSpeech(pool)} naira! Let us begin!`,
+    `Nwanne m! ${participants} brave hearts in the arena! ${formatPoolForSpeech(pool)} naira prize! May the best person win!`,
+    `${participants} players, ${formatPoolForSpeech(pool)} naira waiting! I am so excited to host you all!`,
+  ],
+  
+  game_start: (participants: number) => [
+    `We are LIVE! ${participants} players ready to shine!`,
+    `The game begins now! All ${participants} of you, show your best!`,
+    `Go now, my people! ${participants} players, make me proud!`,
+  ],
+  
+  leader_change: (name: string, timer: number) => [
+    `Wonderful! ${name} has taken the lead with ${timer} seconds remaining!`,
+    `${name} moves to the top! ${timer} seconds on the clock!`,
+    `New leader! ${name} is shining bright! Only ${timer} seconds left!`,
+    `Look at ${name}! They have claimed the throne with grace!`,
+    `The arena celebrates! ${name} takes the crown!`,
+  ],
+  
+  timer_60: (leader: string | null) => leader ? [
+    `One minute remains! ${leader} is leading but the game is not over!`,
+    `60 seconds! ${leader}, stay focused my dear!`,
+  ] : [
+    `One minute left! Who will rise to the occasion?`,
+    `60 seconds remaining! The moment is coming!`,
+  ],
+  
+  timer_30: (leader: string | null, comments: number) => [
+    `30 seconds left! ${comments} comments! The energy is beautiful!`,
+    `Half a minute! ${leader ? `${leader} holds on!` : 'No clear leader yet!'} Who will emerge?`,
+    `30 seconds! My heart is racing with you all!`,
+  ],
+  
+  timer_15: (leader: string | null) => [
+    `15 SECONDS! Chineke!${leader ? ` ${leader} is holding strong!` : ''}`,
+    `We are in the final moments! 15 seconds!`,
+    `FIFTEEN! Someone must make their move!`,
+  ],
+  
+  timer_10: (leader: string | null) => [
+    `TEN SECONDS! ${leader ? `${leader} is so close!` : 'This is the moment!'}`,
+    `10! 9! The countdown begins!`,
+    `Single digits! Who wants this blessing MORE?!`,
+  ],
+  
+  timer_5: () => [
+    `FIVE SECONDS! Type now, nwanne!`,
+    `5! 4! 3! Oh my heart!`,
+    `FIVE! The tension is too much!`,
+  ],
+  
+  close_call: (name: string) => [
+    `Chai! ${name} with the last-second save!`,
+    `${name} just in time! That was so close, my dear!`,
+    `By the grace of God! ${name} survives!`,
+  ],
+  
+  game_over: (winner: string, prize: number) => [
+    `GAME OVER! ${winner} takes home ${formatPoolForSpeech(prize)} naira! Congratulations, nwanne!`,
+    `It is finished! ${winner} is our champion with ${formatPoolForSpeech(prize)} naira! God bless you!`,
+    `The game has ended! ${winner} claims ${formatPoolForSpeech(prize)} naira! What a beautiful victory!`,
+  ],
+  
+  hype: (participants: number, comments: number) => [
+    `${participants} players, ${comments} comments! This is wonderful chaos!`,
+    `The energy here is so beautiful! Keep the comments flowing!`,
+    `I celebrate every one of you competing! You are all champions!`,
+    `The chat is alive! I love this community!`,
+  ],
+  
+  quiet_game: () => [
+    `My dear people! Where is the energy? Show me something!`,
+    `It is too quiet here! Let us see some action!`,
+    `Who wants to win? Show me that fire in your heart!`,
+  ],
+};
+
 // Get game phrases based on host
-const getGamePhrases = (_hostId: string) => {
+const getGamePhrases = (hostId: string) => {
+  if (hostId === 'adaobi') return ADAOBI_GAME_PHRASES;
   return DEFAULT_GAME_PHRASES;
 };
 
