@@ -29,6 +29,7 @@ interface AdminTransaction {
 
 interface AdminGame {
   id: string;
+  name: string;
   status: 'scheduled' | 'live' | 'ended';
   poolValue: number;
   participants: number;
@@ -37,6 +38,11 @@ interface AdminGame {
   endTime?: string;
   winners?: string[];
   countdown: number;
+  payoutType: 'winner_takes_all' | 'top3' | 'top5' | 'top10';
+  payoutDistribution: number[];
+  commentTimer: number;
+  maxDuration: number;
+  minParticipants: number;
 }
 
 interface LiveComment {
@@ -71,6 +77,17 @@ interface AdminStats {
   mau: number;
 }
 
+interface CreateGameConfig {
+  name: string;
+  entry_fee: number;
+  max_duration: number;
+  comment_timer: number;
+  payout_type: string;
+  payout_distribution: number[];
+  min_participants: number;
+  countdown: number;
+}
+
 interface AdminContextType {
   users: AdminUser[];
   transactions: AdminTransaction[];
@@ -83,8 +100,9 @@ interface AdminContextType {
   loading: boolean;
   
   createGame: () => Promise<void>;
-  startGame: () => Promise<void>;
-  endGame: () => Promise<void>;
+  createGameWithConfig: (config: CreateGameConfig) => Promise<void>;
+  startGame: (gameId?: string) => Promise<void>;
+  endGame: (gameId?: string) => Promise<void>;
   resetGame: () => void;
   pauseSimulation: () => void;
   resumeSimulation: () => void;
@@ -158,18 +176,17 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
           wins: p.total_wins,
           rank: index + 1,
           rankPoints: p.rank_points,
-          status: 'active' as const, // Could add a status column to profiles
+          status: 'active' as const,
           joinedAt: p.created_at,
           email: p.email,
         }));
         setUsers(mappedUsers);
         
-        // Calculate total user balances
         const totalUserBalances = profiles.reduce((sum, p) => sum + p.wallet_balance, 0);
         setStats(prev => ({ ...prev, totalUserBalances }));
       }
 
-      // Fetch games
+      // Fetch games with new fields
       const { data: gamesData } = await supabase
         .from('fastest_finger_games')
         .select('*')
@@ -179,6 +196,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
       if (gamesData) {
         const mappedGames: AdminGame[] = gamesData.map(g => ({
           id: g.id,
+          name: (g as any).name || 'Fastest Finger',
           status: g.status as 'scheduled' | 'live' | 'ended',
           poolValue: g.pool_value,
           participants: g.participant_count,
@@ -186,18 +204,27 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
           startTime: g.start_time || g.created_at,
           endTime: g.end_time || undefined,
           countdown: g.countdown,
+          payoutType: ((g as any).payout_type || 'top3') as AdminGame['payoutType'],
+          payoutDistribution: (g as any).payout_distribution || [0.5, 0.3, 0.2],
+          commentTimer: (g as any).comment_timer || 60,
+          maxDuration: g.max_duration,
+          minParticipants: (g as any).min_participants || 3,
         }));
         setGames(mappedGames);
         
-        // Find current live game
+        // Find current live game (first one if multiple)
         const liveGame = mappedGames.find(g => g.status === 'live');
         if (liveGame) {
           setCurrentGame(liveGame);
           setIsSimulating(true);
+        } else {
+          const scheduledGame = mappedGames.find(g => g.status === 'scheduled');
+          if (scheduledGame) {
+            setCurrentGame(scheduledGame);
+          }
         }
         
-        // Count active games
-        const activeGames = mappedGames.filter(g => g.status === 'live').length;
+        const activeGames = mappedGames.filter(g => g.status === 'live' || g.status === 'scheduled').length;
         setStats(prev => ({ ...prev, activeGames }));
       }
 
@@ -207,16 +234,25 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
       
       const { data: txData } = await supabase
         .from('wallet_transactions')
-        .select('*, profiles!wallet_transactions_user_id_fkey(username)')
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(100);
 
       if (txData) {
+        // Fetch usernames separately
+        const userIds = [...new Set(txData.map(t => t.user_id))];
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .in('id', userIds);
+        
+        const usernameMap = new Map(profilesData?.map(p => [p.id, p.username]) || []);
+        
         const mappedTx: AdminTransaction[] = txData.map(t => ({
           id: t.id,
           type: t.type,
           userId: t.user_id,
-          username: (t.profiles as any)?.username || 'Unknown',
+          username: usernameMap.get(t.user_id) || 'Unknown',
           amount: t.amount,
           gameId: t.game_id || undefined,
           status: 'completed' as const,
@@ -224,7 +260,6 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
         }));
         setTransactions(mappedTx);
         
-        // Calculate today's stats
         const todayTx = txData.filter(t => new Date(t.created_at) >= todayStart);
         const entries = todayTx.filter(t => t.type === 'entry').length;
         const payouts = todayTx.filter(t => t.type === 'win').reduce((sum, t) => sum + t.amount, 0);
@@ -252,20 +287,15 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   // Real-time subscriptions
   useEffect(() => {
-    // Subscribe to game changes
     const gamesChannel = supabase
       .channel('admin-games')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'fastest_finger_games' },
-        (payload) => {
-          console.log('[Admin] Game update:', payload);
-          refreshData();
-        }
+        () => refreshData()
       )
       .subscribe();
 
-    // Subscribe to comments for live feed
     const commentsChannel = supabase
       .channel('admin-comments')
       .on(
@@ -274,7 +304,6 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
         async (payload) => {
           const newComment = payload.new as any;
           
-          // Fetch user info
           const { data: profile } = await supabase
             .from('profiles')
             .select('username, avatar')
@@ -295,7 +324,6 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
       )
       .subscribe();
 
-    // Subscribe to participants for pool updates
     const participantsChannel = supabase
       .channel('admin-participants')
       .on(
@@ -312,38 +340,6 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [refreshData]);
 
-  // Countdown timer for live game
-  useEffect(() => {
-    if (!currentGame || currentGame.status !== 'live' || !isSimulating) return;
-
-    const interval = setInterval(async () => {
-      // Call the game-timer edge function to tick
-      try {
-        const { data } = await supabase.functions.invoke('game-timer', {
-          body: { action: 'tick', gameId: currentGame.id },
-        });
-        
-        if (data?.countdown !== undefined) {
-          setCurrentGame(prev => prev ? { ...prev, countdown: data.countdown } : null);
-        }
-        
-        if (data?.action === 'game_ended') {
-          setCurrentGame(null);
-          setIsSimulating(false);
-          refreshData();
-          toast({
-            title: 'Game Ended',
-            description: `Game ended with ${data.winners} winners`,
-          });
-        }
-      } catch (error) {
-        console.error('Timer tick error:', error);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [currentGame?.id, currentGame?.status, isSimulating, refreshData, toast]);
-
   // Load comments for current game
   useEffect(() => {
     if (!currentGame) {
@@ -354,17 +350,25 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     const loadComments = async () => {
       const { data: comments } = await supabase
         .from('comments')
-        .select('*, profiles!comments_user_id_fkey(username, avatar)')
+        .select('*')
         .eq('game_id', currentGame.id)
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (comments) {
+        const userIds = [...new Set(comments.map(c => c.user_id))];
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, username, avatar')
+          .in('id', userIds);
+        
+        const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+        
         const mapped: LiveComment[] = comments.map(c => ({
           id: c.id,
           userId: c.user_id,
-          username: (c.profiles as any)?.username || 'Unknown',
-          avatar: (c.profiles as any)?.avatar || '🎮',
+          username: profileMap.get(c.user_id)?.username || 'Unknown',
+          avatar: profileMap.get(c.user_id)?.avatar || '🎮',
           message: c.content,
           timestamp: new Date(c.created_at).getTime(),
         }));
@@ -382,6 +386,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast({ title: 'Game Created', description: 'New game scheduled successfully' });
       refreshData();
@@ -391,45 +396,71 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [refreshData, toast]);
 
-  const startGame = useCallback(async () => {
-    if (!currentGame) return;
-    
+  const createGameWithConfig = useCallback(async (config: CreateGameConfig) => {
     try {
       const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { action: 'start_game', gameId: currentGame.id },
+        body: { 
+          action: 'create_game',
+          config,
+        },
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({ title: 'Game Created', description: `${config.name} scheduled successfully` });
+      refreshData();
+    } catch (error: any) {
+      console.error('Create game error:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  }, [refreshData, toast]);
+
+  const startGame = useCallback(async (gameId?: string) => {
+    const targetGame = gameId ? games.find(g => g.id === gameId) : currentGame;
+    if (!targetGame) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('game-manager', {
+        body: { action: 'start_game', gameId: targetGame.id },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       setIsSimulating(true);
-      toast({ title: 'Game Started', description: 'Game is now live!' });
+      toast({ title: 'Game Started', description: `${targetGame.name || 'Game'} is now live!` });
       refreshData();
     } catch (error: any) {
       console.error('Start game error:', error);
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
-  }, [currentGame, refreshData, toast]);
+  }, [currentGame, games, refreshData, toast]);
 
-  const endGame = useCallback(async () => {
-    if (!currentGame) return;
+  const endGame = useCallback(async (gameId?: string) => {
+    const targetGame = gameId ? games.find(g => g.id === gameId) : currentGame;
+    if (!targetGame) return;
     
     try {
       const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { action: 'end_game', gameId: currentGame.id },
+        body: { action: 'end_game', gameId: targetGame.id },
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      setCurrentGame(null);
-      setIsSimulating(false);
-      setLiveComments([]);
+      if (targetGame.id === currentGame?.id) {
+        setCurrentGame(null);
+        setIsSimulating(false);
+        setLiveComments([]);
+      }
       toast({ title: 'Game Ended', description: 'Game has been ended and winners determined' });
       refreshData();
     } catch (error: any) {
       console.error('End game error:', error);
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
-  }, [currentGame, refreshData, toast]);
+  }, [currentGame, games, refreshData, toast]);
 
   const resetGame = useCallback(() => {
     setCurrentGame(null);
@@ -442,7 +473,8 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const updateSettings = useCallback((newSettings: Partial<AdminSettings>) => {
     setSettings(prev => ({ ...prev, ...newSettings }));
-  }, []);
+    toast({ title: 'Settings Updated', description: 'Default settings have been updated' });
+  }, [toast]);
 
   const suspendUser = useCallback((userId: string) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'suspended' as const } : u));
@@ -471,6 +503,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast({ title: 'Weekly Reset', description: 'Rank points have been reset' });
       refreshData();
@@ -487,7 +520,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AdminContext.Provider value={{
       users, transactions, games, currentGame, liveComments, settings, stats, isSimulating, loading,
-      createGame, startGame, endGame, resetGame, pauseSimulation, resumeSimulation,
+      createGame, createGameWithConfig, startGame, endGame, resetGame, pauseSimulation, resumeSimulation,
       updateSettings, suspendUser, flagUser, activateUser, approvePayout, triggerWeeklyReset, simulateHighTraffic, refreshData,
     }}>
       {children}

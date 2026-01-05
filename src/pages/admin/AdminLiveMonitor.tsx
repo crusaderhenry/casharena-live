@@ -206,7 +206,7 @@ export const AdminLiveMonitor = () => {
                 {isSimulating ? 'Pause' : 'Resume'}
               </button>
               <button
-                onClick={endGame}
+                onClick={() => endGame()}
                 className="px-4 py-2 bg-red-500/20 text-red-400 rounded-xl font-medium hover:bg-red-500/30 flex items-center gap-2"
               >
                 <Square className="w-4 h-4" />
