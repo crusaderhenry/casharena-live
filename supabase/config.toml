@@ -1,5 +1,8 @@
 project_id = "ojstmxvlvrgwyquofuhb"
 
+[functions.countdown-ticker]
+verify_jwt = false
+
 [functions.crusader-tts]
 verify_jwt = false
 
