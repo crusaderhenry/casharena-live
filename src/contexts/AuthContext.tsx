@@ -84,13 +84,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
 
+      // If a stale/invalid session exists in storage, clear it so the app can re-auth.
       if (session?.user) {
+        const { error: userError } = await supabase.auth.getUser();
+        if (userError) {
+          console.warn('[Auth] Invalid session detected, signing out:', userError.message);
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
         fetchProfile(session.user.id).then(setProfile);
       }
+
       setLoading(false);
     });
 
