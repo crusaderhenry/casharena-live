@@ -1,4 +1,4 @@
-import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw } from 'lucide-react';
+import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAdmin } from '@/contexts/AdminContext';
@@ -14,6 +14,7 @@ export const AdminSettings = () => {
     selectedHost, 
     secondaryHost, 
     maintenanceMode: dbMaintenanceMode,
+    rankPoints,
     loading 
   } = usePlatformSettings();
   const { simulateHighTraffic, triggerWeeklyReset } = useAdmin();
@@ -25,6 +26,10 @@ export const AdminSettings = () => {
     maintenanceMode: false,
     selectedHost: 'crusader',
     secondaryHost: null as string | null,
+    rankPointsWin1st: 100,
+    rankPointsWin2nd: 60,
+    rankPointsWin3rd: 30,
+    rankPointsParticipation: 5,
   });
 
   useEffect(() => {
@@ -37,6 +42,10 @@ export const AdminSettings = () => {
         maintenanceMode: dbSettings.maintenance_mode ?? false,
         selectedHost: dbSettings.selected_host || 'crusader',
         secondaryHost: dbSettings.secondary_host || null,
+        rankPointsWin1st: dbSettings.rank_points_win_1st ?? 100,
+        rankPointsWin2nd: dbSettings.rank_points_win_2nd ?? 60,
+        rankPointsWin3rd: dbSettings.rank_points_win_3rd ?? 30,
+        rankPointsParticipation: dbSettings.rank_points_participation ?? 5,
       }));
     }
   }, [dbSettings]);
@@ -48,6 +57,10 @@ export const AdminSettings = () => {
       selected_host: localSettings.selectedHost,
       secondary_host: localSettings.secondaryHost,
       maintenance_mode: localSettings.maintenanceMode,
+      rank_points_win_1st: localSettings.rankPointsWin1st,
+      rank_points_win_2nd: localSettings.rankPointsWin2nd,
+      rank_points_win_3rd: localSettings.rankPointsWin3rd,
+      rank_points_participation: localSettings.rankPointsParticipation,
     });
     
     if (success) {
@@ -167,6 +180,71 @@ export const AdminSettings = () => {
             <p className="text-[10px] text-muted-foreground mt-1">Percentage of pool taken as platform fee</p>
           </div>
         </div>
+      </div>
+
+      {/* Rank Points Configuration */}
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h2 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-gold" />
+          Rank Points System
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Configure points awarded for game participation and wins
+        </p>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              🥇 1st Place
+            </label>
+            <input
+              type="number"
+              value={localSettings.rankPointsWin1st}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, rankPointsWin1st: parseInt(e.target.value) || 0 }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              🥈 2nd Place
+            </label>
+            <input
+              type="number"
+              value={localSettings.rankPointsWin2nd}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, rankPointsWin2nd: parseInt(e.target.value) || 0 }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              🥉 3rd Place
+            </label>
+            <input
+              type="number"
+              value={localSettings.rankPointsWin3rd}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, rankPointsWin3rd: parseInt(e.target.value) || 0 }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              🎮 Participation
+            </label>
+            <input
+              type="number"
+              value={localSettings.rankPointsParticipation}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, rankPointsParticipation: parseInt(e.target.value) || 0 }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={0}
+            />
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-3">
+          Points awarded after each game. Winners get position points, all participants get participation points.
+        </p>
       </div>
 
       {/* Host Selection */}

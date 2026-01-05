@@ -296,7 +296,22 @@ async function endGame(supabase: any, game: GameRow, now: Date) {
   const winnerCount = payoutDistribution.length;
   const platformCut = game.platform_cut_percentage || 10;
 
-  // Get all participants FIRST and increment games_played
+  // Fetch rank points configuration from platform_settings
+  const { data: platformSettings } = await supabase
+    .from('platform_settings')
+    .select('rank_points_win_1st, rank_points_win_2nd, rank_points_win_3rd, rank_points_participation')
+    .single();
+
+  const rankPointsConfig = {
+    win1st: platformSettings?.rank_points_win_1st ?? 100,
+    win2nd: platformSettings?.rank_points_win_2nd ?? 60,
+    win3rd: platformSettings?.rank_points_win_3rd ?? 30,
+    participation: platformSettings?.rank_points_participation ?? 5,
+  };
+
+  console.log(`[game-lifecycle] Using rank points config:`, rankPointsConfig);
+
+  // Get all participants FIRST and increment games_played + award participation points
   const { data: participants } = await supabase
     .from('fastest_finger_participants')
     .select('user_id')
@@ -304,19 +319,32 @@ async function endGame(supabase: any, game: GameRow, now: Date) {
 
   const participantIds = new Set((participants || []).map((p: any) => p.user_id));
   
-  // Increment games_played for all participants BEFORE processing winners
+  // Increment games_played and award participation points for all participants BEFORE processing winners
   for (const p of participants || []) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('games_played')
+      .select('games_played, rank_points')
       .eq('id', p.user_id)
       .single();
     
     if (profile) {
       await supabase
         .from('profiles')
-        .update({ games_played: profile.games_played + 1 })
+        .update({ 
+          games_played: profile.games_played + 1,
+          rank_points: profile.rank_points + rankPointsConfig.participation,
+        })
         .eq('id', p.user_id);
+
+      // Record participation rank points
+      if (rankPointsConfig.participation > 0) {
+        await supabase.from('rank_history').insert({
+          user_id: p.user_id,
+          points: rankPointsConfig.participation,
+          reason: `Participated in ${game.name}`,
+          game_id: game.id,
+        });
+      }
     }
   }
 
@@ -364,13 +392,17 @@ async function endGame(supabase: any, game: GameRow, now: Date) {
       .single();
     
     if (profile) {
-      const rankPoints = position === 1 ? 100 : position === 2 ? 60 : position === 3 ? 30 : 10;
+      // Get position-based rank points from config
+      const winRankPoints = position === 1 ? rankPointsConfig.win1st 
+        : position === 2 ? rankPointsConfig.win2nd 
+        : position === 3 ? rankPointsConfig.win3rd 
+        : 10;
       
       await supabase
         .from('profiles')
         .update({
           wallet_balance: profile.wallet_balance + prize,
-          rank_points: profile.rank_points + rankPoints,
+          rank_points: profile.rank_points + winRankPoints,
           total_wins: profile.total_wins + 1,
         })
         .eq('id', winnerId);
@@ -385,7 +417,7 @@ async function endGame(supabase: any, game: GameRow, now: Date) {
       
       await supabase.from('rank_history').insert({
         user_id: winnerId,
-        points: rankPoints,
+        points: winRankPoints,
         reason: `Position ${position} in ${game.name}`,
         game_id: game.id,
       });

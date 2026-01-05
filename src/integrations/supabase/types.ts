@@ -252,6 +252,10 @@ export type Database = {
           maintenance_mode: boolean
           platform_cut_percent: number
           platform_name: string
+          rank_points_participation: number
+          rank_points_win_1st: number
+          rank_points_win_2nd: number
+          rank_points_win_3rd: number
           secondary_host: string | null
           selected_host: string
           test_mode: boolean
@@ -265,6 +269,10 @@ export type Database = {
           maintenance_mode?: boolean
           platform_cut_percent?: number
           platform_name?: string
+          rank_points_participation?: number
+          rank_points_win_1st?: number
+          rank_points_win_2nd?: number
+          rank_points_win_3rd?: number
           secondary_host?: string | null
           selected_host?: string
           test_mode?: boolean
@@ -278,6 +286,10 @@ export type Database = {
           maintenance_mode?: boolean
           platform_cut_percent?: number
           platform_name?: string
+          rank_points_participation?: number
+          rank_points_win_1st?: number
+          rank_points_win_2nd?: number
+          rank_points_win_3rd?: number
           secondary_host?: string | null
           selected_host?: string
           test_mode?: boolean
