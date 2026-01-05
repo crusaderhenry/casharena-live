@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { Trophy, Zap, Bell, X } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { Trophy, Zap, Bell, X, Flag } from 'lucide-react';
 
 interface PushNotification {
   id: string;
-  type: 'game_reminder' | 'win' | 'game_starting';
+  type: 'game_reminder' | 'win' | 'game_starting' | 'game_ended';
   title: string;
   message: string;
   icon?: React.ReactNode;
@@ -35,6 +37,8 @@ const getIcon = (type: PushNotification['type']) => {
       return <Trophy className="w-5 h-5 text-gold" />;
     case 'game_starting':
       return <Bell className="w-5 h-5 text-primary" />;
+    case 'game_ended':
+      return <Flag className="w-5 h-5 text-secondary" />;
     default:
       return <Bell className="w-5 h-5 text-primary" />;
   }
@@ -44,6 +48,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   const [notifications, setNotifications] = useState<PushNotification[]>([]);
   const { play } = useSounds();
   const { vibrate } = useHaptics();
+  const { user } = useAuth();
 
   const showNotification = useCallback((notification: Omit<PushNotification, 'id'>) => {
     const id = `notif_${Date.now()}`;
@@ -70,19 +75,11 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   }, []);
 
   const scheduleGameReminder = useCallback(() => {
-    // Simulate a push notification after a random delay
-    const delay = 10000 + Math.random() * 20000; // 10-30 seconds
-    setTimeout(() => {
-      showNotification({
-        type: 'game_starting',
-        title: '⚡ Fastest Finger Starting!',
-        message: 'A new game starts in 2 minutes. Join now!',
-      });
-    }, delay);
-  }, [showNotification]);
+    // This is now handled by real-time subscriptions
+  }, []);
 
   const announceWin = useCallback((amount: number, position: number) => {
-    const positionText = position === 1 ? '1st' : position === 2 ? '2nd' : '3rd';
+    const positionText = position === 1 ? '1st' : position === 2 ? '2nd' : position === 3 ? '3rd' : `${position}th`;
     showNotification({
       type: 'win',
       title: '🏆 Congratulations!',
@@ -90,34 +87,79 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     });
   }, [showNotification]);
 
-  // Simulate periodic game reminders for Fastest Finger only
+  // Subscribe to real-time game events
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.7) {
-        const notifications = [
-          {
-            type: 'game_reminder' as const,
-            title: '⚡ Game Starting Soon!',
-            message: 'Fastest Finger starts in 5 minutes',
-          },
-          {
-            type: 'game_starting' as const,
-            title: '🎮 Live Game Alert!',
-            message: 'A Fastest Finger game is live now!',
-          },
-          {
-            type: 'game_reminder' as const,
-            title: '🏆 Prize Pool Growing!',
-            message: 'More players joining — bigger prizes!',
-          },
-        ];
-        const randomNotif = notifications[Math.floor(Math.random() * notifications.length)];
-        showNotification(randomNotif);
-      }
-    }, 60000); // Every 60 seconds
+    const gamesChannel = supabase
+      .channel('notification-games')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'fastest_finger_games',
+        },
+        (payload) => {
+          const game = payload.new as {
+            id: string;
+            name: string | null;
+            status: string;
+            pool_value: number;
+          };
+          const oldGame = payload.old as { status: string };
 
-    return () => clearInterval(interval);
-  }, [showNotification]);
+          // Game just went live
+          if (game.status === 'live' && oldGame.status !== 'live') {
+            showNotification({
+              type: 'game_starting',
+              title: '🎮 Game is LIVE!',
+              message: `${game.name || 'Fastest Finger'} is now live! Pool: ₦${game.pool_value.toLocaleString()}`,
+            });
+          }
+
+          // Game ended
+          if (game.status === 'ended' && oldGame.status === 'live') {
+            showNotification({
+              type: 'game_ended',
+              title: '🏁 Game Ended',
+              message: `${game.name || 'Fastest Finger'} has ended. Check results!`,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to winners if user is logged in
+    let winnersChannel: ReturnType<typeof supabase.channel> | null = null;
+    
+    if (user) {
+      winnersChannel = supabase
+        .channel('notification-winners')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'winners',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const winner = payload.new as {
+              amount_won: number;
+              position: number;
+            };
+            announceWin(winner.amount_won, winner.position);
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      supabase.removeChannel(gamesChannel);
+      if (winnersChannel) {
+        supabase.removeChannel(winnersChannel);
+      }
+    };
+  }, [user, showNotification, announceWin]);
 
   return (
     <NotificationContext.Provider value={{ showNotification, scheduleGameReminder, announceWin }}>
