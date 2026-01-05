@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award } from 'lucide-react';
+import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award, ShieldCheck, ShieldX } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +13,13 @@ import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 
 const avatarOptions = ['🎮', '👑', '💎', '🚀', '⚡', '🔥', '🌟', '🎯'];
+
+interface KycStatus {
+  verified: boolean;
+  type: 'nin' | 'bvn' | null;
+  firstName: string;
+  lastName: string;
+}
 
 export const ProfileScreen = () => {
   const navigate = useNavigate();
@@ -26,6 +33,12 @@ export const ProfileScreen = () => {
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
   const [totalEarnings, setTotalEarnings] = useState(0);
+  const [kycStatus, setKycStatus] = useState<KycStatus>({ 
+    verified: false, 
+    type: null, 
+    firstName: '', 
+    lastName: '' 
+  });
 
   // Use real profile data if available
   const displayProfile = {
@@ -43,6 +56,30 @@ export const ProfileScreen = () => {
       setNewName(profile.username);
     }
   }, [profile?.username]);
+
+  // Fetch KYC status
+  useEffect(() => {
+    const fetchKycStatus = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('kyc_verified, kyc_type, kyc_first_name, kyc_last_name')
+        .eq('id', user.id)
+        .single();
+
+      if (data) {
+        setKycStatus({
+          verified: data.kyc_verified || false,
+          type: data.kyc_type as 'nin' | 'bvn' | null,
+          firstName: data.kyc_first_name || '',
+          lastName: data.kyc_last_name || '',
+        });
+      }
+    };
+
+    fetchKycStatus();
+  }, [user]);
 
   // Fetch total earnings from wallet transactions
   useEffect(() => {
@@ -271,6 +308,41 @@ export const ProfileScreen = () => {
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Earnings</p>
               <p className="text-2xl font-black text-gold">₦{totalEarnings.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* KYC Verification Status */}
+        <div className={`card-panel ${kycStatus.verified 
+          ? 'border-primary/30 bg-gradient-to-r from-primary/10 to-transparent' 
+          : 'border-yellow-500/30 bg-gradient-to-r from-yellow-500/10 to-transparent'}`}
+        >
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+              kycStatus.verified ? 'bg-primary/20' : 'bg-yellow-500/20'
+            }`}>
+              {kycStatus.verified 
+                ? <ShieldCheck className="w-6 h-6 text-primary" />
+                : <ShieldX className="w-6 h-6 text-yellow-500" />
+              }
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Identity Verification</p>
+              {kycStatus.verified ? (
+                <>
+                  <p className="text-lg font-bold text-primary">Verified</p>
+                  <p className="text-xs text-muted-foreground">
+                    {kycStatus.firstName} {kycStatus.lastName} • {kycStatus.type?.toUpperCase()}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-bold text-yellow-500">Not Verified</p>
+                  <p className="text-xs text-muted-foreground">
+                    Verify via NIN or BVN when making your first withdrawal
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
