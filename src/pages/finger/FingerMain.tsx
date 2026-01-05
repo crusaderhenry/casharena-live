@@ -259,7 +259,7 @@ export const FingerMain = () => {
               <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
                 <Swords className="w-4 h-4 text-primary" />
               </div>
-              <h1 className="text-xl font-black text-foreground">Crusader's Arena</h1>
+              <h1 className="text-xl font-black text-foreground">Browse Games</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
               {liveGames.length} live • {openGames.length + scheduledGames.length} upcoming
