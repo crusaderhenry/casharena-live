@@ -5,18 +5,28 @@ import { TestModeToggle } from '@/components/TestControls';
 import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutorial';
 import { Zap, Trophy, Users, Clock, ChevronRight, Flame } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLiveGame } from '@/hooks/useLiveGame';
 import { useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
+import { supabase } from '@/integrations/supabase/client';
 
 export const Home = () => {
-  const { fingerPoolValue, userProfile, recentActivity, addFingerPlayer } = useGame();
+  const { recentActivity, isTestMode } = useGame();
+  const { profile } = useAuth();
+  const { game, participants } = useLiveGame();
   const navigate = useNavigate();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
   const { showOnboarding, completeOnboarding } = useOnboarding();
-  const [countdown, setCountdown] = useState(300); // 5 minutes
-  const [playerCount, setPlayerCount] = useState(23);
+  const [countdown, setCountdown] = useState(300);
+  const [recentWinners, setRecentWinners] = useState<any[]>([]);
+
+  // Use real game data if available, otherwise use mock for test mode
+  const poolValue = game?.pool_value || 16100;
+  const playerCount = game?.participant_count || participants.length || 23;
+  const userRank = profile?.weekly_rank || Math.ceil((profile?.rank_points || 0) / 100) || 1;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -25,21 +35,33 @@ export const Home = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Simulate players joining
+  // Fetch recent winners
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.6) {
-        const mockPlayer = {
-          id: `sim_${Date.now()}`,
-          name: `Player${Math.floor(Math.random() * 1000)}`,
-          avatar: ['🎮', '🎯', '⚡', '🔥', '💎', '🚀'][Math.floor(Math.random() * 6)],
-        };
-        addFingerPlayer(mockPlayer);
-        setPlayerCount(prev => prev + 1);
+    const fetchRecentWinners = async () => {
+      const { data } = await supabase
+        .from('winners')
+        .select('*, game:fastest_finger_games(id)')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (data) {
+        // Fetch profiles for winners
+        const winnersWithProfiles = await Promise.all(
+          data.map(async (w) => {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('username, avatar')
+              .eq('id', w.user_id)
+              .single();
+            return { ...w, profile };
+          })
+        );
+        setRecentWinners(winnersWithProfiles);
       }
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [addFingerPlayer]);
+    };
+
+    fetchRecentWinners();
+  }, []);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -63,8 +85,19 @@ export const Home = () => {
     navigate('/rank');
   };
 
-  // Filter for Fastest Finger activity only
-  const fingerActivity = recentActivity.filter(a => a.type === 'finger_win' || a.type === 'rank_up');
+  // Combine real winners with mock activity for test mode
+  const displayActivity = recentWinners.length > 0
+    ? recentWinners.map((w) => ({
+        id: w.id,
+        type: 'finger_win',
+        playerName: w.profile?.username || 'Unknown',
+        playerAvatar: w.profile?.avatar || '🎮',
+        amount: w.amount_won,
+        position: w.position,
+      }))
+    : isTestMode
+    ? recentActivity.filter((a) => a.type === 'finger_win' || a.type === 'rank_up')
+    : [];
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -79,7 +112,7 @@ export const Home = () => {
             </h1>
             <p className="text-sm text-muted-foreground flex items-center gap-1.5">
               <span className="live-dot" />
-              Live now
+              {game?.status === 'live' ? 'Game Live!' : 'Live now'}
             </p>
           </div>
           <TestModeToggle />
@@ -97,9 +130,17 @@ export const Home = () => {
           <div className="relative z-10 p-5">
             {/* Live badge */}
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/20 rounded-full border border-red-500/30">
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
+                game?.status === 'live' 
+                  ? 'bg-green-500/20 border-green-500/30' 
+                  : 'bg-red-500/20 border-red-500/30'
+              }`}>
                 <span className="live-dot" />
-                <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Live Game</span>
+                <span className={`text-xs font-bold uppercase tracking-wider ${
+                  game?.status === 'live' ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {game?.status === 'live' ? 'Live Now' : game?.status === 'scheduled' ? 'Starting Soon' : 'Join Next'}
+                </span>
               </div>
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Users className="w-4 h-4" />
@@ -122,13 +163,17 @@ export const Home = () => {
             <div className="grid grid-cols-2 gap-3 mb-5">
               <div className="bg-background/50 backdrop-blur-sm rounded-xl p-4 border border-border/30">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Prize Pool</p>
-                <p className="text-2xl font-black text-primary">{formatMoney(fingerPoolValue)}</p>
+                <p className="text-2xl font-black text-primary">{formatMoney(poolValue)}</p>
               </div>
               <div className="bg-background/50 backdrop-blur-sm rounded-xl p-4 border border-border/30">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Next Game</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+                  {game?.status === 'live' ? 'Countdown' : 'Next Game'}
+                </p>
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-primary" />
-                  <p className="text-2xl font-black text-foreground">{formatTime(countdown)}</p>
+                  <p className="text-2xl font-black text-foreground">
+                    {game?.status === 'live' ? `${game.countdown}s` : formatTime(countdown)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -139,7 +184,7 @@ export const Home = () => {
               className="w-full btn-primary flex items-center justify-center gap-2 text-lg"
             >
               <Zap className="w-5 h-5" />
-              Join Live Game
+              {game?.status === 'live' ? 'Join Live Game' : 'Enter Lobby'}
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
@@ -156,7 +201,7 @@ export const Home = () => {
             </div>
             <div className="text-left">
               <p className="text-xs text-muted-foreground">Your Weekly Rank</p>
-              <p className="text-2xl font-black text-foreground">#{userProfile.rank}</p>
+              <p className="text-2xl font-black text-foreground">#{userRank}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-primary">
@@ -174,9 +219,9 @@ export const Home = () => {
             </h3>
           </div>
           
-          {fingerActivity.length > 0 ? (
+          {displayActivity.length > 0 ? (
             <div className="space-y-3">
-              {fingerActivity.slice(0, 4).map((activity) => (
+              {displayActivity.slice(0, 4).map((activity) => (
                 <div key={activity.id} className="flex items-center gap-3 py-2 border-b border-border/20 last:border-0">
                   <div className="w-9 h-9 rounded-full bg-card-elevated flex items-center justify-center text-lg">
                     {activity.playerAvatar}
@@ -184,7 +229,10 @@ export const Home = () => {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">{activity.playerName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {activity.type === 'finger_win' ? 'Won Fastest Finger' : `Rank #${activity.position}`}
+                      {activity.type === 'finger_win' 
+                        ? `${activity.position === 1 ? '🥇' : activity.position === 2 ? '🥈' : '🥉'} ${activity.position === 1 ? '1st' : activity.position === 2 ? '2nd' : '3rd'} Place`
+                        : `Rank #${activity.position}`
+                      }
                     </p>
                   </div>
                   {activity.amount && (

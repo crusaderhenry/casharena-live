@@ -14,7 +14,294 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      comments: {
+        Row: {
+          content: string
+          created_at: string
+          game_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          game_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          game_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "fastest_finger_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fastest_finger_games: {
+        Row: {
+          countdown: number
+          created_at: string
+          created_by: string | null
+          end_time: string | null
+          entry_fee: number
+          id: string
+          max_duration: number
+          participant_count: number
+          pool_value: number
+          start_time: string | null
+          status: string
+        }
+        Insert: {
+          countdown?: number
+          created_at?: string
+          created_by?: string | null
+          end_time?: string | null
+          entry_fee?: number
+          id?: string
+          max_duration?: number
+          participant_count?: number
+          pool_value?: number
+          start_time?: string | null
+          status?: string
+        }
+        Update: {
+          countdown?: number
+          created_at?: string
+          created_by?: string | null
+          end_time?: string | null
+          entry_fee?: number
+          id?: string
+          max_duration?: number
+          participant_count?: number
+          pool_value?: number
+          start_time?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      fastest_finger_participants: {
+        Row: {
+          game_id: string
+          id: string
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          game_id: string
+          id?: string
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          game_id?: string
+          id?: string
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fastest_finger_participants_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "fastest_finger_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar: string | null
+          created_at: string
+          email: string
+          games_played: number
+          id: string
+          rank_points: number
+          total_wins: number
+          updated_at: string
+          username: string
+          wallet_balance: number
+          weekly_rank: number | null
+        }
+        Insert: {
+          avatar?: string | null
+          created_at?: string
+          email: string
+          games_played?: number
+          id: string
+          rank_points?: number
+          total_wins?: number
+          updated_at?: string
+          username: string
+          wallet_balance?: number
+          weekly_rank?: number | null
+        }
+        Update: {
+          avatar?: string | null
+          created_at?: string
+          email?: string
+          games_played?: number
+          id?: string
+          rank_points?: number
+          total_wins?: number
+          updated_at?: string
+          username?: string
+          wallet_balance?: number
+          weekly_rank?: number | null
+        }
+        Relationships: []
+      }
+      rank_history: {
+        Row: {
+          created_at: string
+          game_id: string | null
+          id: string
+          points: number
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          game_id?: string | null
+          id?: string
+          points: number
+          reason: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          game_id?: string | null
+          id?: string
+          points?: number
+          reason?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rank_history_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "fastest_finger_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_room_participants: {
+        Row: {
+          game_id: string
+          id: string
+          is_muted: boolean | null
+          is_speaking: boolean | null
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          game_id: string
+          id?: string
+          is_muted?: boolean | null
+          is_speaking?: boolean | null
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          game_id?: string
+          id?: string
+          is_muted?: boolean | null
+          is_speaking?: boolean | null
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_room_participants_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "fastest_finger_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          game_id: string | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          game_id?: string | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          game_id?: string | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "fastest_finger_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      winners: {
+        Row: {
+          amount_won: number
+          created_at: string
+          game_id: string
+          id: string
+          position: number
+          user_id: string
+        }
+        Insert: {
+          amount_won: number
+          created_at?: string
+          game_id: string
+          id?: string
+          position: number
+          user_id: string
+        }
+        Update: {
+          amount_won?: number
+          created_at?: string
+          game_id?: string
+          id?: string
+          position?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winners_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "fastest_finger_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

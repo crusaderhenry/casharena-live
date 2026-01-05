@@ -1,1 +1,7 @@
 project_id = "ojstmxvlvrgwyquofuhb"
+
+[functions.crusader-tts]
+verify_jwt = false
+
+[functions.game-manager]
+verify_jwt = false

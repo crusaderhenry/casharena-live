@@ -1,5 +1,6 @@
 import { Plus, Sparkles } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 
 interface WalletCardProps {
@@ -7,14 +8,18 @@ interface WalletCardProps {
 }
 
 export const WalletCard = ({ compact = false }: WalletCardProps) => {
-  const { balance, addFunds } = useWallet();
-  const [displayBalance, setDisplayBalance] = useState(balance);
+  const { balance: mockBalance, addFunds } = useWallet();
+  const { profile } = useAuth();
+  
+  // Use real profile balance if available, otherwise use mock
+  const realBalance = profile?.wallet_balance ?? mockBalance;
+  const [displayBalance, setDisplayBalance] = useState(realBalance);
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
-    if (displayBalance !== balance) {
+    if (displayBalance !== realBalance) {
       setIsAnimating(true);
-      const diff = balance - displayBalance;
+      const diff = realBalance - displayBalance;
       const steps = 20;
       const increment = diff / steps;
       let current = displayBalance;
@@ -24,7 +29,7 @@ export const WalletCard = ({ compact = false }: WalletCardProps) => {
         step++;
         current += increment;
         if (step >= steps) {
-          setDisplayBalance(balance);
+          setDisplayBalance(realBalance);
           setIsAnimating(false);
           clearInterval(timer);
         } else {
@@ -34,9 +39,11 @@ export const WalletCard = ({ compact = false }: WalletCardProps) => {
 
       return () => clearInterval(timer);
     }
-  }, [balance, displayBalance]);
+  }, [realBalance, displayBalance]);
 
   const handleAddFunds = () => {
+    // In production, this would open a payment modal
+    // For now, use mock funds
     addFunds(5000);
   };
 
