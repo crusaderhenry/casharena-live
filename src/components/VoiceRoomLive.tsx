@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Mic, MicOff, Volume2, VolumeX, Users, Radio } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGame } from '@/contexts/GameContext';
+import { useMockSimulation } from '@/hooks/useMockSimulation';
 
 interface VoiceParticipant {
   user_id: string;
@@ -19,6 +21,9 @@ interface VoiceRoomLiveProps {
 
 export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoomLiveProps) => {
   const { user, profile } = useAuth();
+  const { isTestMode } = useGame();
+  const { mockVoiceParticipants } = useMockSimulation(isTestMode, gameId);
+  
   const [participants, setParticipants] = useState<VoiceParticipant[]>([]);
   const [isMicEnabled, setIsMicEnabled] = useState(false);
   const [isSpeakerEnabled, setIsSpeakerEnabled] = useState(true);
@@ -212,8 +217,10 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
     };
   }, []);
 
-  const speakingParticipants = participants.filter(p => p.is_speaking);
-  const displayParticipants = participants.slice(0, 6);
+  // Use mock participants in test mode, real ones otherwise
+  const displaySource = isTestMode ? mockVoiceParticipants : participants;
+  const speakingParticipants = displaySource.filter(p => p.is_speaking);
+  const displayParticipants = displaySource.slice(0, 6);
 
   return (
     <div className="bg-card/80 backdrop-blur-sm rounded-xl p-3 border border-border/50">
@@ -222,7 +229,7 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
         <div className="flex items-center gap-2">
           <Radio className={`w-4 h-4 ${isSpeakerEnabled ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
           <span className="text-sm font-semibold text-foreground">Voice Room</span>
-          <span className="text-xs text-muted-foreground">• {participants.length} online</span>
+          <span className="text-xs text-muted-foreground">• {displaySource.length} online</span>
         </div>
 
         <div className="flex items-center gap-2">
