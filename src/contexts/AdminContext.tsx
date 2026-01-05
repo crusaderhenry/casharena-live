@@ -86,6 +86,11 @@ interface CreateGameConfig {
   payout_distribution: number[];
   min_participants: number;
   countdown: number;
+  // Scheduling
+  go_live_type?: 'immediate' | 'scheduled';
+  scheduled_at?: string | null;
+  recurrence_type?: string | null;
+  recurrence_interval?: number | null;
 }
 
 interface AdminContextType {

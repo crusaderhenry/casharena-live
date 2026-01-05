@@ -125,6 +125,12 @@ serve(async (req) => {
         // Admin only - already verified above
         const gameConfig = config || {};
         
+        // Calculate scheduled_at based on go_live_type
+        let scheduledAt = null;
+        if (gameConfig.go_live_type === 'scheduled' && gameConfig.scheduled_at) {
+          scheduledAt = gameConfig.scheduled_at;
+        }
+        
         const { data: game, error } = await supabase
           .from('fastest_finger_games')
           .insert({
@@ -140,6 +146,10 @@ serve(async (req) => {
             payout_distribution: gameConfig.payout_distribution || [0.5, 0.3, 0.2],
             min_participants: gameConfig.min_participants || 3,
             created_by: authenticatedUser?.id,
+            go_live_type: gameConfig.go_live_type || 'immediate',
+            scheduled_at: scheduledAt,
+            recurrence_type: gameConfig.recurrence_type || null,
+            recurrence_interval: gameConfig.recurrence_interval || null,
           })
           .select()
           .single();

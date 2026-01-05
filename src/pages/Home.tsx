@@ -6,7 +6,7 @@ import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutori
 import { getPayoutLabel } from '@/components/PrizeDistribution';
 import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
 import { GameHistory } from '@/components/GameHistory';
-
+import { GameStatusCard } from '@/components/GameStatusCard';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
 import { Zap, Trophy, Users, Clock, ChevronRight, Flame, Bell, TrendingUp, Play, Calendar, Eye } from 'lucide-react';
@@ -292,83 +292,7 @@ export const Home = () => {
             
             <div className="space-y-3">
               {liveGames.slice(0, 2).map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => handleGameClick(g.id)}
-                  className="w-full relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-card to-green-500/5 border border-green-500/30 p-4 text-left transition-all hover:border-green-500/50 active:scale-[0.98]"
-                >
-                  {/* Live indicator glow */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl" />
-                  
-                  <div className="relative z-10">
-                    {/* Top row */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
-                          <Zap className="w-6 h-6 text-green-400" />
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-foreground">{g.name || 'Fastest Finger'}</h3>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                            <span className="flex items-center gap-1">
-                              <Trophy className="w-3 h-3 text-gold" />
-                              {getPayoutLabel(g.payout_type || 'top3')}
-                            </span>
-                            <span>•</span>
-                            <span>₦{g.entry_fee}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/20">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-xs font-bold text-green-400">LIVE</span>
-                      </div>
-                    </div>
-                    
-                    {/* Stats row */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Prize Pool</p>
-                        <p className="text-xl font-black text-primary">{formatMoney(g.pool_value)}</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-center">
-                          <p className="text-xs text-muted-foreground">Players</p>
-                          <p className="font-bold text-foreground flex items-center gap-1">
-                            <Users className="w-3.5 h-3.5" /> {g.participant_count}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs text-muted-foreground">Timer</p>
-                          <p className="font-bold text-foreground flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-primary" /> {g.countdown}s
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                    </div>
-
-                    {/* View pool CTA */}
-                    <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                      <div className="flex items-center gap-2">
-                        <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">{g.participant_count} players</span>
-                      </div>
-                      <PoolParticipantsSheet
-                        gameId={g.id}
-                        gameName={g.name || 'Fastest Finger'}
-                        participantCount={g.participant_count}
-                        poolValue={g.pool_value}
-                        entryFee={g.entry_fee}
-                        isTestMode={isTestMode}
-                      >
-                        <span className="flex items-center gap-1 text-xs text-primary font-medium">
-                          <Eye className="w-3 h-3" /> View pool
-                        </span>
-                      </PoolParticipantsSheet>
-                    </div>
-                  </div>
-                </button>
+                <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
               ))}
             </div>
           </div>
@@ -386,31 +310,7 @@ export const Home = () => {
             
             <div className="space-y-2">
               {scheduledGames.slice(0, 3).map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => handleGameClick(g.id)}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50 hover:border-yellow-500/30 transition-all active:scale-[0.98]"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-yellow-500/15 flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-yellow-400" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-foreground text-sm">{g.name || 'Fastest Finger'}</h4>
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 font-medium">
-                        {getPayoutLabel(g.payout_type || 'top3')}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {g.participant_count} joined • ₦{g.entry_fee} entry
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-primary text-sm">{formatMoney(g.pool_value)}</p>
-                    <p className="text-xs text-muted-foreground">pool</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </button>
+                <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
               ))}
             </div>
           </div>

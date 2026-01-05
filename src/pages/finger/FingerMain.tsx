@@ -6,7 +6,7 @@ import { TestControls } from '@/components/TestControls';
 import { PrizeDistribution, getPayoutLabel, getWinnerCount } from '@/components/PrizeDistribution';
 import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
 import { GameHistory } from '@/components/GameHistory';
-import { AllTimeLeaderboard } from '@/components/AllTimeLeaderboard';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { useGame } from '@/contexts/GameContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
@@ -516,9 +516,6 @@ export const FingerMain = () => {
 
         {/* Game History */}
         <GameHistory isTestMode={isTestMode} />
-
-        {/* All-Time Leaderboard */}
-        <AllTimeLeaderboard isTestMode={isTestMode} />
 
         {/* Prize Distribution - Only show if game selected */}
         {selectedGame && (
