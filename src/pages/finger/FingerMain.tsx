@@ -4,13 +4,14 @@ import { BottomNav } from '@/components/BottomNav';
 import { WalletCard } from '@/components/WalletCard';
 import { TestControls } from '@/components/TestControls';
 import { PrizeDistribution, getPayoutLabel, getWinnerCount } from '@/components/PrizeDistribution';
+import { PoolParticipants } from '@/components/PoolParticipants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGame } from '@/contexts/GameContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Zap, Users, Clock, Trophy, MessageSquare, ChevronRight, Play, Calendar, Timer, Coins } from 'lucide-react';
+import { ArrowLeft, Zap, Users, Clock, Trophy, MessageSquare, ChevronRight, Play, Calendar, Timer, Coins, Eye } from 'lucide-react';
 
 // Mock games for test mode
 const mockGamesForTest = [
@@ -45,7 +46,8 @@ export const FingerMain = () => {
     };
     loadGames();
 
-    const channel = supabase
+    // Subscribe to game updates (pool value, participant count, status)
+    const gamesChannel = supabase
       .channel('finger-games-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fastest_finger_games' },
         (payload) => {
@@ -61,8 +63,43 @@ export const FingerMain = () => {
       )
       .subscribe();
 
+    // Subscribe to participant changes for live pool updates
+    const participantsChannel = supabase
+      .channel('finger-participants-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fastest_finger_participants' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newP = payload.new as any;
+            setAllGames(prev => prev.map(g => {
+              if (g.id === newP.game_id) {
+                return { 
+                  ...g, 
+                  participant_count: (g.participant_count || 0) + 1,
+                  pool_value: (g.pool_value || 0) + (g.entry_fee || 700)
+                };
+              }
+              return g;
+            }));
+          } else if (payload.eventType === 'DELETE') {
+            const oldP = payload.old as any;
+            setAllGames(prev => prev.map(g => {
+              if (g.id === oldP.game_id) {
+                return { 
+                  ...g, 
+                  participant_count: Math.max(0, (g.participant_count || 0) - 1),
+                  pool_value: Math.max(0, (g.pool_value || 0) - (g.entry_fee || 700))
+                };
+              }
+              return g;
+            }));
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(gamesChannel);
+      supabase.removeChannel(participantsChannel);
     };
   }, [isTestMode, fetchAllActiveGames]);
 
@@ -358,6 +395,16 @@ export const FingerMain = () => {
             </li>
           </ul>
         </details>
+
+        {/* Pool Participants - Show who's in the game */}
+        {selectedGame && (
+          <PoolParticipants
+            gameId={selectedGame.id}
+            participantCount={selectedGame.participant_count || 0}
+            poolValue={poolValue}
+            isTestMode={isTestMode}
+          />
+        )}
 
         {/* Prize Distribution - Only show if game selected */}
         {selectedGame && (

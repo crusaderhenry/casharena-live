@@ -4,7 +4,8 @@ import { BottomNav } from '@/components/BottomNav';
 import { TestModeToggle } from '@/components/TestControls';
 import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutorial';
 import { getPayoutLabel } from '@/components/PrizeDistribution';
-import { Zap, Trophy, Users, Clock, ChevronRight, Flame, Bell, TrendingUp, Play, Calendar } from 'lucide-react';
+import { PoolParticipants } from '@/components/PoolParticipants';
+import { Zap, Trophy, Users, Clock, ChevronRight, Flame, Bell, TrendingUp, Play, Calendar, Eye } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
@@ -65,6 +66,40 @@ export const Home = () => {
       )
       .subscribe();
 
+    // Subscribe to participant changes for live pool updates
+    const participantsChannel = supabase
+      .channel('home-participants-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fastest_finger_participants' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newP = payload.new as any;
+            setAllGames(prev => prev.map(g => {
+              if (g.id === newP.game_id) {
+                return { 
+                  ...g, 
+                  participant_count: (g.participant_count || 0) + 1,
+                  pool_value: (g.pool_value || 0) + (g.entry_fee || 700)
+                };
+              }
+              return g;
+            }));
+          } else if (payload.eventType === 'DELETE') {
+            const oldP = payload.old as any;
+            setAllGames(prev => prev.map(g => {
+              if (g.id === oldP.game_id) {
+                return { 
+                  ...g, 
+                  participant_count: Math.max(0, (g.participant_count || 0) - 1),
+                  pool_value: Math.max(0, (g.pool_value || 0) - (g.entry_fee || 700))
+                };
+              }
+              return g;
+            }));
+          }
+        }
+      )
+      .subscribe();
+
     const winnersChannel = supabase
       .channel('home-winners-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'winners' },
@@ -81,6 +116,7 @@ export const Home = () => {
     return () => {
       supabase.removeChannel(gamesChannel);
       supabase.removeChannel(winnersChannel);
+      supabase.removeChannel(participantsChannel);
     };
   }, [isTestMode, fetchAllActiveGames]);
 
@@ -243,7 +279,7 @@ export const Home = () => {
                     </div>
                     
                     {/* Stats row */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-3">
                       <div>
                         <p className="text-xs text-muted-foreground">Prize Pool</p>
                         <p className="text-xl font-black text-primary">{formatMoney(g.pool_value)}</p>
@@ -263,6 +299,20 @@ export const Home = () => {
                         </div>
                       </div>
                       <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    </div>
+
+                    {/* Compact participants preview */}
+                    <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                      <PoolParticipants
+                        gameId={g.id}
+                        participantCount={g.participant_count}
+                        poolValue={g.pool_value}
+                        isTestMode={isTestMode}
+                        compact
+                      />
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Eye className="w-3 h-3" /> View pool
+                      </span>
                     </div>
                   </div>
                 </button>
