@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Share2, MessageCircle, Download, Copy, Check, Loader2 } from 'lucide-react';
+import { Share2, MessageCircle, Download, Copy, Check, Loader2, Instagram } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { useToast } from '@/hooks/use-toast';
 
@@ -53,14 +53,17 @@ export const ShareCard = ({ username, avatar, position, amount, gameType }: Shar
 
   const shareMessage = `🎉 I just won ${formatMoneyFull(amount)} on FortunesHQ! ${getPositionText()} in ${gameType === 'finger' ? 'Fastest Finger' : 'Lucky Pool'}! 🚀\n\nJoin me and win big! 💰`;
 
+  const storyCardRef = useRef<HTMLDivElement>(null);
+
   // Capture the card as an image
-  const captureCard = async (): Promise<Blob | null> => {
-    if (!cardRef.current) return null;
+  const captureCard = async (forStory = false): Promise<Blob | null> => {
+    const ref = forStory ? storyCardRef.current : cardRef.current;
+    if (!ref) return null;
     
     try {
       setIsCapturing(true);
       
-      const canvas = await html2canvas(cardRef.current, {
+      const canvas = await html2canvas(ref, {
         backgroundColor: '#0f1419',
         scale: 2,
         useCORS: true,
@@ -158,8 +161,106 @@ export const ShareCard = ({ username, avatar, position, amount, gameType }: Shar
     window.open(url, '_blank');
   };
 
+  // Share to Instagram Story (9:16 aspect ratio)
+  const handleInstagramStory = async () => {
+    const blob = await captureCard(true); // Capture story-sized card
+    if (!blob) {
+      toast({ title: 'Error', description: 'Failed to create story image', variant: 'destructive' });
+      return;
+    }
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fortuneshq-story-${formatMoney(amount).replace('₦', '')}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({ 
+      title: 'Story Image Saved!', 
+      description: 'Open Instagram and share to your story' 
+    });
+  };
+
   return (
     <div className="space-y-4">
+      {/* Hidden Story Card (9:16 aspect ratio) - Only rendered for capture */}
+      <div className="absolute -left-[9999px]">
+        <div 
+          ref={storyCardRef}
+          className="relative overflow-hidden flex flex-col items-center justify-center"
+          style={{
+            width: '1080px',
+            height: '1920px',
+            background: 'linear-gradient(180deg, #0f1419 0%, #1a1f2e 30%, #0f1419 70%, #1a1f2e 100%)',
+          }}
+        >
+          {/* Background decorations */}
+          <div className="absolute inset-0">
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-yellow-500/20 rounded-full blur-[100px]" />
+            <div className="absolute bottom-40 left-10 w-[300px] h-[300px] bg-yellow-600/15 rounded-full blur-[80px]" />
+            <div className="absolute bottom-60 right-10 w-[300px] h-[300px] bg-orange-500/15 rounded-full blur-[80px]" />
+          </div>
+          
+          {/* Content */}
+          <div className="relative z-10 text-center px-16">
+            {/* Trophy */}
+            <div className="text-[120px] mb-8">{getPositionEmoji()}</div>
+            
+            {/* Avatar */}
+            <div 
+              className="w-40 h-40 rounded-full flex items-center justify-center text-[80px] mx-auto mb-8"
+              style={{
+                background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.2) 0%, rgba(217, 119, 6, 0.2) 100%)',
+                border: '6px solid rgba(234, 179, 8, 0.5)',
+                boxShadow: '0 0 60px rgba(234, 179, 8, 0.3)',
+              }}
+            >
+              {avatar}
+            </div>
+            
+            {/* Username */}
+            <h3 className="text-5xl font-bold text-white mb-4">{username}</h3>
+            
+            {/* Position */}
+            <p className="text-yellow-400 font-semibold text-3xl mb-12">{getPositionText()}</p>
+            
+            {/* Amount Won */}
+            <div 
+              className="py-10 px-16 rounded-3xl mb-12 inline-block"
+              style={{
+                background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(217, 119, 6, 0.1) 100%)',
+                border: '2px solid rgba(234, 179, 8, 0.3)',
+              }}
+            >
+              <p className="text-xl text-yellow-500/80 uppercase tracking-wider mb-4">I just won</p>
+              <p 
+                className="text-7xl font-black"
+                style={{
+                  background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                {formatMoneyFull(amount)}
+              </p>
+            </div>
+            
+            {/* Branding */}
+            <div className="flex items-center justify-center gap-4 text-white mb-6">
+              <span className="text-6xl">🎯</span>
+              <span className="font-bold text-5xl">FortunesHQ</span>
+            </div>
+            
+            {/* Tagline */}
+            <p className="text-2xl text-white/50">Play • Win • Celebrate</p>
+          </div>
+        </div>
+      </div>
+
       {/* Shareable Card - This gets captured as image */}
       <div 
         ref={cardRef}
@@ -275,21 +376,32 @@ export const ShareCard = ({ username, avatar, position, amount, gameType }: Shar
       </div>
 
       {/* Social Platform Buttons */}
-      <div className="flex gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <button
           onClick={handleWhatsApp}
           disabled={isCapturing}
-          className="flex-1 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+          className="py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
         >
           <MessageCircle className="w-5 h-5" />
           WhatsApp
         </button>
         <button
+          onClick={handleInstagramStory}
+          disabled={isCapturing}
+          className="py-3 rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+          style={{
+            background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
+          }}
+        >
+          <Instagram className="w-5 h-5" />
+          Story
+        </button>
+        <button
           onClick={handleTwitter}
           disabled={isCapturing}
-          className="flex-1 py-3 rounded-xl bg-black hover:bg-gray-900 text-white font-semibold flex items-center justify-center gap-2 transition-all border border-gray-700 disabled:opacity-50"
+          className="py-3 rounded-xl bg-black hover:bg-gray-900 text-white font-semibold flex items-center justify-center gap-2 transition-all border border-gray-700 disabled:opacity-50"
         >
-          𝕏 Twitter
+          𝕏
         </button>
       </div>
     </div>
