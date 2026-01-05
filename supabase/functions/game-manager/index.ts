@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Helper to verify JWT and get user
-async function verifyAuth(req: Request, supabase: any): Promise<{ user: any | null; error: string | null }> {
+async function verifyAuth(req: Request): Promise<{ user: any | null; error: string | null }> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
     return { user: null, error: 'Missing authorization header' };
@@ -15,8 +15,17 @@ async function verifyAuth(req: Request, supabase: any): Promise<{ user: any | nu
 
   const token = authHeader.replace('Bearer ', '');
   
-  // Use the service role client to verify the token
-  const { data: { user }, error } = await supabase.auth.getUser(token);
+  // Create a client with the user's JWT to verify their identity
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  
+  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  });
+  
+  const { data: { user }, error } = await userClient.auth.getUser();
   
   if (error || !user) {
     console.error('Auth verification error:', error?.message || 'No user found');
@@ -90,7 +99,7 @@ serve(async (req) => {
 
     // Verify authentication for protected actions
     if (authRequiredActions.includes(action)) {
-      const { user, error } = await verifyAuth(req, supabase);
+      const { user, error } = await verifyAuth(req);
       if (error) {
         return new Response(JSON.stringify({ error }), {
           status: 401,
