@@ -8,8 +8,11 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+// This function is designed to be called by:
+// 1. Internal cron job (no auth needed - uses service key internally)
+// 2. Admin for manual operations (requires admin auth)
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -20,8 +23,42 @@ Deno.serve(async (req) => {
 
     console.log(`[game-timer] Action: ${action}, Game: ${gameId}`);
 
+    // Verify this is either a cron job or an authenticated admin
+    // Cron jobs include the service role key in auth header
+    const authHeader = req.headers.get('Authorization');
+    const isCronJob = authHeader?.includes(supabaseServiceKey.substring(0, 20));
+    
+    if (!isCronJob && authHeader) {
+      // Verify admin role for manual calls
+      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
+      
+      if (error || !user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Check admin role
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (!roleData) {
+        return new Response(JSON.stringify({ error: 'Admin access required' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     if (action === 'tick') {
-      // Process countdown tick for a live game
       const { data: game, error: gameError } = await supabase
         .from('fastest_finger_games')
         .select('*')
@@ -37,8 +74,6 @@ Deno.serve(async (req) => {
       }
 
       const newCountdown = Math.max(0, game.countdown - 1);
-      
-      // Check if game should auto-end (countdown reached 0 or max duration exceeded)
       const startTime = new Date(game.start_time).getTime();
       const now = Date.now();
       const elapsedMinutes = (now - startTime) / (1000 * 60);
@@ -46,28 +81,32 @@ Deno.serve(async (req) => {
       if (newCountdown === 0 || elapsedMinutes >= game.max_duration) {
         console.log('[game-timer] Game ending - countdown reached 0 or max duration exceeded');
         
-        // Get last 3 commenters as winners
+        const payoutDistribution: number[] = (game as any).payout_distribution || [0.5, 0.3, 0.2];
+        const winnerCount = payoutDistribution.length;
+
         const { data: comments } = await supabase
           .from('comments')
           .select('user_id, created_at')
           .eq('game_id', gameId)
           .order('created_at', { ascending: false })
-          .limit(3);
+          .limit(winnerCount);
 
-        const winners = comments || [];
+        const uniqueWinnerIds: string[] = [];
+        for (const comment of comments || []) {
+          if (!uniqueWinnerIds.includes(comment.user_id)) {
+            uniqueWinnerIds.push(comment.user_id);
+          }
+          if (uniqueWinnerIds.length >= winnerCount) break;
+        }
+
         const poolValue = game.pool_value;
         const platformCut = Math.floor(poolValue * 0.1);
         const prizePool = poolValue - platformCut;
         
-        // Prize distribution: 50%, 30%, 20%
-        const prizeDistribution = [0.5, 0.3, 0.2];
-        
-        // Record winners and distribute prizes
-        for (let i = 0; i < winners.length; i++) {
-          const prize = Math.floor(prizePool * prizeDistribution[i]);
-          const winnerId = winners[i].user_id;
+        for (let i = 0; i < uniqueWinnerIds.length; i++) {
+          const winnerId = uniqueWinnerIds[i];
+          const prize = Math.floor(prizePool * payoutDistribution[i]);
           
-          // Insert winner record
           await supabase.from('winners').insert({
             game_id: gameId,
             user_id: winnerId,
@@ -75,7 +114,6 @@ Deno.serve(async (req) => {
             amount_won: prize,
           });
           
-          // Get current wallet balance and update
           const { data: profile } = await supabase
             .from('profiles')
             .select('wallet_balance, rank_points, total_wins')
@@ -83,37 +121,33 @@ Deno.serve(async (req) => {
             .single();
             
           if (profile) {
-            // Credit winner's wallet
+            const rankPoints = [100, 60, 30, 10, 10, 10, 10, 10, 10, 10][i] || 10;
             await supabase
               .from('profiles')
               .update({ 
                 wallet_balance: profile.wallet_balance + prize,
-                rank_points: profile.rank_points + [100, 60, 30][i],
+                rank_points: profile.rank_points + rankPoints,
                 total_wins: profile.total_wins + 1,
               })
               .eq('id', winnerId);
           }
           
-          // Record win transaction
           await supabase.from('wallet_transactions').insert({
             user_id: winnerId,
             type: 'win',
             amount: prize,
             game_id: gameId,
-            description: `Fastest Finger ${i + 1}${i === 0 ? 'st' : i === 1 ? 'nd' : 'rd'} place prize`,
+            description: `${(game as any).name || 'Fastest Finger'} - Position ${i + 1}`,
           });
           
-          // Record rank history
-          const rankPoints = [100, 60, 30][i];
           await supabase.from('rank_history').insert({
             user_id: winnerId,
-            points: rankPoints,
-            reason: `${i + 1}${i === 0 ? 'st' : i === 1 ? 'nd' : 'rd'} place in Fastest Finger`,
+            points: [100, 60, 30, 10, 10, 10, 10, 10, 10, 10][i] || 10,
+            reason: `Position ${i + 1} in ${(game as any).name || 'Fastest Finger'}`,
             game_id: gameId,
           });
         }
         
-        // End the game
         await supabase
           .from('fastest_finger_games')
           .update({
@@ -123,18 +157,17 @@ Deno.serve(async (req) => {
           })
           .eq('id', gameId);
           
-        console.log(`[game-timer] Game ${gameId} ended. Winners: ${winners.length}`);
+        console.log(`[game-timer] Game ${gameId} ended. Winners: ${uniqueWinnerIds.length}`);
         
         return new Response(JSON.stringify({ 
           success: true, 
           action: 'game_ended',
-          winners: winners.length,
+          winners: uniqueWinnerIds.length,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       
-      // Just update countdown
       await supabase
         .from('fastest_finger_games')
         .update({ countdown: newCountdown })
@@ -149,10 +182,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'reset_countdown') {
-      // Reset countdown when a new comment is posted
       const { data: game, error } = await supabase
         .from('fastest_finger_games')
-        .select('countdown')
+        .select('comment_timer')
         .eq('id', gameId)
         .eq('status', 'live')
         .single();
@@ -163,21 +195,20 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Reset to 60 seconds
+      const commentTimer = (game as any).comment_timer || 60;
       await supabase
         .from('fastest_finger_games')
-        .update({ countdown: 60 })
+        .update({ countdown: commentTimer })
         .eq('id', gameId);
 
       console.log(`[game-timer] Countdown reset for game ${gameId}`);
       
-      return new Response(JSON.stringify({ success: true, countdown: 60 }), {
+      return new Response(JSON.stringify({ success: true, countdown: commentTimer }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     if (action === 'check_auto_end') {
-      // Check all live games for auto-end conditions
       const { data: liveGames } = await supabase
         .from('fastest_finger_games')
         .select('*')
@@ -197,10 +228,8 @@ Deno.serve(async (req) => {
         const elapsedMinutes = (now - startTime) / (1000 * 60);
         
         if (elapsedMinutes >= game.max_duration) {
-          // Auto-end this game
           console.log(`[game-timer] Auto-ending game ${game.id} - exceeded max duration`);
           
-          // Trigger full end logic by calling with tick action
           await fetch(`${supabaseUrl}/functions/v1/game-timer`, {
             method: 'POST',
             headers: {
