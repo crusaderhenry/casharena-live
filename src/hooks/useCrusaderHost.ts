@@ -76,9 +76,8 @@ const formatPoolForSpeech = (amount: number): string => {
   return amount.toString();
 };
 
-// Prize callout phrases - varied and natural
-const PRIZE_CALLOUT_PHRASES = {
-  // Highlighting value (general awareness)
+// Default prize callout phrases (used by Crusader and Mark)
+const DEFAULT_PRIZE_CALLOUT_PHRASES = {
   value_highlight: (pool: number, isSponsored: boolean) => {
     const formattedPool = formatPoolForSpeech(pool);
     const sponsorNote = isSponsored ? ' And this one is sponsored!' : '';
@@ -89,8 +88,6 @@ const PRIZE_CALLOUT_PHRASES = {
       `Don't forget what's at stake... ${formattedPool} naira!`,
     ];
   },
-  
-  // Vague value mentions (anti-repetition)
   value_vague: () => [
     `That prize is serious... someone's about to get paid!`,
     `Real money sitting there... waiting for a name.`,
@@ -98,9 +95,7 @@ const PRIZE_CALLOUT_PHRASES = {
     `Whoever wins this... is walking away happy!`,
     `That amount is life-changing for someone in here!`,
   ],
-  
-  // Milestone reached
-  milestone: (pool: number, isSponsored: boolean) => {
+  milestone: (pool: number, _isSponsored: boolean) => {
     const formattedPool = formatPoolForSpeech(pool);
     return [
       `Woah! Prize pool just hit ${formattedPool} naira! This is getting BIG!`,
@@ -108,8 +103,6 @@ const PRIZE_CALLOUT_PHRASES = {
       `We just crossed ${formattedPool} naira! The competition is heating up!`,
     ];
   },
-  
-  // Danger mode (last 5 minutes)
   danger_mode: (pool: number) => {
     const formattedPool = formatPoolForSpeech(pool);
     return [
@@ -119,8 +112,6 @@ const PRIZE_CALLOUT_PHRASES = {
       `Last stretch! Someone is about to walk away with ${formattedPool} naira!`,
     ];
   },
-  
-  // Leader change with prize context
   leader_prize: (name: string, pool: number) => {
     const formattedPool = formatPoolForSpeech(pool);
     return [
@@ -129,8 +120,6 @@ const PRIZE_CALLOUT_PHRASES = {
       `${name} just took control of ${formattedPool} naira!`,
     ];
   },
-  
-  // Sponsored game hype
   sponsored: (pool: number, sponsoredAmount: number) => {
     const formattedSponsored = formatPoolForSpeech(sponsoredAmount);
     return [
@@ -139,8 +128,6 @@ const PRIZE_CALLOUT_PHRASES = {
       `No entry fee on this one... but the prize is REAL! ${formattedSponsored} naira!`,
     ];
   },
-  
-  // Silence breaker
   silence_breaker: (pool: number) => {
     const formattedPool = formatPoolForSpeech(pool);
     return [
@@ -149,8 +136,6 @@ const PRIZE_CALLOUT_PHRASES = {
       `${formattedPool} naira just sitting there... who wants it?!`,
     ];
   },
-  
-  // Late game pressure
   late_game: (pool: number, leader: string | null) => {
     const formattedPool = formatPoolForSpeech(pool);
     return leader ? [
@@ -165,12 +150,92 @@ const PRIZE_CALLOUT_PHRASES = {
   },
 };
 
-// Game-aware phrases that reference actual game state
-const GAME_PHRASES = {
+// Esther's Nigerian Pidgin prize callout phrases
+const ESTHER_PRIZE_CALLOUT_PHRASES = {
+  value_highlight: (pool: number, isSponsored: boolean) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    const sponsorNote = isSponsored ? ' E be free game o!' : '';
+    return [
+      `Oya see am! ${formattedPool} naira dey wait for person!${sponsorNote}`,
+      `Chai! ${formattedPool} naira dey ground o! Who go carry am?`,
+      `Make una no sleep! ${formattedPool} naira dey table!`,
+      `E sweet me! ${formattedPool} naira fit change somebody life today!`,
+    ];
+  },
+  value_vague: () => [
+    `This money serious o! Somebody go chop today!`,
+    `Real kudi dey wait! No be play play!`,
+    `This one fit pay person rent... I dey tell una!`,
+    `Whoever win this one go dey happy scatter!`,
+    `Wahala for who no get fast finger today!`,
+  ],
+  milestone: (pool: number, _isSponsored: boolean) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return [
+      `Haaaa! E don reach ${formattedPool} naira! This one na big money o!`,
+      `See as money dey climb! ${formattedPool} naira don land!`,
+      `Omo! ${formattedPool} naira! Competition don enter another level!`,
+    ];
+  },
+  danger_mode: (pool: number) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return [
+      `Time dey go o! ${formattedPool} naira still dey wait for owner!`,
+      `Oya sharp sharp! ${formattedPool} naira fit be your own!`,
+      `Wahala dey! ${formattedPool} naira go soon find owner!`,
+      `Last chance o! Who go carry ${formattedPool} naira go house?`,
+    ];
+  },
+  leader_prize: (name: string, pool: number) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return [
+      `See ${name} o! E dey hold ${formattedPool} naira tight! Who go collect am?`,
+      `${name} don grip the money! ${formattedPool} naira dey e hand!`,
+      `Ehen! ${name} dey control ${formattedPool} naira now now!`,
+    ];
+  },
+  sponsored: (pool: number, sponsoredAmount: number) => {
+    const formattedSponsored = formatPoolForSpeech(sponsoredAmount);
+    return [
+      `Free game alert! ${formattedSponsored} naira dey wait! No entry fee o!`,
+      `Omo see free money! ${formattedSponsored} naira for free! Oya enter!`,
+      `Sponsored game don land! ${formattedSponsored} naira, you no go pay kobo!`,
+    ];
+  },
+  silence_breaker: (pool: number) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return [
+      `Hello? Anybody dey here? ${formattedPool} naira dey wait o!`,
+      `Why everywhere quiet? ${formattedPool} naira no get leg, e no fit run!`,
+      `Una don sleep? ${formattedPool} naira still dey ground!`,
+    ];
+  },
+  late_game: (pool: number, leader: string | null) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return leader ? [
+      `${leader} don nearly carry ${formattedPool} naira go! Who go stop am?`,
+      `See as ${leader} dey run with the money! ${formattedPool} naira o!`,
+      `Oya do something! ${leader} wan chop ${formattedPool} naira!`,
+    ] : [
+      `${formattedPool} naira dey find owner!`,
+      `Somebody go soon carry ${formattedPool} naira go house!`,
+      `The money dey there! ${formattedPool} naira for the taking!`,
+    ];
+  },
+};
+
+// Get prize callout phrases based on host
+const getPrizeCalloutPhrases = (hostId: string) => {
+  if (hostId === 'esther') return ESTHER_PRIZE_CALLOUT_PHRASES;
+  return DEFAULT_PRIZE_CALLOUT_PHRASES;
+};
+
+// Default game-aware phrases (used by Crusader and Mark)
+const DEFAULT_GAME_PHRASES = {
   welcome: (participants: number, pool: number) => [
     `Welcome to the arena! We've got ${participants} players fighting for ${formatPoolForSpeech(pool)} naira! Let's get it!`,
     `${participants} legends in the building! ${formatPoolForSpeech(pool)} naira on the line! This is gonna be EPIC!`,
-    `Crusader here! ${participants} players, ${formatPoolForSpeech(pool)} naira prize pool! Let the battle begin!`,
+    `${participants} players, ${formatPoolForSpeech(pool)} naira prize pool! Let the battle begin!`,
   ],
   
   game_start: (participants: number) => [
@@ -243,6 +308,92 @@ const GAME_PHRASES = {
     `It's too quiet in here! Let's see some action!`,
     `Who wants to win? Show me that hunger!`,
   ],
+};
+
+// Esther's Nigerian Pidgin game phrases
+const ESTHER_GAME_PHRASES = {
+  welcome: (participants: number, pool: number) => [
+    `Oya! Welcome to the arena o! ${participants} players dey here, una dey fight for ${formatPoolForSpeech(pool)} naira!`,
+    `Esther dey here! ${participants} people don enter, ${formatPoolForSpeech(pool)} naira dey wait! Make we start!`,
+    `Chai! ${participants} fighters don land! ${formatPoolForSpeech(pool)} naira dey table! E go be!`,
+  ],
+  
+  game_start: (participants: number) => [
+    `We don go LIVE! ${participants} players ready to scatter ground!`,
+    `Oya na! All ${participants} of una, show me wetin una get!`,
+    `E don start o! ${participants} players, make una run am!`,
+  ],
+  
+  leader_change: (name: string, timer: number) => [
+    `Haaaa! ${name} don collect the crown! ${timer} seconds remain!`,
+    `See ${name} o! E just take over! ${timer} seconds dey!`,
+    `${name} say make everybody shift! E dey lead now!`,
+    `Omo! ${name} don carry first position! Only ${timer} seconds left!`,
+    `Na wa o! ${name} don climb top! Who go push am down?`,
+  ],
+  
+  timer_60: (leader: string | null) => leader ? [
+    `One minute remain! ${leader} dey lead but anything fit happen!`,
+    `60 seconds o! ${leader} better shine eye!`,
+  ] : [
+    `One minute dey! Who go show face?`,
+    `60 seconds remain! Tension dey build!`,
+  ],
+  
+  timer_30: (leader: string | null, comments: number) => [
+    `30 seconds o! ${comments} comments don enter! Things dey pepper!`,
+    `Half minute! ${leader ? `${leader} still dey top!` : 'Nobody dey lead clear!'} Who go choke?`,
+    `30 seconds! The tension too much!`,
+  ],
+  
+  timer_15: (leader: string | null) => [
+    `15 SECONDS! My heart dey cut!${leader ? ` ${leader} dey sweat!` : ''}`,
+    `Danger zone don land! 15 seconds!`,
+    `FIFTEEN! Make somebody do something!`,
+  ],
+  
+  timer_10: (leader: string | null) => [
+    `TEN SECONDS! ${leader ? `${leader} dey hold tight!` : 'Na now o!'}`,
+    `10! 9! E fit end now now!`,
+    `Single digits! Who want am pass?!`,
+  ],
+  
+  timer_5: () => [
+    `FIVE SECONDS! OYA TYPE SOMETHING!`,
+    `5! 4! 3! Chai this one tight!`,
+    `FIVE! I no fit breathe!`,
+  ],
+  
+  close_call: (name: string) => [
+    `Heee! ${name} just save am for last minute!`,
+    `${name} nearly miss am! That one close die!`,
+    `By whisker! ${name} survive!`,
+  ],
+  
+  game_over: (winner: string, prize: number) => [
+    `E DON END! ${winner} carry ${formatPoolForSpeech(prize)} naira go house! What a fight!`,
+    `FINISH! ${winner} na champion with ${formatPoolForSpeech(prize)} naira!`,
+    `Dust don settle! ${winner} don claim ${formatPoolForSpeech(prize)} naira!`,
+  ],
+  
+  hype: (participants: number, comments: number) => [
+    `${participants} players, ${comments} comments! Wahala dey o!`,
+    `See energy! Una too much! Keep the comments coming!`,
+    `Shoutout to everybody wey dey compete! Una na legends!`,
+    `Chat dey fly! I no fit follow!`,
+  ],
+  
+  quiet_game: () => [
+    `Hello? Where the energy dey? OYA TYPE SOMETHING!`,
+    `E too quiet here o! Make una show me action!`,
+    `Who want win? Show me that hunger!`,
+  ],
+};
+
+// Get game phrases based on host
+const getGamePhrases = (hostId: string) => {
+  if (hostId === 'esther') return ESTHER_GAME_PHRASES;
+  return DEFAULT_GAME_PHRASES;
 };
 
 export const useCrusaderHost = () => {
@@ -455,49 +606,50 @@ export const useCrusaderHost = () => {
     const state = gameStateRef.current;
     const { poolValue, isSponsored, sponsoredAmount, leader, participantCount, entryFee } = state;
     
+    // Get host-specific phrases
+    const PRIZE_PHRASES = getPrizeCalloutPhrases(currentHost.id);
+    
     // Adapt intensity based on game size
     const isSmallGame = participantCount < 10;
-    const isLargeGame = participantCount >= 50;
-    const isFreeGame = entryFee === 0 || isSponsored;
     
     let phrases: string[] = [];
     
     switch (reason) {
       case 'milestone':
-        phrases = PRIZE_CALLOUT_PHRASES.milestone(poolValue, isSponsored);
+        phrases = PRIZE_PHRASES.milestone(poolValue, isSponsored);
         break;
         
       case 'danger_mode':
-        phrases = PRIZE_CALLOUT_PHRASES.danger_mode(poolValue);
+        phrases = PRIZE_PHRASES.danger_mode(poolValue);
         break;
         
       case 'leader_change':
         if (leader) {
-          phrases = PRIZE_CALLOUT_PHRASES.leader_prize(leader, poolValue);
+          phrases = PRIZE_PHRASES.leader_prize(leader, poolValue);
         }
         break;
         
       case 'silence_breaker':
-        phrases = PRIZE_CALLOUT_PHRASES.silence_breaker(poolValue);
+        phrases = PRIZE_PHRASES.silence_breaker(poolValue);
         break;
         
       case 'sponsored':
         if (isSponsored) {
-          phrases = PRIZE_CALLOUT_PHRASES.sponsored(poolValue, sponsoredAmount || poolValue);
+          phrases = PRIZE_PHRASES.sponsored(poolValue, sponsoredAmount || poolValue);
         }
         break;
         
       case 'late_game':
-        phrases = PRIZE_CALLOUT_PHRASES.late_game(poolValue, leader);
+        phrases = PRIZE_PHRASES.late_game(poolValue, leader);
         break;
         
       case 'reminder':
       default:
         // Alternate between specific and vague mentions for variety
         if (Math.random() > 0.4) {
-          phrases = PRIZE_CALLOUT_PHRASES.value_highlight(poolValue, isSponsored);
+          phrases = PRIZE_PHRASES.value_highlight(poolValue, isSponsored);
         } else {
-          phrases = PRIZE_CALLOUT_PHRASES.value_vague();
+          phrases = PRIZE_PHRASES.value_vague();
         }
         break;
     }
@@ -506,7 +658,7 @@ export const useCrusaderHost = () => {
     if (isSmallGame && reason !== 'milestone') {
       // Use vague phrases more often for small games
       if (Math.random() > 0.3) {
-        phrases = PRIZE_CALLOUT_PHRASES.value_vague();
+        phrases = PRIZE_PHRASES.value_vague();
       }
     }
     
@@ -514,7 +666,7 @@ export const useCrusaderHost = () => {
       speak(getRandomPhrase(phrases));
       recordPrizeCallout(reason);
     }
-  }, [canCalloutPrize, recordPrizeCallout, speak]);
+  }, [canCalloutPrize, recordPrizeCallout, speak, currentHost.id]);
 
   // Check for prize milestones
   const checkPrizeMilestone = useCallback((newPoolValue: number) => {
@@ -542,13 +694,15 @@ export const useCrusaderHost = () => {
   // Game-aware announcements
   const welcomeToArena = useCallback(() => {
     const { participantCount, poolValue } = gameStateRef.current;
-    const phrases = GAME_PHRASES.welcome(participantCount, poolValue);
+    const PHRASES = getGamePhrases(currentHost.id);
+    const phrases = PHRASES.welcome(participantCount, poolValue);
     speak(getRandomPhrase(phrases));
-  }, [speak]);
+  }, [speak, currentHost.id]);
 
   const announceGameStart = useCallback(() => {
     const { participantCount, isSponsored } = gameStateRef.current;
-    const phrases = GAME_PHRASES.game_start(participantCount);
+    const PHRASES = getGamePhrases(currentHost.id);
+    const phrases = PHRASES.game_start(participantCount);
     speak(getRandomPhrase(phrases));
     
     // Reset prize callout tracking for new game
@@ -561,11 +715,12 @@ export const useCrusaderHost = () => {
     if (isSponsored) {
       setTimeout(() => calloutPrize('sponsored'), 5000);
     }
-  }, [speak, calloutPrize]);
+  }, [speak, calloutPrize, currentHost.id]);
 
   const announceLeaderChange = useCallback((leaderName: string) => {
     const { timer, poolValue, participantCount } = gameStateRef.current;
-    const phrases = GAME_PHRASES.leader_change(leaderName, timer);
+    const PHRASES = getGamePhrases(currentHost.id);
+    const phrases = PHRASES.leader_change(leaderName, timer);
     speak(getRandomPhrase(phrases));
     
     // Occasionally add prize context to leader changes (20% chance for large pools)
@@ -575,10 +730,11 @@ export const useCrusaderHost = () => {
     if (isLargePool && isLateGame && Math.random() < 0.3 && participantCount >= 10) {
       setTimeout(() => calloutPrize('leader_change'), 3000);
     }
-  }, [speak, calloutPrize]);
+  }, [speak, calloutPrize, currentHost.id]);
 
   const announceTimerLow = useCallback((seconds: number) => {
     const { leader, commentCount, gameTimeRemaining } = gameStateRef.current;
+    const PHRASES = getGamePhrases(currentHost.id);
     
     // Check danger mode when timer warnings happen
     checkDangerMode(gameTimeRemaining);
@@ -586,43 +742,46 @@ export const useCrusaderHost = () => {
     let phrases: string[] = [];
     
     if (seconds === 60) {
-      phrases = GAME_PHRASES.timer_60(leader);
+      phrases = PHRASES.timer_60(leader);
     } else if (seconds === 30) {
-      phrases = GAME_PHRASES.timer_30(leader, commentCount);
+      phrases = PHRASES.timer_30(leader, commentCount);
     } else if (seconds === 15) {
-      phrases = GAME_PHRASES.timer_15(leader);
+      phrases = PHRASES.timer_15(leader);
     } else if (seconds === 10) {
-      phrases = GAME_PHRASES.timer_10(leader);
+      phrases = PHRASES.timer_10(leader);
       // Late game pressure callout
       if (Math.random() < 0.4) {
         setTimeout(() => calloutPrize('late_game'), 2000);
       }
     } else if (seconds === 5) {
-      phrases = GAME_PHRASES.timer_5();
+      phrases = PHRASES.timer_5();
     }
     
     if (phrases.length > 0) {
       speak(getRandomPhrase(phrases));
     }
-  }, [speak, checkDangerMode, calloutPrize]);
+  }, [speak, checkDangerMode, calloutPrize, currentHost.id]);
 
   const announceCloseCall = useCallback((playerName?: string) => {
     const { leader } = gameStateRef.current;
+    const PHRASES = getGamePhrases(currentHost.id);
     const name = playerName || leader || 'Someone';
-    const phrases = GAME_PHRASES.close_call(name);
+    const phrases = PHRASES.close_call(name);
     speak(getRandomPhrase(phrases));
-  }, [speak]);
+  }, [speak, currentHost.id]);
 
   const announceGameOver = useCallback((winnerName?: string, prize?: number) => {
     const { leader, poolValue } = gameStateRef.current;
+    const PHRASES = getGamePhrases(currentHost.id);
     const winner = winnerName || leader || 'The champion';
     const prizeAmount = prize || Math.floor(poolValue * 0.5);
-    const phrases = GAME_PHRASES.game_over(winner, prizeAmount);
+    const phrases = PHRASES.game_over(winner, prizeAmount);
     speak(getRandomPhrase(phrases));
-  }, [speak]);
+  }, [speak, currentHost.id]);
 
   const randomHype = useCallback(() => {
-    const { participantCount, commentCount, chatIntensity, poolValue, isSponsored } = gameStateRef.current;
+    const { participantCount, commentCount, chatIntensity, poolValue } = gameStateRef.current;
+    const PHRASES = getGamePhrases(currentHost.id);
     
     // If game is quiet, sometimes use silence breaker with prize mention
     if (commentCount < 5 && gameStateRef.current.isLive) {
@@ -630,7 +789,7 @@ export const useCrusaderHost = () => {
       if (Math.random() < 0.3 && poolValue > 0) {
         calloutPrize('silence_breaker');
       } else {
-        const phrases = GAME_PHRASES.quiet_game();
+        const phrases = PHRASES.quiet_game();
         speak(getRandomPhrase(phrases));
       }
     } else {
@@ -638,11 +797,11 @@ export const useCrusaderHost = () => {
       if (chatIntensity !== 'high' && Math.random() < 0.15 && poolValue >= 10000) {
         calloutPrize('reminder');
       } else {
-        const phrases = GAME_PHRASES.hype(participantCount, commentCount);
+        const phrases = PHRASES.hype(participantCount, commentCount);
         speak(getRandomPhrase(phrases));
       }
     }
-  }, [speak, calloutPrize]);
+  }, [speak, calloutPrize, currentHost.id]);
 
   const announceWinners = useCallback((winners: Array<{ name: string; position: number; prize: number }>) => {
     if (winners.length === 0) return;
