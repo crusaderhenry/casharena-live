@@ -1,4 +1,4 @@
-import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy } from 'lucide-react';
+import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAdmin } from '@/contexts/AdminContext';
@@ -30,6 +30,7 @@ export const AdminSettings = () => {
     rankPointsWin2nd: 60,
     rankPointsWin3rd: 30,
     rankPointsParticipation: 5,
+    defaultEntryCutoffMinutes: 10,
   });
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export const AdminSettings = () => {
         rankPointsWin2nd: dbSettings.rank_points_win_2nd ?? 60,
         rankPointsWin3rd: dbSettings.rank_points_win_3rd ?? 30,
         rankPointsParticipation: dbSettings.rank_points_participation ?? 5,
+        defaultEntryCutoffMinutes: dbSettings.default_entry_cutoff_minutes ?? 10,
       }));
     }
   }, [dbSettings]);
@@ -61,6 +63,7 @@ export const AdminSettings = () => {
       rank_points_win_2nd: localSettings.rankPointsWin2nd,
       rank_points_win_3rd: localSettings.rankPointsWin3rd,
       rank_points_participation: localSettings.rankPointsParticipation,
+      default_entry_cutoff_minutes: localSettings.defaultEntryCutoffMinutes,
     });
     
     if (success) {
@@ -178,6 +181,25 @@ export const AdminSettings = () => {
               max={50}
             />
             <p className="text-[10px] text-muted-foreground mt-1">Percentage of pool taken as platform fee</p>
+          </div>
+
+          {/* Entry Cutoff Minutes */}
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+              <Clock className="w-4 h-4 text-orange-400" />
+              Entry Cutoff (minutes)
+            </label>
+            <input
+              type="number"
+              value={localSettings.defaultEntryCutoffMinutes}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, defaultEntryCutoffMinutes: parseInt(e.target.value) || 10 }))}
+              className="w-full max-w-md px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={1}
+              max={60}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Spectators can join the pool until this many minutes remain. Default: 10 minutes.
+            </p>
           </div>
         </div>
       </div>

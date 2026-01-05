@@ -12,6 +12,7 @@ export interface PlatformSettings {
   default_entry_fee: number;
   default_max_duration: number;
   default_comment_timer: number;
+  default_entry_cutoff_minutes: number;
   maintenance_mode: boolean;
   rank_points_win_1st: number;
   rank_points_win_2nd: number;
@@ -109,6 +110,7 @@ export const usePlatformSettings = () => {
     defaultEntryFee: settings?.default_entry_fee ?? 700,
     defaultMaxDuration: settings?.default_max_duration ?? 20,
     defaultCommentTimer: settings?.default_comment_timer ?? 60,
+    defaultEntryCutoffMinutes: settings?.default_entry_cutoff_minutes ?? 10,
     maintenanceMode: settings?.maintenance_mode ?? false,
     rankPoints: {
       win1st: settings?.rank_points_win_1st ?? 100,
