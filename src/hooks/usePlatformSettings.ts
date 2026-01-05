@@ -12,6 +12,7 @@ export interface PlatformSettings {
   default_entry_fee: number;
   default_max_duration: number;
   default_comment_timer: number;
+  maintenance_mode: boolean;
 }
 
 export const usePlatformSettings = () => {
@@ -104,6 +105,7 @@ export const usePlatformSettings = () => {
     defaultEntryFee: settings?.default_entry_fee ?? 700,
     defaultMaxDuration: settings?.default_max_duration ?? 20,
     defaultCommentTimer: settings?.default_comment_timer ?? 60,
+    maintenanceMode: settings?.maintenance_mode ?? false,
     updateSettings,
     toggleTestMode,
     refetch: fetchSettings,
