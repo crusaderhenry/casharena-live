@@ -6,6 +6,7 @@ import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutori
 import { getPayoutLabel } from '@/components/PrizeDistribution';
 import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
 import { GameHistory } from '@/components/GameHistory';
+import { AllTimeLeaderboard } from '@/components/AllTimeLeaderboard';
 import { Zap, Trophy, Users, Clock, ChevronRight, Flame, Bell, TrendingUp, Play, Calendar, Eye } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -413,6 +414,9 @@ export const Home = () => {
 
         {/* Game History CTA */}
         <GameHistory isTestMode={isTestMode} />
+
+        {/* All-Time Leaderboard */}
+        <AllTimeLeaderboard isTestMode={isTestMode} />
 
         {/* Recent Wins */}
         {displayActivity.length > 0 && (
