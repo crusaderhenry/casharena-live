@@ -21,7 +21,8 @@ export const WinnerStories = ({ winners }: WinnerStoriesProps) => {
   const [selectedWinner, setSelectedWinner] = useState<Winner | null>(null);
   const [viewedWinners, setViewedWinners] = useState<Set<string>>(new Set());
 
-  if (winners.length === 0) return null;
+  // Show placeholder when no real winners yet
+  const showPlaceholder = winners.length === 0;
 
   const formatMoney = (amount: number) => {
     if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
@@ -61,48 +62,60 @@ export const WinnerStories = ({ winners }: WinnerStoriesProps) => {
           Recent Winners
         </h3>
         
-        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-          {winners.map((winner, index) => {
-            const isViewed = viewedWinners.has(winner.id);
-            
-            return (
-              <button
-                key={winner.id}
-                onClick={() => handleStoryClick(winner)}
-                className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
-              >
-                {/* Story ring with gradient */}
-                <div className={`relative p-0.5 rounded-full ${
-                  isViewed 
-                    ? 'bg-muted' 
-                    : index === 0 
-                      ? 'bg-gradient-to-br from-gold via-yellow-500 to-orange-500 animate-pulse-slow'
-                      : index === 1 
-                        ? 'bg-gradient-to-br from-silver via-gray-400 to-gray-500'
-                        : 'bg-gradient-to-br from-bronze via-orange-700 to-amber-600'
-                }`}>
-                  <div className="relative w-16 h-16 rounded-full bg-card flex items-center justify-center text-2xl border-2 border-background">
-                    {winner.playerAvatar}
-                    {/* Position badge */}
-                    <span className="absolute -bottom-1 -right-1 text-sm">
-                      {getPositionEmoji(winner.position)}
-                    </span>
+        {showPlaceholder ? (
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-dashed border-border">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-xl">
+              🏆
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-muted-foreground">No winners yet</p>
+              <p className="text-xs text-muted-foreground/70">Be the first to win!</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+            {winners.map((winner, index) => {
+              const isViewed = viewedWinners.has(winner.id);
+              
+              return (
+                <button
+                  key={winner.id}
+                  onClick={() => handleStoryClick(winner)}
+                  className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
+                >
+                  {/* Story ring with gradient */}
+                  <div className={`relative p-0.5 rounded-full ${
+                    isViewed 
+                      ? 'bg-muted' 
+                      : index === 0 
+                        ? 'bg-gradient-to-br from-gold via-yellow-500 to-orange-500 animate-pulse-slow'
+                        : index === 1 
+                          ? 'bg-gradient-to-br from-silver via-gray-400 to-gray-500'
+                          : 'bg-gradient-to-br from-bronze via-orange-700 to-amber-600'
+                  }`}>
+                    <div className="relative w-16 h-16 rounded-full bg-card flex items-center justify-center text-2xl border-2 border-background">
+                      {winner.playerAvatar}
+                      {/* Position badge */}
+                      <span className="absolute -bottom-1 -right-1 text-sm">
+                        {getPositionEmoji(winner.position)}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                
-                {/* Name */}
-                <span className="text-[11px] font-medium text-foreground truncate w-16 text-center">
-                  {winner.playerName.split(' ')[0]}
-                </span>
-                
-                {/* Amount won */}
-                <span className="text-[10px] font-bold text-gold">
-                  +{formatMoney(winner.amount)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                  
+                  {/* Name */}
+                  <span className="text-[11px] font-medium text-foreground truncate w-16 text-center">
+                    {winner.playerName.split(' ')[0]}
+                  </span>
+                  
+                  {/* Amount won */}
+                  <span className="text-[10px] font-bold text-gold">
+                    +{formatMoney(winner.amount)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Story Viewer Dialog */}
