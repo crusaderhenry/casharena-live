@@ -131,13 +131,16 @@ serve(async (req) => {
           scheduledAt = gameConfig.scheduled_at;
         }
         
+        // Use nullish coalescing to allow 0 values for entry_fee (sponsored games)
+        const entryFee = gameConfig.entry_fee ?? 700;
+        
         const { data: game, error } = await supabase
           .from('fastest_finger_games')
           .insert({
             status: 'scheduled',
             name: gameConfig.name || 'Fastest Finger',
             description: gameConfig.description || null,
-            entry_fee: gameConfig.entry_fee || 700,
+            entry_fee: entryFee,
             max_duration: gameConfig.max_duration || 20,
             pool_value: 0,
             participant_count: 0,
