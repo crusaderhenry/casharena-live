@@ -294,7 +294,7 @@ export const FingerArena = () => {
   // Handle host mute
   useEffect(() => {
     crusader.setEnabled(!hostMuted);
-  }, [hostMuted, crusader]);
+  }, [hostMuted]);
 
   // Screen shake when timer < 10
   useEffect(() => {
