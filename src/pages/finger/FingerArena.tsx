@@ -94,6 +94,7 @@ export const FingerArena = () => {
   const chatRef = useRef<HTMLDivElement>(null);
   const hasAnnouncedStart = useRef(false);
   const hasNavigatedToResults = useRef(false);
+  const resultsNavTimeoutRef = useRef<number | null>(null);
   const hasStartedAudio = useRef(false);
   const lastHypeRef = useRef(0);
   const finalizationStarted = useRef(false);
@@ -108,6 +109,14 @@ export const FingerArena = () => {
   // Track last server countdown to detect resets
   const lastServerCountdownRef = useRef<number>(game?.countdown || 60);
 
+  // Cleanup: don't cancel scheduled navigation on re-renders; only on unmount
+  useEffect(() => {
+    return () => {
+      if (resultsNavTimeoutRef.current) {
+        window.clearTimeout(resultsNavTimeoutRef.current);
+      }
+    };
+  }, []);
   // Sync winner countdown from backend (only meaningful when live)
   useEffect(() => {
     if (isGameOver) return;
@@ -213,6 +222,16 @@ export const FingerArena = () => {
   // Check for game ended
   useEffect(() => {
     if (game?.status === 'ended' && !isGameOver) {
+      // Reset redirect guards for this end-of-game transition
+      hasNavigatedToResults.current = false;
+      if (resultsNavTimeoutRef.current) {
+        window.clearTimeout(resultsNavTimeoutRef.current);
+        resultsNavTimeoutRef.current = null;
+      }
+      setFinalizationTimer(0);
+      setFinalizationPhase('calculating');
+      setRetryAttempt(0);
+
       setIsGameOver(true);
       setShowFreezeScreen(true);
       stopBackgroundMusic();
@@ -237,16 +256,27 @@ export const FingerArena = () => {
   // Finalization timer when countdown hits 0 but game is still live
   useEffect(() => {
     const isLiveAndCountdownZero = (game?.countdown === 0 || timer === 0) && game?.status === 'live';
-    
+
     if (isLiveAndCountdownZero && !finalizationStarted.current) {
       finalizationStarted.current = true;
+
+      // Reset redirect guards and UI phases for this finalization run
+      hasNavigatedToResults.current = false;
+      if (resultsNavTimeoutRef.current) {
+        window.clearTimeout(resultsNavTimeoutRef.current);
+        resultsNavTimeoutRef.current = null;
+      }
+      setFinalizationTimer(0);
+      setFinalizationPhase('calculating');
+      setRetryAttempt(0);
+
       setShowFreezeScreen(true);
       setIsGameOver(true);
       stopBackgroundMusic();
       play('gameOver');
       vibrate('success');
     }
-    
+
     // If game becomes ended, stop finalization and navigate
     if (game?.status === 'ended') {
       finalizationStarted.current = false;
@@ -306,18 +336,22 @@ export const FingerArena = () => {
   useEffect(() => {
     if (game?.status !== 'ended') return;
     if (hasNavigatedToResults.current) return;
+    if (resultsNavTimeoutRef.current) return;
 
-    hasNavigatedToResults.current = true;
+    // Snapshot values now so the redirect isn't affected by subsequent realtime re-renders
+    const sortedWinners = [...winners].sort((a, b) => a.position - b.position);
+    const winnerNames =
+      sortedWinners.length > 0
+        ? sortedWinners.map((w) => w.profile?.username || 'Unknown')
+        : topThree.map((t) => t.name).slice(0, 3);
 
-    const timeout = setTimeout(() => {
-      const sortedWinners = [...winners].sort((a, b) => a.position - b.position);
-      const winnerNames =
-        sortedWinners.length > 0
-          ? sortedWinners.map((w) => w.profile?.username || 'Unknown')
-          : topThree.map((t) => t.name).slice(0, 3);
+    const isWinner = sortedWinners.some((w) => w.user_id === user?.id);
+    const userPosition = sortedWinners.find((w) => w.user_id === user?.id)?.position || 0;
 
-      const isWinner = sortedWinners.some((w) => w.user_id === user?.id);
-      const userPosition = sortedWinners.find((w) => w.user_id === user?.id)?.position || 0;
+    resultsNavTimeoutRef.current = window.setTimeout(() => {
+      // If something else already navigated, don't double-navigate.
+      if (hasNavigatedToResults.current) return;
+      hasNavigatedToResults.current = true;
 
       navigate('/finger/results', {
         state: {
@@ -327,10 +361,10 @@ export const FingerArena = () => {
           position: userPosition,
         },
       });
-    }, 1500);
 
-    return () => clearTimeout(timeout);
-  }, [winners, game?.status, navigate, user?.id, game?.pool_value, topThree]);
+      resultsNavTimeoutRef.current = null;
+    }, 1500);
+  }, [game?.status, winners, topThree, user?.id, game?.pool_value, navigate]);
 
   // Combine real and mock comments based on test mode
   const displayComments = useMemo(() => {
