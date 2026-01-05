@@ -36,6 +36,7 @@ import { AdminDashboard } from "@/pages/admin/AdminDashboard";
 import { AdminFingerControl } from "@/pages/admin/AdminFingerControl";
 import { AdminLiveMonitor } from "@/pages/admin/AdminLiveMonitor";
 import { AdminUsers } from "@/pages/admin/AdminUsers";
+import { AdminMockUsers } from "@/pages/admin/AdminMockUsers";
 import { AdminRoleManagement } from "@/pages/admin/AdminRoleManagement";
 import { AdminKyc } from "@/pages/admin/AdminKyc";
 import { AdminWallet } from "@/pages/admin/AdminWallet";
@@ -209,6 +210,7 @@ const AppRoutes = () => (
       <Route path="finger-control" element={<AdminFingerControl />} />
       <Route path="live-monitor" element={<AdminLiveMonitor />} />
       <Route path="users" element={<AdminUsers />} />
+      <Route path="mock-users" element={<AdminMockUsers />} />
       <Route path="roles" element={<AdminRoleManagement />} />
       <Route path="kyc" element={<AdminKyc />} />
       <Route path="wallet" element={<AdminWallet />} />

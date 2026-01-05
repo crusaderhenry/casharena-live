@@ -14,6 +14,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Clock,
+  Bot,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ const navItems = [
   { label: 'Finger Control', icon: Zap, path: '/admin/finger-control' },
   { label: 'Live Monitor', icon: Monitor, path: '/admin/live-monitor' },
   { label: 'Users', icon: Users, path: '/admin/users' },
+  { label: 'Mock Users', icon: Bot, path: '/admin/mock-users' },
   { label: 'Role Management', icon: ShieldAlert, path: '/admin/roles' },
   { label: 'KYC Verification', icon: ShieldCheck, path: '/admin/kyc' },
   { label: 'Wallet & Payouts', icon: Wallet, path: '/admin/wallet' },

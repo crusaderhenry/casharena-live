@@ -274,43 +274,72 @@ serve(async (req) => {
         const payoutDistribution: number[] = (game as any).payout_distribution || [0.5, 0.3, 0.2];
         const winnerCount = payoutDistribution.length;
 
+        // Get mock user IDs for this game to filter them out
+        const { data: mockParticipants } = await supabase
+          .from('mock_game_participation')
+          .select('mock_user_id')
+          .eq('game_id', gameId);
+        
+        const mockUserIds = new Set(mockParticipants?.map(m => m.mock_user_id) || []);
+
+        // Get all recent comments
         const { data: lastComments, error: commentsError } = await supabase
           .from('comments')
           .select('user_id, created_at')
           .eq('game_id', gameId)
           .order('created_at', { ascending: false })
-          .limit(winnerCount);
+          .limit(winnerCount * 3); // Get more to account for mock users
 
         if (commentsError) throw commentsError;
 
-        const uniqueWinnerIds: string[] = [];
+        // Filter out mock users and get unique real winners
+        const uniqueRealWinnerIds: string[] = [];
+        const displayWinnerIds: string[] = []; // For visual display (includes mock users)
+        
         for (const comment of lastComments || []) {
-          if (!uniqueWinnerIds.includes(comment.user_id)) {
-            uniqueWinnerIds.push(comment.user_id);
+          // Track display order (includes mock users for visual)
+          if (!displayWinnerIds.includes(comment.user_id) && displayWinnerIds.length < winnerCount) {
+            displayWinnerIds.push(comment.user_id);
           }
-          if (uniqueWinnerIds.length >= winnerCount) break;
+          
+          // Track real winners (excludes mock users for payouts)
+          if (!mockUserIds.has(comment.user_id) && !uniqueRealWinnerIds.includes(comment.user_id)) {
+            uniqueRealWinnerIds.push(comment.user_id);
+          }
+          if (uniqueRealWinnerIds.length >= winnerCount) break;
         }
 
+        // Get real winner profiles (only real users get paid)
         const { data: winnerProfiles } = await supabase
           .from('profiles')
-          .select('id, username, avatar, wallet_balance, rank_points, total_wins')
-          .in('id', uniqueWinnerIds);
+          .select('id, username, avatar, wallet_balance, rank_points, total_wins, user_type')
+          .in('id', uniqueRealWinnerIds);
 
         const profileMap = new Map(winnerProfiles?.map(p => [p.id, p]) || []);
 
-        const netPool = Math.floor(game.pool_value * 0.9);
-        const platformCut = game.pool_value - netPool;
+        // Use real_pool_value for actual payouts (only real money)
+        const realPool = (game as any).real_pool_value || game.pool_value;
+        const netPool = Math.floor(realPool * 0.9);
+        const platformCut = realPool - netPool;
         const prizes = payoutDistribution.map(pct => Math.floor(netPool * pct));
 
         const winners: any[] = [];
+        const displayWinners: any[] = [];
 
-        for (let i = 0; i < uniqueWinnerIds.length; i++) {
-          const winnerId = uniqueWinnerIds[i];
+        // Process real winners for actual payouts
+        for (let i = 0; i < uniqueRealWinnerIds.length; i++) {
+          const winnerId = uniqueRealWinnerIds[i];
           const position = i + 1;
           const prize = prizes[i] || 0;
           const profile = profileMap.get(winnerId);
 
           if (!profile) continue;
+          
+          // Skip if somehow a mock user got through
+          if (profile.user_type === 'mock') {
+            console.log('Skipping mock user from payout:', winnerId);
+            continue;
+          }
 
           await supabase.from('winners').insert({
             game_id: gameId,
@@ -351,9 +380,58 @@ serve(async (req) => {
             avatar: profile.avatar,
             position,
             amount_won: prize,
+            is_mock: false,
           });
         }
 
+        // Build display winners list (includes mock users visually, but they got no payout)
+        for (let i = 0; i < displayWinnerIds.length; i++) {
+          const userId = displayWinnerIds[i];
+          const isMock = mockUserIds.has(userId);
+          
+          if (isMock) {
+            // Get mock user info
+            const { data: mockUser } = await supabase
+              .from('mock_users')
+              .select('username, avatar, virtual_wins, virtual_rank_points')
+              .eq('id', userId)
+              .single();
+            
+            if (mockUser) {
+              // Update virtual stats for mock user
+              await supabase
+                .from('mock_users')
+                .update({ 
+                  virtual_wins: mockUser.virtual_wins + 1,
+                  virtual_rank_points: mockUser.virtual_rank_points + (i === 0 ? 100 : i === 1 ? 60 : 30),
+                })
+                .eq('id', userId);
+              
+              // Record mock user final position
+              await supabase
+                .from('mock_game_participation')
+                .update({ final_position: i + 1 })
+                .eq('game_id', gameId)
+                .eq('mock_user_id', userId);
+              
+              displayWinners.push({
+                user_id: userId,
+                username: mockUser.username,
+                avatar: mockUser.avatar,
+                position: i + 1,
+                amount_won: 0, // Mock users get nothing
+                is_mock: true,
+              });
+            }
+          } else {
+            const realWinner = winners.find(w => w.user_id === userId);
+            if (realWinner) {
+              displayWinners.push(realWinner);
+            }
+          }
+        }
+
+        // Update games_played for real participants only
         const { data: participants } = await supabase
           .from('fastest_finger_participants')
           .select('user_id')
@@ -363,11 +441,11 @@ serve(async (req) => {
           for (const p of participants) {
             const { data: profileData } = await supabase
               .from('profiles')
-              .select('games_played')
+              .select('games_played, user_type')
               .eq('id', p.user_id)
               .single();
 
-            if (profileData) {
+            if (profileData && profileData.user_type !== 'mock') {
               await supabase
                 .from('profiles')
                 .update({ games_played: profileData.games_played + 1 })
@@ -384,15 +462,30 @@ serve(async (req) => {
           })
           .eq('id', gameId);
 
+        // Clean up mock game participation
+        await supabase
+          .from('mock_game_participation')
+          .delete()
+          .eq('game_id', gameId);
+
         // Log audit action
         await logAuditAction(supabase, authenticatedUser!.id, 'end_game', 'game', gameId, { 
-          winner_count: winners.length, 
-          pool_value: game.pool_value,
+          winner_count: winners.length,
+          mock_winner_count: displayWinners.filter(w => w.is_mock).length,
+          display_pool: game.pool_value,
+          real_pool: realPool,
           platform_cut: platformCut 
         }, clientIp);
 
-        console.log('Game ended by admin:', authenticatedUser?.id, gameId, 'Winners:', winners.length);
-        return new Response(JSON.stringify({ success: true, winners, platformCut }), {
+        console.log('Game ended by admin:', authenticatedUser?.id, gameId, 'Real winners:', winners.length, 'Display winners:', displayWinners.length);
+        return new Response(JSON.stringify({ 
+          success: true, 
+          winners: displayWinners, // Return display winners for UI
+          realWinners: winners, // Return real winners for admin
+          platformCut,
+          displayPool: game.pool_value,
+          realPool,
+        }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }

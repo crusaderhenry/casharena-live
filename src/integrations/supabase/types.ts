@@ -108,6 +108,7 @@ export type Database = {
           payout_type: string | null
           platform_cut_percentage: number | null
           pool_value: number
+          real_pool_value: number
           recurrence_interval: number | null
           recurrence_type: string | null
           scheduled_at: string | null
@@ -145,6 +146,7 @@ export type Database = {
           payout_type?: string | null
           platform_cut_percentage?: number | null
           pool_value?: number
+          real_pool_value?: number
           recurrence_interval?: number | null
           recurrence_type?: string | null
           scheduled_at?: string | null
@@ -182,6 +184,7 @@ export type Database = {
           payout_type?: string | null
           platform_cut_percentage?: number | null
           pool_value?: number
+          real_pool_value?: number
           recurrence_interval?: number | null
           recurrence_type?: string | null
           scheduled_at?: string | null
@@ -221,6 +224,117 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mock_game_participation: {
+        Row: {
+          comment_count: number
+          final_position: number | null
+          game_id: string
+          id: string
+          joined_at: string
+          mock_user_id: string
+        }
+        Insert: {
+          comment_count?: number
+          final_position?: number | null
+          game_id: string
+          id?: string
+          joined_at?: string
+          mock_user_id: string
+        }
+        Update: {
+          comment_count?: number
+          final_position?: number | null
+          game_id?: string
+          id?: string
+          joined_at?: string
+          mock_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mock_game_participation_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "fastest_finger_games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mock_game_participation_mock_user_id_fkey"
+            columns: ["mock_user_id"]
+            isOneToOne: false
+            referencedRelation: "mock_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mock_user_settings: {
+        Row: {
+          activity_level: string
+          comment_frequency: number
+          created_at: string
+          enabled: boolean
+          exclude_from_rewards: boolean
+          id: string
+          join_probability: number
+          max_mock_users_per_game: number
+          updated_at: string
+        }
+        Insert: {
+          activity_level?: string
+          comment_frequency?: number
+          created_at?: string
+          enabled?: boolean
+          exclude_from_rewards?: boolean
+          id?: string
+          join_probability?: number
+          max_mock_users_per_game?: number
+          updated_at?: string
+        }
+        Update: {
+          activity_level?: string
+          comment_frequency?: number
+          created_at?: string
+          enabled?: boolean
+          exclude_from_rewards?: boolean
+          id?: string
+          join_probability?: number
+          max_mock_users_per_game?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      mock_users: {
+        Row: {
+          avatar: string
+          created_at: string
+          id: string
+          is_active: boolean
+          personality: string | null
+          username: string
+          virtual_rank_points: number
+          virtual_wins: number
+        }
+        Insert: {
+          avatar?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          personality?: string | null
+          username: string
+          virtual_rank_points?: number
+          virtual_wins?: number
+        }
+        Update: {
+          avatar?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          personality?: string | null
+          username?: string
+          virtual_rank_points?: number
+          virtual_wins?: number
+        }
+        Relationships: []
       }
       payment_provider_logs: {
         Row: {
@@ -334,6 +448,7 @@ export type Database = {
           suspended_reason: string | null
           total_wins: number
           updated_at: string
+          user_type: string
           username: string
           wallet_balance: number
           wallet_locked: boolean
@@ -360,6 +475,7 @@ export type Database = {
           suspended_reason?: string | null
           total_wins?: number
           updated_at?: string
+          user_type?: string
           username: string
           wallet_balance?: number
           wallet_locked?: boolean
@@ -386,6 +502,7 @@ export type Database = {
           suspended_reason?: string | null
           total_wins?: number
           updated_at?: string
+          user_type?: string
           username?: string
           wallet_balance?: number
           wallet_locked?: boolean
