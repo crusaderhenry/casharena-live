@@ -21,6 +21,7 @@ interface Game {
   created_at: string;
   is_sponsored?: boolean;
   sponsored_amount?: number;
+  entry_cutoff_minutes?: number;
 }
 
 interface Comment {
@@ -92,6 +93,7 @@ export const useLiveGame = (gameId?: string) => {
         min_participants: (data as any).min_participants || 3,
         is_sponsored: (data as any).is_sponsored || false,
         sponsored_amount: (data as any).sponsored_amount || 0,
+        entry_cutoff_minutes: (data as any).entry_cutoff_minutes || 10,
       } as Game;
     }
     return null;
@@ -119,6 +121,7 @@ export const useLiveGame = (gameId?: string) => {
       min_participants: (g as any).min_participants || 3,
       is_sponsored: (g as any).is_sponsored || false,
       sponsored_amount: (g as any).sponsored_amount || 0,
+      entry_cutoff_minutes: (g as any).entry_cutoff_minutes || 10,
     })) as Game[];
   }, []);
 
@@ -144,6 +147,7 @@ export const useLiveGame = (gameId?: string) => {
       min_participants: (data as any).min_participants || 3,
       is_sponsored: (data as any).is_sponsored || false,
       sponsored_amount: (data as any).sponsored_amount || 0,
+      entry_cutoff_minutes: (data as any).entry_cutoff_minutes || 10,
     } as Game;
   }, []);
 
@@ -494,6 +498,49 @@ export const useLiveGame = (gameId?: string) => {
     };
   }, [game?.id]);
 
+  // Calculate if entries are still open for a game
+  const canJoinGame = useCallback((targetGame: Game | null): { canJoin: boolean; reason: string | null; timeRemaining: number | null } => {
+    if (!targetGame) {
+      return { canJoin: false, reason: 'No game available', timeRemaining: null };
+    }
+
+    if (targetGame.status === 'open') {
+      return { canJoin: true, reason: null, timeRemaining: null };
+    }
+
+    if (targetGame.status === 'live' && targetGame.start_time) {
+      const startTime = new Date(targetGame.start_time).getTime();
+      const endTime = startTime + (targetGame.max_duration * 60 * 1000);
+      const now = Date.now();
+      const timeRemainingMs = endTime - now;
+      const cutoffMs = (targetGame.entry_cutoff_minutes || 10) * 60 * 1000;
+      
+      if (timeRemainingMs <= cutoffMs) {
+        const cutoffMins = targetGame.entry_cutoff_minutes || 10;
+        return { 
+          canJoin: false, 
+          reason: `Less than ${cutoffMins} minutes remaining, entries closed`,
+          timeRemaining: Math.max(0, Math.floor(timeRemainingMs / 1000))
+        };
+      }
+      
+      return { 
+        canJoin: true, 
+        reason: null, 
+        timeRemaining: Math.floor(timeRemainingMs / 1000)
+      };
+    }
+
+    if (targetGame.status === 'scheduled') {
+      return { canJoin: false, reason: 'Game not yet open', timeRemaining: null };
+    }
+
+    return { canJoin: false, reason: 'Game is not accepting participants', timeRemaining: null };
+  }, []);
+
+  // Current game join eligibility
+  const gameJoinStatus = canJoinGame(game);
+
   return {
     game,
     comments,
@@ -506,5 +553,7 @@ export const useLiveGame = (gameId?: string) => {
     sendComment,
     refreshGame: fetchCurrentGame,
     fetchAllActiveGames,
+    canJoinGame,
+    gameJoinStatus,
   };
 };
