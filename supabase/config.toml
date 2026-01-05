@@ -15,6 +15,9 @@ verify_jwt = false
 [functions.game-lifecycle]
 verify_jwt = false
 
+[functions.mock-user-service]
+verify_jwt = false
+
 [functions.role-manager]
 verify_jwt = true
 
