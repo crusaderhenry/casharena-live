@@ -83,9 +83,12 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    // Only navigate if not clicking on pool sheet
+    if ((e.target as HTMLElement).closest('[data-pool-sheet]')) return;
     play('click');
     buttonClick();
+    // Navigate to finger main to select/join the game properly
     navigate('/finger');
   };
 
