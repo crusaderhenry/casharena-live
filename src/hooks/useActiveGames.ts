@@ -133,12 +133,6 @@ export const useActiveGames = (isTestMode: boolean = false) => {
 
   // Fetch games using the get_active_games function
   const fetchGames = useCallback(async () => {
-    if (isTestMode) {
-      setGames(mockGames);
-      setLoading(false);
-      return;
-    }
-
     try {
       const { data, error: fetchError } = await supabase.rpc('get_active_games');
       
@@ -185,7 +179,7 @@ export const useActiveGames = (isTestMode: boolean = false) => {
     } finally {
       setLoading(false);
     }
-  }, [isTestMode]);
+  }, []);
 
   // Initial fetch
   useEffect(() => {
@@ -194,7 +188,6 @@ export const useActiveGames = (isTestMode: boolean = false) => {
 
   // Real-time subscriptions
   useEffect(() => {
-    if (isTestMode) return;
 
     const channels: RealtimeChannel[] = [];
 
@@ -290,7 +283,7 @@ export const useActiveGames = (isTestMode: boolean = false) => {
     return () => {
       channels.forEach(ch => supabase.removeChannel(ch));
     };
-  }, [isTestMode, fetchGames]);
+  }, [fetchGames]);
 
   // Categorize games
   const liveGames = games.filter(g => g.status === 'live' || g.status === 'ending');
