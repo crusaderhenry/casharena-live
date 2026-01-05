@@ -15,21 +15,17 @@ async function verifyAuth(req: Request): Promise<{ user: any | null; error: stri
 
   const token = authHeader.replace('Bearer ', '');
   
-  // Create a client with the user's JWT to verify their identity
+  // Use service role key for more reliable token validation
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   
-  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: { Authorization: `Bearer ${token}` },
-    },
-  });
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
   
-  const { data: { user }, error } = await userClient.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser(token);
   
   if (error || !user) {
-    console.error('Auth verification error:', error?.message || 'No user found');
-    return { user: null, error: 'Invalid or expired token' };
+    console.error('[game-manager] Auth verification error:', error?.message || 'No user found');
+    return { user: null, error: 'Invalid or expired token. Please refresh and try again.' };
   }
 
   return { user, error: null };
