@@ -270,26 +270,25 @@ export const FingerArena = () => {
     }
   }, [displayComments, lastLeader, crusader, play]);
 
-  // Start background music and welcome
+  // Start background music on mount
   useEffect(() => {
     playBackgroundMusic('arena');
-    if (!hasAnnouncedStart.current && game) {
-      showSystemMessage('Game started! Be the last commenter!');
-      crusader.updateGameState({
-        participantCount: game.participant_count || participants.length,
-        poolValue: game.pool_value || 0,
-        isLive: true,
-      });
-      setTimeout(() => crusader.announceGameStart(), 500);
-      hasAnnouncedStart.current = true;
-    }
-
+    
     const micCheckDone = sessionStorage.getItem('micCheckComplete');
     if (!micCheckDone) {
       setTimeout(() => setShowMicCheck(true), 2000);
     }
 
     return () => stopBackgroundMusic();
+  }, [playBackgroundMusic, stopBackgroundMusic]);
+  
+  // Welcome announcement (separate effect to avoid loops)
+  useEffect(() => {
+    if (!hasAnnouncedStart.current && game?.id) {
+      showSystemMessage('Game started! Be the last commenter!');
+      setTimeout(() => crusader.announceGameStart(), 500);
+      hasAnnouncedStart.current = true;
+    }
   }, [game?.id]);
 
   // Handle host mute
