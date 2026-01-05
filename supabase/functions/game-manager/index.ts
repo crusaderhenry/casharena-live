@@ -141,7 +141,8 @@ serve(async (req) => {
           .insert({
             status: initialStatus,
             name: gameConfig.name || 'Fastest Finger',
-            entry_fee: gameConfig.entry_fee || 700,
+            description: gameConfig.description || null,
+            entry_fee: gameConfig.entry_fee ?? 700,
             max_duration: gameConfig.max_duration || 20,
             pool_value: 0,
             participant_count: 0,
@@ -155,6 +156,11 @@ serve(async (req) => {
             scheduled_at: scheduledAt,
             recurrence_type: gameConfig.recurrence_type || null,
             recurrence_interval: gameConfig.recurrence_interval || null,
+            // New fields for sponsored games and visibility
+            is_sponsored: gameConfig.is_sponsored || false,
+            sponsored_amount: gameConfig.sponsored_amount || 0,
+            visibility: gameConfig.visibility || 'public',
+            entry_cutoff_minutes: gameConfig.entry_cutoff_minutes || 10,
             // Set start_time for immediate games
             start_time: initialStatus === 'open' ? new Date().toISOString() : null,
           })

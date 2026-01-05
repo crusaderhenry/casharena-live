@@ -3,27 +3,137 @@ import { WalletCard } from '@/components/WalletCard';
 import { BottomNav } from '@/components/BottomNav';
 import { TestModeToggle } from '@/components/TestControls';
 import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutorial';
-import { getPayoutLabel } from '@/components/PrizeDistribution';
-import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
 import { GameHistory } from '@/components/GameHistory';
-import { GameStatusCard } from '@/components/GameStatusCard';
+import { GameCard2 } from '@/components/GameCard2';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
-import { Zap, Trophy, Users, Clock, ChevronRight, Flame, Bell, TrendingUp, Play, Calendar, Eye } from 'lucide-react';
+import { useActiveGames, GameState } from '@/hooks/useGameState';
+import { Trophy, Flame, Bell, TrendingUp, Play, Calendar, Zap, AlertTriangle } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLiveGame } from '@/hooks/useLiveGame';
 import { useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
 
-// Mock games for test mode
-const mockActiveGames = [
-  { id: 'mock-1', name: 'Fastest Finger', status: 'live', pool_value: 35000, participant_count: 23, countdown: 45, entry_fee: 700, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2], max_duration: 20 },
-  { id: 'mock-2', name: 'Speed Rush', status: 'live', pool_value: 18500, participant_count: 15, countdown: 32, entry_fee: 500, payout_type: 'winner_takes_all', payout_distribution: [1.0], max_duration: 15 },
-  { id: 'mock-3', name: 'Quick Draw', status: 'scheduled', pool_value: 12000, participant_count: 8, countdown: 180, entry_fee: 300, payout_type: 'top5', payout_distribution: [0.4, 0.25, 0.15, 0.12, 0.08], max_duration: 10 },
-  { id: 'mock-4', name: 'Lightning Round', status: 'scheduled', pool_value: 8000, participant_count: 5, countdown: 300, entry_fee: 200, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2], max_duration: 5 },
+// Mock games for test mode only
+const mockActiveGames: GameState[] = [
+  { 
+    id: 'mock-1', 
+    name: 'Fastest Finger', 
+    description: 'Classic speed game',
+    status: 'live', 
+    pool_value: 35000, 
+    effective_prize_pool: 35000,
+    participant_count: 23, 
+    countdown: 45, 
+    entry_fee: 700, 
+    max_duration: 20,
+    comment_timer: 60,
+    payout_type: 'top3', 
+    payout_distribution: [0.5, 0.3, 0.2], 
+    is_sponsored: false,
+    sponsored_amount: 0,
+    scheduled_at: null,
+    start_time: new Date().toISOString(),
+    end_time: null,
+    lobby_opens_at: null,
+    entry_cutoff_minutes: 10,
+    visibility: 'public',
+    recurrence_type: null,
+    recurrence_interval: null,
+    seconds_until_open: 0,
+    seconds_until_live: 0,
+    seconds_remaining: 600,
+    is_ending_soon: false,
+  },
+  { 
+    id: 'mock-2', 
+    name: 'Speed Rush', 
+    description: 'High stakes action',
+    status: 'ending_soon', 
+    pool_value: 18500, 
+    effective_prize_pool: 18500,
+    participant_count: 15, 
+    countdown: 32, 
+    entry_fee: 500, 
+    max_duration: 15,
+    comment_timer: 60,
+    payout_type: 'winner_takes_all', 
+    payout_distribution: [1.0], 
+    is_sponsored: false,
+    sponsored_amount: 0,
+    scheduled_at: null,
+    start_time: new Date().toISOString(),
+    end_time: null,
+    lobby_opens_at: null,
+    entry_cutoff_minutes: 10,
+    visibility: 'public',
+    recurrence_type: null,
+    recurrence_interval: null,
+    seconds_until_open: 0,
+    seconds_until_live: 0,
+    seconds_remaining: 180,
+    is_ending_soon: true,
+  },
+  { 
+    id: 'mock-3', 
+    name: 'Free Friday', 
+    description: 'Sponsored game - Free entry!',
+    status: 'open', 
+    pool_value: 0, 
+    effective_prize_pool: 50000,
+    participant_count: 8, 
+    countdown: 180, 
+    entry_fee: 0, 
+    max_duration: 10,
+    comment_timer: 60,
+    payout_type: 'top5', 
+    payout_distribution: [0.4, 0.25, 0.15, 0.12, 0.08], 
+    is_sponsored: true,
+    sponsored_amount: 50000,
+    scheduled_at: null,
+    start_time: new Date().toISOString(),
+    end_time: null,
+    lobby_opens_at: null,
+    entry_cutoff_minutes: 10,
+    visibility: 'public',
+    recurrence_type: 'weekly',
+    recurrence_interval: 1,
+    seconds_until_open: 0,
+    seconds_until_live: 120,
+    seconds_remaining: 0,
+    is_ending_soon: false,
+  },
+  { 
+    id: 'mock-4', 
+    name: 'Lightning Round', 
+    description: 'Quick 5 minute game',
+    status: 'scheduled', 
+    pool_value: 0, 
+    effective_prize_pool: 0,
+    participant_count: 0, 
+    countdown: 60, 
+    entry_fee: 200, 
+    max_duration: 5,
+    comment_timer: 60,
+    payout_type: 'top3', 
+    payout_distribution: [0.5, 0.3, 0.2], 
+    is_sponsored: false,
+    sponsored_amount: 0,
+    scheduled_at: new Date(Date.now() + 30 * 60000).toISOString(),
+    start_time: null,
+    end_time: null,
+    lobby_opens_at: null,
+    entry_cutoff_minutes: 10,
+    visibility: 'public',
+    recurrence_type: 'minutes',
+    recurrence_interval: 15,
+    seconds_until_open: 1800,
+    seconds_until_live: 0,
+    seconds_remaining: 0,
+    is_ending_soon: false,
+  },
 ];
 
 const mockTestWinners = [
@@ -35,13 +145,12 @@ const mockTestWinners = [
 export const Home = () => {
   const { isTestMode } = useGame();
   const { profile } = useAuth();
-  const { game, participants, fetchAllActiveGames } = useLiveGame();
+  const { games: liveGamesData, liveGames: realLiveGames, openGames: realOpenGames, scheduledGames: realScheduledGames, loading } = useActiveGames();
   const navigate = useNavigate();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
   const { showOnboarding, completeOnboarding } = useOnboarding();
   const [recentWinners, setRecentWinners] = useState<any[]>([]);
-  const [allGames, setAllGames] = useState<any[]>([]);
   const [activeNotification, setActiveNotification] = useState(0);
 
   // Badge unlock celebration
@@ -50,85 +159,17 @@ export const Home = () => {
     games_played: profile?.games_played || 0,
   });
 
-  // Fetch all active games and subscribe to real-time updates
-  useEffect(() => {
-    if (isTestMode) return;
-
-    const loadGames = async () => {
-      const games = await fetchAllActiveGames();
-      setAllGames(games);
-    };
-    loadGames();
-
-    const gamesChannel = supabase
-      .channel('home-games-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fastest_finger_games' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setAllGames(prev => [payload.new as any, ...prev]);
-          } else if (payload.eventType === 'UPDATE') {
-            const updated = payload.new as any;
-          setAllGames(prev => prev.map(g => g.id === updated.id ? { ...g, ...updated } : g).filter(g => ['live', 'open', 'scheduled'].includes(g.status)));
-          } else if (payload.eventType === 'DELETE') {
-            setAllGames(prev => prev.filter(g => g.id !== (payload.old as any).id));
-          }
-        }
-      )
-      .subscribe();
-
-    // Subscribe to participant changes for live pool updates
-    const participantsChannel = supabase
-      .channel('home-participants-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fastest_finger_participants' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newP = payload.new as any;
-            setAllGames(prev => prev.map(g => {
-              if (g.id === newP.game_id) {
-                return { 
-                  ...g, 
-                  participant_count: (g.participant_count || 0) + 1,
-                  pool_value: (g.pool_value || 0) + (g.entry_fee || 700)
-                };
-              }
-              return g;
-            }));
-          } else if (payload.eventType === 'DELETE') {
-            const oldP = payload.old as any;
-            setAllGames(prev => prev.map(g => {
-              if (g.id === oldP.game_id) {
-                return { 
-                  ...g, 
-                  participant_count: Math.max(0, (g.participant_count || 0) - 1),
-                  pool_value: Math.max(0, (g.pool_value || 0) - (g.entry_fee || 700))
-                };
-              }
-              return g;
-            }));
-          }
-        }
-      )
-      .subscribe();
-
-    const winnersChannel = supabase
-      .channel('home-winners-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'winners' },
-        async (payload) => {
-          const winner = payload.new as any;
-          const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: winner.user_id });
-          if (profileData?.[0]) {
-            setRecentWinners(prev => [{ ...winner, profile: profileData[0] }, ...prev].slice(0, 5));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(gamesChannel);
-      supabase.removeChannel(winnersChannel);
-      supabase.removeChannel(participantsChannel);
-    };
-  }, [isTestMode, fetchAllActiveGames]);
+  // Use mock data in test mode, real data otherwise
+  const displayGames = isTestMode ? mockActiveGames : liveGamesData;
+  const liveGames = isTestMode 
+    ? mockActiveGames.filter(g => g.status === 'live' || g.status === 'ending_soon')
+    : realLiveGames;
+  const openGames = isTestMode 
+    ? mockActiveGames.filter(g => g.status === 'open')
+    : realOpenGames;
+  const scheduledGames = isTestMode 
+    ? mockActiveGames.filter(g => g.status === 'scheduled')
+    : realScheduledGames;
 
   // Fetch recent winners
   useEffect(() => {
@@ -146,18 +187,32 @@ export const Home = () => {
       }
     };
     fetchRecentWinners();
+
+    // Subscribe to new winners
+    const channel = supabase
+      .channel('home-winners')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'winners' },
+        async (payload) => {
+          const winner = payload.new as any;
+          const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: winner.user_id });
+          if (profileData?.[0]) {
+            setRecentWinners(prev => [{ ...winner, profile: profileData[0] }, ...prev].slice(0, 5));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [isTestMode]);
 
-  const displayGames = isTestMode ? mockActiveGames : allGames;
-  const liveGames = displayGames.filter(g => g.status === 'live');
-  const openGames = displayGames.filter(g => g.status === 'open');
-  const scheduledGames = displayGames.filter(g => g.status === 'scheduled');
   const userRank = profile?.weekly_rank || Math.ceil((profile?.rank_points || 0) / 100) || 1;
 
-  // Cycle through notifications
+  // Notification messages
+  const endingSoonGames = liveGames.filter(g => g.is_ending_soon);
   const notifications = [
     liveGames.length > 0 && `🎮 ${liveGames.length} game${liveGames.length > 1 ? 's' : ''} LIVE now!`,
-    scheduledGames.length > 0 && `⏰ ${scheduledGames.length} game${scheduledGames.length > 1 ? 's' : ''} starting soon`,
+    endingSoonGames.length > 0 && `🔥 ${endingSoonGames.length} game${endingSoonGames.length > 1 ? 's' : ''} ending soon!`,
+    scheduledGames.length > 0 && `⏰ ${scheduledGames.length} game${scheduledGames.length > 1 ? 's' : ''} coming soon`,
     recentWinners[0]?.profile?.username && `🏆 ${recentWinners[0].profile.username} won ₦${recentWinners[0].amount_won?.toLocaleString()}!`,
   ].filter(Boolean) as string[];
 
@@ -176,7 +231,7 @@ export const Home = () => {
     return `₦${amount.toLocaleString()}`;
   };
 
-  const handleGameClick = (gameId?: string) => {
+  const handleGameClick = () => {
     play('click');
     buttonClick();
     navigate('/finger');
@@ -193,11 +248,12 @@ export const Home = () => {
         position: w.position,
       }));
 
+  const totalPoolValue = displayGames.reduce((sum, g) => sum + (g.effective_prize_pool || 0), 0);
+
   return (
     <div className="min-h-screen bg-background pb-24">
       {showOnboarding && <OnboardingTutorial onComplete={completeOnboarding} />}
       
-      {/* Badge Celebration Modal */}
       {showCelebration && newBadge && (
         <BadgeCelebration badge={newBadge} onDismiss={dismissCelebration} />
       )}
@@ -214,6 +270,12 @@ export const Home = () => {
                 <span className="flex items-center gap-1.5 text-xs font-medium text-green-400">
                   <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                   {liveGames.length} Live
+                </span>
+              )}
+              {endingSoonGames.length > 0 && (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-red-400">
+                  <AlertTriangle className="w-3 h-3" />
+                  {endingSoonGames.length} Ending
                 </span>
               )}
               {scheduledGames.length > 0 && (
@@ -246,10 +308,10 @@ export const Home = () => {
           </div>
         )}
 
-        {/* Wallet - Compact */}
+        {/* Wallet */}
         <WalletCard compact />
 
-        {/* Recent Winners - Moved up */}
+        {/* Recent Winners */}
         {displayActivity.length > 0 && (
           <div className="card-panel">
             <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-3">
@@ -276,30 +338,35 @@ export const Home = () => {
           </div>
         )}
 
-        {/* Live Games Section */}
+        {/* Live Games - Including Ending Soon */}
         {liveGames.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Play className="w-4 h-4 text-green-400" fill="currentColor" />
                 Live Now
+                {endingSoonGames.length > 0 && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase bg-red-500/20 text-red-400 rounded animate-pulse">
+                    {endingSoonGames.length} Ending Soon
+                  </span>
+                )}
               </h2>
               {liveGames.length > 2 && (
-                <button onClick={() => handleGameClick()} className="text-xs text-primary font-medium">
+                <button onClick={handleGameClick} className="text-xs text-primary font-medium">
                   View All →
                 </button>
               )}
             </div>
             
             <div className="space-y-3">
-              {liveGames.slice(0, 2).map((g) => (
-                <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
+              {liveGames.slice(0, 3).map((game) => (
+                <GameCard2 key={game.id} game={game} />
               ))}
             </div>
           </div>
         )}
 
-        {/* Open Games Section - Accepting Entries */}
+        {/* Open Games */}
         {openGames.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -310,14 +377,14 @@ export const Home = () => {
             </div>
             
             <div className="space-y-2">
-              {openGames.slice(0, 3).map((g) => (
-                <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
+              {openGames.slice(0, 3).map((game) => (
+                <GameCard2 key={game.id} game={game} compact />
               ))}
             </div>
           </div>
         )}
 
-        {/* Upcoming Games Section */}
+        {/* Scheduled Games */}
         {scheduledGames.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -328,15 +395,15 @@ export const Home = () => {
             </div>
             
             <div className="space-y-2">
-              {scheduledGames.slice(0, 3).map((g) => (
-                <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
+              {scheduledGames.slice(0, 3).map((game) => (
+                <GameCard2 key={game.id} game={game} compact />
               ))}
             </div>
           </div>
         )}
 
         {/* No Games State */}
-        {displayGames.length === 0 && (
+        {displayGames.length === 0 && !loading && (
           <div className="card-panel text-center py-12">
             <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
               <Zap className="w-8 h-8 text-muted-foreground" />
@@ -346,9 +413,16 @@ export const Home = () => {
           </div>
         )}
 
-        {/* Quick Stats Row */}
+        {/* Loading State */}
+        {loading && !isTestMode && (
+          <div className="card-panel text-center py-8">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">Loading games...</p>
+          </div>
+        )}
+
+        {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-3">
-          {/* Your Rank */}
           <button
             onClick={() => { play('click'); buttonClick(); navigate('/rank'); }}
             className="card-panel flex items-center gap-3 hover:border-primary/40 transition-all"
@@ -362,21 +436,18 @@ export const Home = () => {
             </div>
           </button>
           
-          {/* Total Pool */}
           <div className="card-panel flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gold/15 flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-gold" />
             </div>
             <div className="text-left">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Pools</p>
-              <p className="text-xl font-black text-gold">
-                {formatMoney(displayGames.reduce((sum, g) => sum + (g.pool_value || 0), 0))}
-              </p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Prizes</p>
+              <p className="text-xl font-black text-gold">{formatMoney(totalPoolValue)}</p>
             </div>
           </div>
         </div>
 
-        {/* Game History CTA */}
+        {/* Game History */}
         <GameHistory isTestMode={isTestMode} />
       </div>
       
