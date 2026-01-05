@@ -257,7 +257,7 @@ export const FingerMain = () => {
                           </span>
                         </div>
                         
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-4 gap-2 mb-3">
                           <div className="bg-background/50 rounded-lg p-2 text-center">
                             <Coins className="w-4 h-4 text-primary mx-auto mb-1" />
                             <p className="text-xs text-muted-foreground">Pool</p>
@@ -278,6 +278,26 @@ export const FingerMain = () => {
                             <p className="text-xs text-muted-foreground">Entry</p>
                             <p className="font-bold text-foreground text-sm">₦{g.entry_fee}</p>
                           </div>
+                        </div>
+
+                        {/* View Pool CTA */}
+                        <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                          <div className="flex items-center gap-2">
+                            <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">{g.participant_count} in pool</span>
+                          </div>
+                          <PoolParticipantsSheet
+                            gameId={g.id}
+                            gameName={g.name || 'Fastest Finger'}
+                            participantCount={g.participant_count}
+                            poolValue={g.pool_value}
+                            entryFee={g.entry_fee}
+                            isTestMode={isTestMode}
+                          >
+                            <span className="flex items-center gap-1 text-xs text-primary font-medium" onClick={(e) => e.stopPropagation()}>
+                              <Eye className="w-3 h-3" /> View pool
+                            </span>
+                          </PoolParticipantsSheet>
                         </div>
                       </div>
                     </button>
@@ -322,7 +342,18 @@ export const FingerMain = () => {
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-primary text-sm">{formatMoney(g.pool_value)}</p>
-                        <p className="text-xs text-muted-foreground">₦{g.entry_fee} entry</p>
+                        <PoolParticipantsSheet
+                          gameId={g.id}
+                          gameName={g.name || 'Fastest Finger'}
+                          participantCount={g.participant_count}
+                          poolValue={g.pool_value}
+                          entryFee={g.entry_fee}
+                          isTestMode={isTestMode}
+                        >
+                          <span className="flex items-center gap-1 text-xs text-primary font-medium" onClick={(e) => e.stopPropagation()}>
+                            <Eye className="w-3 h-3" /> View pool
+                          </span>
+                        </PoolParticipantsSheet>
                       </div>
                     </button>
                   );
@@ -407,18 +438,6 @@ export const FingerMain = () => {
             </li>
           </ul>
         </details>
-
-        {/* View Pool CTA */}
-        {selectedGame && (
-          <PoolParticipantsSheet
-            gameId={selectedGame.id}
-            gameName={(selectedGame as any).name || 'Fastest Finger'}
-            participantCount={selectedGame.participant_count || 0}
-            poolValue={poolValue}
-            entryFee={entryFee}
-            isTestMode={isTestMode}
-          />
-        )}
 
         {/* Game History */}
         <GameHistory isTestMode={isTestMode} />
