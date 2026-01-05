@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Zap, Users, Clock, ChevronRight, Trophy, Eye, Play, Gift, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, forwardRef } from 'react';
+import { Zap, Users, Clock, ChevronRight, Trophy, Eye, Play, Gift, AlertTriangle, Sparkles, Timer, Radio } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -48,7 +48,6 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
   useEffect(() => {
     const calculateTime = () => {
       if (isLive) {
-        // For live games: show time until game ends
         const remaining = gameTimeRemaining(game.start_time, game.max_duration || 20);
         const isEndingSoon = remaining <= 300;
         setTimeDisplay({ 
@@ -57,7 +56,6 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
           isUrgent: isEndingSoon,
         });
       } else if (isOpen) {
-        // For open games: show time until live
         const remaining = secondsUntil(game.start_time);
         setTimeDisplay({ 
           label: 'Goes Live', 
@@ -65,7 +63,6 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
           isUrgent: remaining <= 60,
         });
       } else if (isScheduled) {
-        // For scheduled games: show time until open
         const remaining = secondsUntil(game.scheduled_at);
         setTimeDisplay({ 
           label: 'Opens In', 
@@ -100,121 +97,164 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
   };
 
   const isEndingSoon = timeDisplay.isUrgent && isLive;
-  const statusColor = isEndingSoon ? 'red' : isLive ? 'green' : isOpen ? 'blue' : 'yellow';
-  const statusLabel = isEndingSoon ? 'ENDING' : isLive ? 'LIVE' : isOpen ? 'OPEN' : 'SOON';
+
+  // Get gradient and accent colors based on status
+  const getStatusStyles = () => {
+    if (isEndingSoon) {
+      return {
+        bg: 'bg-gradient-to-br from-destructive/10 via-card to-orange-500/5',
+        border: 'border-destructive/40 hover:border-destructive/60',
+        glow: 'bg-destructive/20',
+        badge: 'bg-destructive/20 text-destructive border-destructive/30',
+        icon: <AlertTriangle className="w-4 h-4 animate-pulse" />,
+        label: 'ENDING',
+        dot: 'bg-destructive',
+      };
+    }
+    if (isLive) {
+      return {
+        bg: 'bg-gradient-to-br from-green-500/10 via-card to-emerald-500/5',
+        border: 'border-green-500/30 hover:border-green-500/50',
+        glow: 'bg-green-500/20',
+        badge: 'bg-green-500/20 text-green-400 border-green-500/30',
+        icon: <Radio className="w-4 h-4" />,
+        label: 'LIVE',
+        dot: 'bg-green-500',
+      };
+    }
+    if (isOpen) {
+      return {
+        bg: 'bg-gradient-to-br from-blue-500/10 via-card to-indigo-500/5',
+        border: 'border-blue-500/30 hover:border-blue-500/50',
+        glow: 'bg-blue-500/20',
+        badge: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+        icon: <Play className="w-4 h-4" fill="currentColor" />,
+        label: 'OPEN',
+        dot: 'bg-blue-500',
+      };
+    }
+    return {
+      bg: 'bg-gradient-to-br from-yellow-500/10 via-card to-amber-500/5',
+      border: 'border-yellow-500/30 hover:border-yellow-500/50',
+      glow: 'bg-yellow-500/20',
+      badge: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+      icon: <Timer className="w-4 h-4" />,
+      label: 'SOON',
+      dot: 'bg-yellow-500',
+    };
+  };
+
+  const styles = getStatusStyles();
 
   return (
     <button
       onClick={handleClick}
-      className={`w-full relative overflow-hidden rounded-2xl border p-4 text-left transition-all hover:scale-[0.99] active:scale-[0.98] ${
-        isEndingSoon
-          ? 'bg-gradient-to-br from-card via-card to-destructive/10 border-destructive/50 hover:border-destructive/70 animate-pulse-slow'
-          : isLive 
-          ? 'bg-gradient-to-br from-card via-card to-green-500/5 border-green-500/30 hover:border-green-500/50' 
-          : isOpen
-          ? 'bg-gradient-to-br from-card via-card to-blue-500/5 border-blue-500/30 hover:border-blue-500/50'
-          : 'bg-gradient-to-br from-card via-card to-yellow-500/5 border-yellow-500/30 hover:border-yellow-500/50'
-      }`}
+      className={`w-full relative overflow-hidden rounded-2xl border p-4 text-left transition-all duration-300 hover:scale-[0.995] active:scale-[0.99] ${styles.bg} ${styles.border} ${isEndingSoon ? 'animate-pulse-slow' : ''}`}
     >
-      {/* Glow effect */}
-      <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl ${
-        isEndingSoon ? 'bg-destructive/10' : isLive ? 'bg-green-500/10' : isOpen ? 'bg-blue-500/10' : 'bg-yellow-500/10'
-      }`} />
+      {/* Ambient glow */}
+      <div className={`absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl opacity-50 ${styles.glow}`} />
+      <div className={`absolute -bottom-10 -left-10 w-32 h-32 rounded-full blur-3xl opacity-30 ${styles.glow}`} />
       
       <div className="relative z-10">
-        {/* Header row */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
-              isEndingSoon ? 'bg-destructive/20' : isLive ? 'bg-green-500/20' : isOpen ? 'bg-blue-500/20' : 'bg-yellow-500/20'
-            }`}>
+        {/* Top row: Title + Status */}
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {/* Icon container */}
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${styles.glow}`}>
               {isEndingSoon ? (
-                <AlertTriangle className="w-5 h-5 text-destructive animate-pulse" />
+                <AlertTriangle className="w-6 h-6 text-destructive" />
               ) : isLive ? (
-                <Play className="w-5 h-5 text-green-400" fill="currentColor" />
+                <Zap className="w-6 h-6 text-green-400" />
+              ) : isOpen ? (
+                <Play className="w-6 h-6 text-blue-400" fill="currentColor" />
               ) : (
-                <Clock className={`w-5 h-5 ${isOpen ? 'text-blue-400' : 'text-yellow-400'}`} />
+                <Timer className="w-6 h-6 text-yellow-400" />
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-foreground">{game.name || 'Fastest Finger'}</h3>
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-bold text-foreground truncate">{game.name || 'Fastest Finger'}</h3>
                 {game.is_sponsored && (
-                  <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-primary/20 text-primary rounded-full flex items-center gap-0.5">
-                    <Gift className="w-2.5 h-2.5" /> FREE
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-primary/20 to-gold/20 text-primary border border-primary/30 rounded-full">
+                    <Gift className="w-3 h-3" /> FREE
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                <Trophy className="w-3 h-3 text-gold" />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                <Trophy className="w-3.5 h-3.5 text-gold" />
                 <span>{getPayoutLabel(game.payout_type || 'top3')}</span>
-                <span>•</span>
-                <span>{game.entry_fee > 0 ? `₦${game.entry_fee}` : 'FREE'}</span>
+                <span className="text-border">•</span>
+                <span className={game.entry_fee === 0 ? 'text-green-400 font-medium' : ''}>
+                  {game.entry_fee > 0 ? `₦${game.entry_fee}` : 'FREE ENTRY'}
+                </span>
               </div>
             </div>
           </div>
           
           {/* Status badge */}
-          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${
-            isEndingSoon ? 'bg-destructive/20 border border-destructive/30' : isLive ? 'bg-green-500/20' : isOpen ? 'bg-blue-500/20' : 'bg-yellow-500/20'
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${
-              isEndingSoon ? 'bg-destructive animate-pulse' : isLive ? 'bg-green-500 animate-pulse' : isOpen ? 'bg-blue-500' : 'bg-yellow-500'
-            }`} />
-            <span className={`text-xs font-bold ${
-              isEndingSoon ? 'text-destructive' : isLive ? 'text-green-400' : isOpen ? 'text-blue-400' : 'text-yellow-400'
-            }`}>
-              {statusLabel}
-            </span>
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${styles.badge}`}>
+            <span className={`w-2 h-2 rounded-full ${styles.dot} ${isLive ? 'animate-pulse' : ''}`} />
+            <span className="text-xs font-bold tracking-wide">{styles.label}</span>
           </div>
         </div>
         
-        {/* Stats row */}
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-xs text-muted-foreground">Prize Pool</p>
-            <p className="text-xl font-black text-primary">{formatMoney(prizePool)}</p>
+        {/* Main stats row */}
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          {/* Prize Pool - Highlighted */}
+          <div className="col-span-1 p-3 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Prize Pool</p>
+            <p className="text-lg font-black text-primary">{formatMoney(prizePool)}</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">Players</p>
-              <p className="font-bold text-foreground flex items-center gap-1">
-                <Users className="w-3.5 h-3.5" /> {game.participant_count}
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">{timeDisplay.label}</p>
-              <p className={`font-bold flex items-center gap-1 ${
-                timeDisplay.isUrgent ? 'text-destructive animate-pulse' : isLive ? 'text-green-400' : isOpen ? 'text-blue-400' : 'text-yellow-400'
-              }`}>
-                <Clock className="w-3.5 h-3.5" /> {timeDisplay.value}
-              </p>
-            </div>
+          
+          {/* Players */}
+          <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Players</p>
+            <p className="font-bold text-foreground flex items-center gap-1">
+              <Users className="w-3.5 h-3.5 text-muted-foreground" /> 
+              {game.participant_count}
+            </p>
           </div>
-          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+          
+          {/* Timer */}
+          <div className={`p-3 rounded-xl border ${timeDisplay.isUrgent ? 'bg-destructive/10 border-destructive/30' : 'bg-muted/30 border-border/50'}`}>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{timeDisplay.label}</p>
+            <p className={`font-bold font-mono flex items-center gap-1 ${
+              timeDisplay.isUrgent ? 'text-destructive animate-pulse' : 
+              isLive ? 'text-green-400' : 
+              isOpen ? 'text-blue-400' : 'text-yellow-400'
+            }`}>
+              <Clock className="w-3.5 h-3.5" /> 
+              {timeDisplay.value}
+            </p>
+          </div>
         </div>
 
-        {/* View pool CTA */}
-        <div className="flex items-center justify-between pt-2 border-t border-border/30">
-          <div className="flex items-center gap-2">
-            <Users className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{game.participant_count} in pool</span>
-          </div>
-          <PoolParticipantsSheet
-            gameId={game.id}
-            gameName={game.name || 'Fastest Finger'}
-            participantCount={game.participant_count}
-            poolValue={game.pool_value}
-            entryFee={game.entry_fee}
-            isTestMode={isTestMode}
+        {/* Footer: Pool view + CTA */}
+        <div className="flex items-center justify-between pt-3 border-t border-border/30">
+          <div 
+            className="flex items-center gap-2"
+            onClick={(e) => e.stopPropagation()}
           >
-            <span 
-              className="flex items-center gap-1 text-xs text-primary font-medium" 
-              onClick={(e) => e.stopPropagation()}
+            <PoolParticipantsSheet
+              gameId={game.id}
+              gameName={game.name || 'Fastest Finger'}
+              participantCount={game.participant_count}
+              poolValue={game.pool_value}
+              entryFee={game.entry_fee}
+              isTestMode={isTestMode}
             >
-              <Eye className="w-3 h-3" /> View pool
-            </span>
-          </PoolParticipantsSheet>
+              <span className="flex items-center gap-1.5 text-xs text-primary font-medium hover:underline cursor-pointer">
+                <Eye className="w-3.5 h-3.5" /> 
+                View {game.participant_count} in pool
+              </span>
+            </PoolParticipantsSheet>
+          </div>
+          
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <span>{isLive ? 'Join Now' : isOpen ? 'Enter Game' : 'View Details'}</span>
+            <ChevronRight className="w-4 h-4" />
+          </div>
         </div>
       </div>
     </button>
