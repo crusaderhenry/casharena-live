@@ -6,7 +6,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 interface Game {
   id: string;
   name: string;
-  status: 'scheduled' | 'live' | 'ended';
+  status: 'scheduled' | 'live' | 'ended' | 'open';
   entry_fee: number;
   pool_value: number;
   participant_count: number;
@@ -19,6 +19,8 @@ interface Game {
   payout_distribution: number[];
   min_participants: number;
   created_at: string;
+  is_sponsored?: boolean;
+  sponsored_amount?: number;
 }
 
 interface Comment {
@@ -70,7 +72,7 @@ export const useLiveGame = (gameId?: string) => {
     const { data, error } = await supabase
       .from('fastest_finger_games')
       .select('*')
-      .in('status', ['scheduled', 'live'])
+      .in('status', ['scheduled', 'live', 'open'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -88,6 +90,8 @@ export const useLiveGame = (gameId?: string) => {
         payout_type: (data as any).payout_type || 'top3',
         payout_distribution: (data as any).payout_distribution || [0.5, 0.3, 0.2],
         min_participants: (data as any).min_participants || 3,
+        is_sponsored: (data as any).is_sponsored || false,
+        sponsored_amount: (data as any).sponsored_amount || 0,
       } as Game;
     }
     return null;
@@ -98,7 +102,7 @@ export const useLiveGame = (gameId?: string) => {
     const { data, error } = await supabase
       .from('fastest_finger_games')
       .select('*')
-      .in('status', ['scheduled', 'live'])
+      .in('status', ['scheduled', 'live', 'open'])
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -113,6 +117,8 @@ export const useLiveGame = (gameId?: string) => {
       payout_type: (g as any).payout_type || 'top3',
       payout_distribution: (g as any).payout_distribution || [0.5, 0.3, 0.2],
       min_participants: (g as any).min_participants || 3,
+      is_sponsored: (g as any).is_sponsored || false,
+      sponsored_amount: (g as any).sponsored_amount || 0,
     })) as Game[];
   }, []);
 
@@ -136,6 +142,8 @@ export const useLiveGame = (gameId?: string) => {
       payout_type: (data as any).payout_type || 'top3',
       payout_distribution: (data as any).payout_distribution || [0.5, 0.3, 0.2],
       min_participants: (data as any).min_participants || 3,
+      is_sponsored: (data as any).is_sponsored || false,
+      sponsored_amount: (data as any).sponsored_amount || 0,
     } as Game;
   }, []);
 

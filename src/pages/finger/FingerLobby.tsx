@@ -6,13 +6,14 @@ import { CrusaderHost } from '@/components/CrusaderHost';
 import { MicCheckModal } from '@/components/MicCheckModal';
 import { GameStatusHeader } from '@/components/GameStatusHeader';
 import { useGame } from '@/contexts/GameContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
 import { useCrusader } from '@/hooks/useCrusader';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useServerTime, formatCountdown } from '@/hooks/useServerTime';
-import { ChevronLeft, Zap, Lock, Users, Mic, Trophy, Clock, Play, Sparkles, Radio, Eye } from 'lucide-react';
+import { ChevronLeft, Zap, Lock, Users, Mic, Trophy, Clock, Play, Sparkles, Radio, Eye, Gift } from 'lucide-react';
 
 const CRUSADER_LOBBY_MESSAGES = [
   "What's good everyone! Get ready for some ACTION! 🔥",
@@ -29,7 +30,8 @@ export const FingerLobby = () => {
   const isSpectatorFromState = Boolean((location.state as any)?.isSpectator);
 
   const { isTestMode, resetFingerGame } = useGame();
-  const { game, participants, loading } = useLiveGame(gameIdFromState);
+  const { profile, refreshProfile } = useAuth();
+  const { game, participants, loading, hasJoined, joinGame, error: gameError } = useLiveGame(gameIdFromState);
   const crusader = useCrusader();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { play } = useSounds();
@@ -42,6 +44,7 @@ export const FingerLobby = () => {
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [micCheckComplete, setMicCheckComplete] = useState(false);
   const [isSpectator, setIsSpectator] = useState(isSpectatorFromState);
+  const [joining, setJoining] = useState(false);
 
   // Sync with server countdown using server time
   useEffect(() => {
@@ -143,6 +146,29 @@ export const FingerLobby = () => {
     navigate('/finger/arena', { state: { isSpectator } });
   };
 
+  const handleJoinGame = async () => {
+    if (!profile || joining || !game) return;
+    
+    // Check balance
+    const entryFee = game.entry_fee || 700;
+    if (profile.wallet_balance < entryFee && !game.is_sponsored) {
+      play('error');
+      return;
+    }
+
+    setJoining(true);
+    const success = await joinGame(game.id);
+    
+    if (success) {
+      play('success');
+      buttonClick();
+      await refreshProfile();
+    } else {
+      play('error');
+    }
+    setJoining(false);
+  };
+
   const handleMicCheckComplete = () => {
     setMicCheckComplete(true);
     sessionStorage.setItem('micCheckComplete', 'true');
@@ -152,6 +178,9 @@ export const FingerLobby = () => {
   const playerCount = participants.length || game?.participant_count || 0;
   const gameName = game?.name || 'Fastest Finger';
   const isGameLive = game?.status === 'live';
+  const entryFee = game?.entry_fee || 700;
+  const balance = profile?.wallet_balance || 0;
+  const canAfford = balance >= entryFee || game?.is_sponsored;
   
   // Construct a game object for the header component
   const gameForHeader = game ? {
@@ -249,29 +278,41 @@ export const FingerLobby = () => {
                 <div className="flex items-center justify-center gap-2 mb-3">
                   <Radio className="w-6 h-6 text-green-400 animate-pulse" />
                   <span className="text-sm text-green-400 font-bold uppercase tracking-wider">
-                    {isSpectator ? 'Watching Live' : 'Game is Live!'}
+                    {isSpectator ? 'Watching Live' : hasJoined ? 'Game is Live!' : 'Game is Live'}
                   </span>
                 </div>
-                <button
-                  onClick={handleEnterArena}
-                  className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity ${
-                    isSpectator 
-                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white' 
-                      : 'bg-gradient-to-r from-green-500 to-green-600 text-white'
-                  }`}
-                >
-                  {isSpectator ? (
-                    <>
+                
+                {hasJoined ? (
+                  <button
+                    onClick={handleEnterArena}
+                    className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-green-500 to-green-600 text-white"
+                  >
+                    <Play className="w-5 h-5" fill="currentColor" />
+                    Enter Arena Now
+                  </button>
+                ) : isSpectator ? (
+                  <button
+                    onClick={handleEnterArena}
+                    className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                  >
+                    <Eye className="w-5 h-5" />
+                    Watch Arena
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2 py-2 text-destructive">
+                      <Lock className="w-4 h-4" />
+                      <span className="font-bold text-sm">Entries Closed</span>
+                    </div>
+                    <button
+                      onClick={() => { setIsSpectator(true); handleEnterArena(); }}
+                      className="w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                    >
                       <Eye className="w-5 h-5" />
-                      Watch Arena
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-5 h-5" fill="currentColor" />
-                      Enter Arena Now
-                    </>
-                  )}
-                </button>
+                      Watch as Spectator
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -286,11 +327,45 @@ export const FingerLobby = () => {
                 } ${countdown <= 10 ? 'animate-pulse' : ''}`}>
                   {formatTime(countdown)}
                 </p>
-                {entryClosed && (
+                
+                {/* Join/Status section */}
+                {hasJoined ? (
+                  <div className="mt-4 py-3 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400">
+                    <p className="text-sm font-bold flex items-center justify-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      You're in! Waiting for game to start...
+                    </p>
+                  </div>
+                ) : entryClosed ? (
                   <div className="flex items-center justify-center gap-2 mt-3 text-destructive">
                     <Lock className="w-4 h-4" />
                     <span className="text-sm font-bold">No more entries</span>
                   </div>
+                ) : (
+                  <button
+                    onClick={handleJoinGame}
+                    disabled={!canAfford || joining}
+                    className="w-full mt-4 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                  >
+                    {game?.is_sponsored ? (
+                      <>
+                        <Gift className="w-5 h-5" />
+                        {joining ? 'Joining...' : 'Join FREE Game'}
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-5 h-5" />
+                        {joining ? 'Joining...' : 
+                         !canAfford ? `Need ₦${(entryFee - balance).toLocaleString()} more` : 
+                         `Join Game — ₦${entryFee.toLocaleString()}`}
+                      </>
+                    )}
+                  </button>
+                )}
+                
+                {/* Error message */}
+                {gameError && (
+                  <p className="mt-2 text-xs text-destructive">{gameError}</p>
                 )}
               </>
             )}
