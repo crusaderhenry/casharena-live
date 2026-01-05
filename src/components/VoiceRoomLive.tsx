@@ -376,6 +376,24 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
         )}
       </div>
 
+      {/* Mute status indicators */}
+      {(isHostMuted || !isSpeakerEnabled) && (
+        <div className="mt-2 pt-2 border-t border-border/30 flex flex-wrap gap-2">
+          {isHostMuted && (
+            <span className="text-[10px] text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <VolumeOff className="w-3 h-3" />
+              Host muted
+            </span>
+          )}
+          {!isSpeakerEnabled && (
+            <span className="text-[10px] text-destructive bg-destructive/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <VolumeX className="w-3 h-3" />
+              Voice room muted
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Speaking indicator */}
       {speakingParticipants.length > 0 && isSpeakerEnabled && (
         <div className="mt-2 pt-2 border-t border-border/30">
