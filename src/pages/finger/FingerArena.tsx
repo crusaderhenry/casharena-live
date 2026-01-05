@@ -1087,17 +1087,26 @@ export const FingerArena = () => {
             </p>
             {/* Show Join Pool button if 10+ mins remaining */}
             {canJoinFromSpectator && (
-              <button
-                onClick={handleJoinFromSpectator}
-                disabled={joiningFromSpectator || !canAffordEntry}
-                className="w-full py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-primary to-primary/80 text-primary-foreground disabled:opacity-50"
-              >
-                <Zap className="w-4 h-4" />
-                {joiningFromSpectator ? 'Joining...' : 
-                 !canAffordEntry ? `Need ₦${((game?.entry_fee || 700) - (profile?.wallet_balance || 0)).toLocaleString()} more` :
-                 game?.is_sponsored ? 'Join Pool FREE' :
-                 `Join Pool — ₦${(game?.entry_fee || 700).toLocaleString()}`}
-              </button>
+              <>
+                {/* Time remaining indicator */}
+                {gameJoinStatus.timeRemaining && (
+                  <p className="text-xs text-primary font-medium text-center mb-2 flex items-center justify-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {Math.floor(gameJoinStatus.timeRemaining / 60)} min left to join
+                  </p>
+                )}
+                <button
+                  onClick={handleJoinFromSpectator}
+                  disabled={joiningFromSpectator || !canAffordEntry}
+                  className="w-full py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-primary to-primary/80 text-primary-foreground disabled:opacity-50"
+                >
+                  <Zap className="w-4 h-4" />
+                  {joiningFromSpectator ? 'Joining...' : 
+                   !canAffordEntry ? `Need ₦${((game?.entry_fee || 700) - (profile?.wallet_balance || 0)).toLocaleString()} more` :
+                   game?.is_sponsored ? 'Join Pool FREE' :
+                   `Join Pool — ₦${(game?.entry_fee || 700).toLocaleString()}`}
+                </button>
+              </>
             )}
             {!canJoinFromSpectator && game?.status === 'live' && (
               <p className="text-xs text-muted-foreground text-center">
