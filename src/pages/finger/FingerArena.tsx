@@ -93,7 +93,9 @@ export const FingerArena = () => {
   const isGameTimeDanger = isEndingSoon || gameTime <= 5 * 60;
   const isTimerUrgent = timer <= 15;
 
-  // Active comment timer countdown (local for test, synced for live)
+  // Active comment timer countdown
+  // In live mode: syncs from server's game.countdown (updated via realtime)
+  // In test mode: runs locally
   useEffect(() => {
     if (isGameOver) return;
     
@@ -117,11 +119,22 @@ export const FingerArena = () => {
       return () => clearInterval(interval);
     }
     
-    // In live mode, sync with server
+    // In live mode, sync with server's countdown (real-time updates come through useLiveGame)
+    // The countdown is managed by the backend and pushed via realtime
     if (game?.countdown !== undefined) {
       setTimer(game.countdown);
+      
+      // Check for game end condition
+      if (game.countdown <= 0 && game.status === 'live') {
+        setIsGameOver(true);
+        setShowFreezeScreen(true);
+        stopBackgroundMusic();
+        play('gameOver');
+        vibrate('success');
+        crusader.announceGameOver();
+      }
     }
-  }, [isTestMode, game?.countdown, isGameOver, stopBackgroundMusic, play, vibrate, crusader]);
+  }, [isTestMode, game?.countdown, game?.status, isGameOver, stopBackgroundMusic, play, vibrate, crusader]);
 
   // Active game time countdown (local for test, server-synced for live)
   useEffect(() => {
