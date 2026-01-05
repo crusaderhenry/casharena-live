@@ -12,7 +12,7 @@ import { useCrusaderHost } from '@/hooks/useCrusaderHost';
 import { useAudio } from '@/contexts/AudioContext';
 import { useToast } from '@/hooks/use-toast';
 import { useServerTime } from '@/hooks/useServerTime';
-import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, AlertTriangle } from 'lucide-react';
+import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, AlertTriangle, Zap, Trophy, Radio, Timer, Flame } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,20 +62,23 @@ export const FingerArena = () => {
   const hasAnnouncedStart = useRef(false);
   const lastHypeRef = useRef(0);
 
+  const currentUsername = profile?.username || userProfile.username;
+  const currentAvatar = profile?.avatar || userProfile.avatar;
+  const poolValue = game?.pool_value || 0;
+  const audienceCount = participants.length || game?.participant_count || 0;
+  const isGameTimeDanger = isEndingSoon || gameTime <= 5 * 60;
+  const isTimerUrgent = timer <= 15;
+
   // Sync with server game state using server-authoritative time
   useEffect(() => {
     if (!game) return;
     
-    // Always use server countdown value
     setTimer(game.countdown || 60);
     
-    // Calculate remaining game time using server-synced time
     const updateGameTime = () => {
       if (game.start_time) {
         const remaining = gameTimeRemaining(game.start_time, game.max_duration);
         setGameTime(remaining);
-        
-        // Check if in "danger mode" (last 5 minutes)
         const inDangerZone = remaining <= 300 && remaining > 0;
         setIsEndingSoon(inDangerZone);
       }
@@ -86,7 +89,7 @@ export const FingerArena = () => {
     return () => clearInterval(interval);
   }, [game?.countdown, game?.start_time, game?.max_duration, synced, gameTimeRemaining]);
 
-  // Update Crusader with game state (separate effect to avoid loops)
+  // Update Crusader with game state
   useEffect(() => {
     if (game) {
       crusader.updateGameState({
@@ -98,7 +101,6 @@ export const FingerArena = () => {
         commentCount: comments.length,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game?.countdown, game?.pool_value, game?.participant_count, topThree[0]?.name, comments.length]);
 
   // Check for game ended
@@ -110,7 +112,6 @@ export const FingerArena = () => {
       play('gameOver');
       vibrate('success');
       
-      // Announce with winner info
       const winner = topThree[0]?.name;
       const prize = game?.pool_value ? Math.floor(game.pool_value * 0.45) : 0;
       crusader.announceGameOver(winner, prize);
@@ -155,7 +156,6 @@ export const FingerArena = () => {
     const top = Array.from(uniquePlayers.values()).slice(0, 3);
     setTopThree(top);
 
-    // Announce leader changes
     if (top[0] && top[0].name !== lastLeader && lastLeader !== '') {
       crusader.announceLeaderChange(top[0].name);
       play('leaderChange');
@@ -170,7 +170,6 @@ export const FingerArena = () => {
     playBackgroundMusic('arena');
     if (!hasAnnouncedStart.current && game) {
       showSystemMessage('Game started! Be the last commenter!');
-      // Update game state first, then announce
       crusader.updateGameState({
         participantCount: game.participant_count || participants.length,
         poolValue: game.pool_value || 0,
@@ -180,7 +179,6 @@ export const FingerArena = () => {
       hasAnnouncedStart.current = true;
     }
 
-    // Show mic check if not done before (with delay to let user settle in)
     const micCheckDone = sessionStorage.getItem('micCheckComplete');
     if (!micCheckDone) {
       setTimeout(() => setShowMicCheck(true), 2000);
@@ -215,7 +213,6 @@ export const FingerArena = () => {
       play('tick');
     }
     
-    // Announce at key timer milestones
     if ([60, 30, 15, 10, 5].includes(timer)) {
       crusader.announceTimerLow(timer);
     }
@@ -240,10 +237,6 @@ export const FingerArena = () => {
     setSystemMessage(msg);
     setTimeout(() => setSystemMessage(''), 3000);
   };
-
-  const isGameTimeDanger = isEndingSoon || gameTime <= 5 * 60;
-  const isTimerUrgent = timer <= 15;
-  const audienceCount = participants.length || game?.participant_count || 0;
 
   const formatGameTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -302,17 +295,13 @@ export const FingerArena = () => {
     sessionStorage.setItem('micCheckComplete', 'true');
   };
 
-  const currentUsername = profile?.username || userProfile.username;
-  const currentAvatar = profile?.avatar || userProfile.avatar;
-  const poolValue = game?.pool_value || 0;
-
   // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Entering arena...</p>
+          <div className="w-14 h-14 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground font-medium">Entering arena...</p>
         </div>
       </div>
     );
@@ -321,65 +310,69 @@ export const FingerArena = () => {
   // Freeze Screen
   if (showFreezeScreen) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex flex-col items-center justify-center p-6">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-black text-foreground mb-2 animate-bounce-in">🏆 GAME OVER!</h1>
+          <div className="text-6xl mb-4 animate-bounce-in">🏆</div>
+          <h1 className="text-3xl font-black text-foreground mb-2">GAME OVER!</h1>
           <p className="text-muted-foreground">Winners determined!</p>
         </div>
 
         {/* Podium Display */}
-        <div className="flex items-end justify-center gap-3 mb-8 w-full max-w-sm">
+        <div className="flex items-end justify-center gap-4 mb-8 w-full max-w-sm">
           {/* 2nd Place */}
           <div className="flex flex-col items-center flex-1">
-            <div className="w-14 h-14 rounded-full bg-card-elevated flex items-center justify-center text-2xl border-2 border-silver mb-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-silver/30 to-silver/10 flex items-center justify-center text-2xl border-2 border-silver/50 mb-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
               {topThree[1]?.avatar || '🥈'}
             </div>
-            <div className="podium-2 rounded-t-xl w-full py-4 text-center" style={{ height: '70px' }}>
+            <div className="bg-gradient-to-t from-silver/20 to-silver/10 rounded-t-xl w-full py-4 text-center border border-silver/30" style={{ height: '70px' }}>
               <p className="font-bold text-sm text-foreground truncate px-2">{topThree[1]?.name || '—'}</p>
-              <p className="text-xs text-silver">2nd</p>
+              <p className="text-xs text-silver font-bold">2nd</p>
             </div>
           </div>
 
           {/* 1st Place */}
           <div className="flex flex-col items-center flex-1">
-            <div className="text-2xl mb-1 animate-bounce-in">👑</div>
-            <div className="w-16 h-16 rounded-full bg-card-elevated flex items-center justify-center text-2xl border-2 border-gold avatar-gold animate-winner-glow mb-2">
+            <Crown className="w-8 h-8 text-gold mb-2 animate-bounce-in" />
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center text-3xl border-2 border-gold/50 mb-2 animate-winner-glow">
               {topThree[0]?.avatar || '🥇'}
             </div>
-            <div className="podium-1 rounded-t-xl w-full py-6 text-center" style={{ height: '90px' }}>
+            <div className="bg-gradient-to-t from-gold/20 to-gold/10 rounded-t-xl w-full py-6 text-center border border-gold/30" style={{ height: '100px' }}>
               <p className="font-bold text-foreground truncate px-2">{topThree[0]?.name || '—'}</p>
-              <p className="text-sm font-bold text-gold">1st</p>
+              <p className="text-sm font-black text-gold">1st</p>
             </div>
           </div>
 
           {/* 3rd Place */}
           <div className="flex flex-col items-center flex-1">
-            <div className="w-14 h-14 rounded-full bg-card-elevated flex items-center justify-center text-2xl border-2 border-bronze mb-2 animate-fade-in" style={{ animationDelay: '0.5s' }}>
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-bronze/30 to-bronze/10 flex items-center justify-center text-2xl border-2 border-bronze/50 mb-2 animate-fade-in" style={{ animationDelay: '0.5s' }}>
               {topThree[2]?.avatar || '🥉'}
             </div>
-            <div className="podium-3 rounded-t-xl w-full py-3 text-center" style={{ height: '55px' }}>
+            <div className="bg-gradient-to-t from-bronze/20 to-bronze/10 rounded-t-xl w-full py-3 text-center border border-bronze/30" style={{ height: '55px' }}>
               <p className="font-bold text-sm text-foreground truncate px-2">{topThree[2]?.name || '—'}</p>
-              <p className="text-xs text-bronze">3rd</p>
+              <p className="text-xs text-bronze font-bold">3rd</p>
             </div>
           </div>
         </div>
 
-        <p className="text-muted-foreground text-sm animate-pulse">Calculating prizes...</p>
+        <div className="flex items-center gap-2 text-muted-foreground animate-pulse">
+          <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <span className="text-sm">Calculating prizes...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen bg-background flex flex-col ${isShaking ? 'animate-intense-shake' : ''}`}>
+    <div className={`min-h-screen flex flex-col ${isShaking ? 'animate-intense-shake' : ''} ${isGameTimeDanger ? 'bg-gradient-to-b from-background via-destructive/5 to-background' : 'bg-background'}`}>
       {/* Header */}
-      <div className="bg-card/98 backdrop-blur-xl border-b border-border/50 p-4 sticky top-0 z-10">
+      <div className={`backdrop-blur-xl border-b p-4 sticky top-0 z-10 ${isGameTimeDanger ? 'bg-destructive/5 border-destructive/30' : 'bg-card/95 border-border/50'}`}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             {/* Leave Button */}
             {isSpectator ? (
               <button
                 onClick={() => navigate('/home')}
-                className="p-2 rounded-full bg-muted text-muted-foreground hover:bg-muted/80 transition-all"
+                className="p-2 rounded-xl bg-muted text-muted-foreground hover:bg-muted/80 transition-all"
                 title="Leave Arena"
               >
                 <LogOut className="w-4 h-4" />
@@ -388,7 +381,7 @@ export const FingerArena = () => {
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <button
-                    className="p-2 rounded-full bg-muted text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-all"
+                    className="p-2 rounded-xl bg-muted text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-all"
                     title="Leave Arena"
                   >
                     <LogOut className="w-4 h-4" />
@@ -398,7 +391,7 @@ export const FingerArena = () => {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Leave the Arena?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      ⚠️ You're an active player in this game. If you leave now and a winner is determined before you return, you may lose your chance to win!
+                      ⚠️ You're an active player. Leaving now may cost you the win!
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -416,56 +409,82 @@ export const FingerArena = () => {
 
             <div>
               <h1 className="font-bold text-foreground flex items-center gap-2">
-                <span className="live-dot" />
-                Live Finger Arena
+                <span className={`w-2 h-2 rounded-full ${isGameTimeDanger ? 'bg-destructive' : 'bg-green-500'} animate-pulse`} />
+                {isGameTimeDanger ? 'DANGER ZONE' : 'Live Arena'}
               </h1>
               <p className="text-xs text-muted-foreground flex items-center gap-2">
-                <span>Last comment standing wins!</span>
-                <span className="inline-flex items-center gap-1">
+                <span>Last comment wins!</span>
+                <span className="inline-flex items-center gap-1 text-primary">
                   <Users className="w-3 h-3" />
-                  {audienceCount} playing
+                  {audienceCount}
                 </span>
               </p>
             </div>
           </div>
-          <div className="text-right">
+          
+          {/* Game Time */}
+          <div className={`text-right px-3 py-1.5 rounded-xl ${isGameTimeDanger ? 'bg-destructive/20 border border-destructive/30' : 'bg-muted/50'}`}>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="w-3 h-3" />
+              <Timer className="w-3 h-3" />
               Game Time
             </div>
-            <p className={`font-bold ${isGameTimeDanger ? 'text-destructive animate-pulse' : 'text-foreground'}`}>
+            <p className={`font-mono font-bold ${isGameTimeDanger ? 'text-destructive animate-pulse' : 'text-foreground'}`}>
               {formatGameTime(gameTime)}
             </p>
           </div>
         </div>
 
-        {/* Pool Display */}
-        <div className="bg-gradient-to-r from-primary/20 to-secondary/20 rounded-xl p-3 mb-3 border border-primary/30">
+        {/* Prize Pool Display */}
+        <div className={`rounded-2xl p-4 mb-3 border ${isGameTimeDanger ? 'bg-gradient-to-r from-destructive/10 via-primary/10 to-destructive/10 border-destructive/30' : 'bg-gradient-to-r from-primary/15 to-gold/10 border-primary/30'}`}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">💰</span>
-              <span className="text-sm text-muted-foreground">Prize Pool</span>
+            <div className="flex items-center gap-3">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isGameTimeDanger ? 'bg-destructive/20' : 'bg-primary/20'}`}>
+                <Trophy className={`w-6 h-6 ${isGameTimeDanger ? 'text-destructive' : 'text-primary'}`} />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Prize Pool</p>
+                <p className="font-black text-2xl text-primary">₦{poolValue.toLocaleString()}</p>
+              </div>
             </div>
             <div className="text-right">
-              <p className="font-black text-xl text-primary">₦{poolValue.toLocaleString()}</p>
-              <p className="text-[10px] text-muted-foreground">{audienceCount} players</p>
+              <p className="text-xs text-muted-foreground">{audienceCount} players</p>
+              {isGameTimeDanger && (
+                <span className="inline-flex items-center gap-1 text-xs text-destructive font-bold">
+                  <AlertTriangle className="w-3 h-3" /> ENDING SOON
+                </span>
+              )}
             </div>
           </div>
         </div>
         
         {/* Timer */}
-        <div className={`text-center py-3 rounded-xl transition-all ${timer < 15 ? 'bg-destructive/20 border-2 border-destructive/50' : timer < 30 ? 'bg-orange-500/20 border border-orange-500/50' : 'bg-primary/10 border border-primary/30'}`}>
-          <p className="text-xs text-muted-foreground mb-1">Time Until Winner</p>
-          <p className={`timer-display ${timer < 15 ? 'timer-urgent animate-pulse' : timer < 30 ? 'text-orange-400' : ''}`}>{timer}s</p>
+        <div className={`text-center py-4 rounded-2xl transition-all border-2 ${
+          timer <= 10 ? 'bg-destructive/20 border-destructive/50 animate-pulse' : 
+          timer <= 30 ? 'bg-orange-500/20 border-orange-500/30' : 
+          'bg-primary/10 border-primary/20'
+        }`}>
+          <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Time Until Winner</p>
+          <p className={`text-5xl font-black font-mono ${
+            timer <= 10 ? 'text-destructive animate-pulse' : 
+            timer <= 30 ? 'text-orange-400' : 'text-foreground'
+          }`}>{timer}s</p>
+          {timer <= 15 && (
+            <p className="text-xs text-destructive font-bold mt-1 flex items-center justify-center gap-1">
+              <Flame className="w-3 h-3" /> CRITICAL - Comment now!
+            </p>
+          )}
         </div>
 
         {/* Live Top 3 Podium */}
-        <div className="mt-3 bg-muted/30 rounded-xl p-3 border border-border/50">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 text-center">🏆 Current Top 3</p>
-          <div className="flex items-end justify-center gap-2">
+        <div className="mt-3 bg-muted/30 rounded-2xl p-4 border border-border/50">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3 text-center flex items-center justify-center gap-2">
+            <Crown className="w-3 h-3 text-gold" />
+            Current Top 3
+          </p>
+          <div className="flex items-end justify-center gap-3">
             {/* 2nd Place */}
             <div className="flex flex-col items-center">
-              <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-sm border border-silver">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-silver/20 to-card flex items-center justify-center text-lg border border-silver/50">
                 {topThree[1]?.avatar || '—'}
               </div>
               <div className="text-[10px] text-silver font-bold mt-1">2nd</div>
@@ -474,8 +493,8 @@ export const FingerArena = () => {
             
             {/* 1st Place */}
             <div className="flex flex-col items-center -mt-2">
-              <Crown className="w-4 h-4 text-gold mb-0.5" />
-              <div className={`w-10 h-10 rounded-full bg-card flex items-center justify-center text-lg border-2 border-gold ${topThree[0]?.name === currentUsername ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}>
+              <Crown className="w-4 h-4 text-gold mb-1" />
+              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br from-gold/30 to-card flex items-center justify-center text-xl border-2 border-gold/50 ${topThree[0]?.name === currentUsername ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}>
                 {topThree[0]?.avatar || '—'}
               </div>
               <div className="text-xs text-gold font-bold mt-1">1st</div>
@@ -484,7 +503,7 @@ export const FingerArena = () => {
             
             {/* 3rd Place */}
             <div className="flex flex-col items-center">
-              <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-sm border border-bronze">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-bronze/20 to-card flex items-center justify-center text-lg border border-bronze/50">
                 {topThree[2]?.avatar || '—'}
               </div>
               <div className="text-[10px] text-bronze font-bold mt-1">3rd</div>
@@ -493,30 +512,29 @@ export const FingerArena = () => {
           </div>
         </div>
 
-        {/* Crusader Host Bar with Mute Controls */}
-        <div className="mt-2 flex items-center gap-2 bg-primary/10 rounded-lg px-3 py-1.5 border border-primary/30">
-          <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-sm">
+        {/* Crusader Host Bar */}
+        <div className="mt-3 flex items-center gap-2 bg-primary/10 rounded-xl px-3 py-2 border border-primary/30">
+          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-lg">
             🎙️
           </div>
-          <span className="text-xs text-primary font-medium">Crusader</span>
-          {!hostMuted && <Mic className="w-3 h-3 text-primary animate-pulse" />}
-          <span className="text-[10px] text-muted-foreground ml-1">Hosting live</span>
-          
-          <div className="ml-auto flex items-center gap-2">
-            {/* Host Mute */}
-            <button
-              onClick={() => setHostMuted(!hostMuted)}
-              className={`p-1.5 rounded-full transition-all ${hostMuted ? 'bg-destructive/20 text-destructive' : 'bg-primary/20 text-primary'}`}
-              title={hostMuted ? 'Unmute Host' : 'Mute Host'}
-            >
-              {hostMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-            </button>
+          <div className="flex-1">
+            <span className="text-xs text-primary font-bold">Crusader</span>
+            <span className="text-[10px] text-muted-foreground ml-2">Hosting live</span>
           </div>
+          {!hostMuted && <Mic className="w-3 h-3 text-primary animate-pulse" />}
+          
+          <button
+            onClick={() => setHostMuted(!hostMuted)}
+            className={`p-2 rounded-lg transition-all ${hostMuted ? 'bg-destructive/20 text-destructive' : 'bg-primary/20 text-primary'}`}
+            title={hostMuted ? 'Unmute Host' : 'Mute Host'}
+          >
+            {hostMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
         </div>
 
         {/* Spectator Mode Badge */}
         {isSpectator && (
-          <div className="mt-2 bg-orange-500/20 border border-orange-500/50 rounded-lg px-3 py-2 text-center">
+          <div className="mt-3 bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-2 text-center">
             <p className="text-xs text-orange-400 font-medium flex items-center justify-center gap-1">
               <Users className="w-3 h-3" />
               Spectator Mode - Watch only
@@ -526,7 +544,7 @@ export const FingerArena = () => {
 
         {/* System Message */}
         {systemMessage && (
-          <div className="mt-2 text-center text-sm text-primary font-medium animate-fade-in">
+          <div className="mt-3 text-center text-sm text-primary font-medium animate-fade-in bg-primary/10 rounded-xl py-2">
             {systemMessage}
           </div>
         )}
@@ -541,7 +559,7 @@ export const FingerArena = () => {
             />
             <button
               onClick={() => setIsSpectator(!isSpectator)}
-              className="w-full text-xs py-1.5 rounded bg-muted text-muted-foreground"
+              className="w-full text-xs py-2 rounded-xl bg-muted text-muted-foreground hover:bg-muted/80"
             >
               Toggle Spectator Mode
             </button>
@@ -565,7 +583,7 @@ export const FingerArena = () => {
         ref={chatRef}
         className="flex-1 overflow-y-auto p-4 flex flex-col-reverse"
       >
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {comments.slice(0, 30).map((comment, index) => {
             const username = comment.profile?.username || 'Unknown';
             const avatar = comment.profile?.avatar || '🎮';
@@ -575,31 +593,30 @@ export const FingerArena = () => {
             return (
               <div
                 key={comment.id}
-                className={`flex items-start gap-2 p-2 rounded-lg animate-slide-up ${
+                className={`flex items-start gap-3 p-3 rounded-xl animate-slide-up transition-all ${
                   isUser 
-                    ? 'bg-primary/15 border border-primary/30' 
+                    ? 'bg-primary/10 border border-primary/30' 
                     : isLeader
-                      ? 'bg-card border border-gold/30'
+                      ? 'bg-gradient-to-r from-gold/10 to-transparent border border-gold/30'
                       : 'bg-card/50 border border-border/30'
                 }`}
                 style={{ animationDelay: `${index * 10}ms` }}
               >
-                <div className={`w-8 h-8 rounded-full bg-card-elevated flex items-center justify-center text-sm shrink-0 ${isLeader ? 'ring-1 ring-gold' : ''}`}>
+                <div className={`w-10 h-10 rounded-xl bg-card flex items-center justify-center text-lg shrink-0 border ${isLeader ? 'border-gold/50' : 'border-border/50'}`}>
                   {avatar}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <p className={`font-bold text-xs ${
+                    <p className={`font-bold text-sm ${
                       isUser ? 'text-primary' : 
                       isLeader ? 'text-gold' : 'text-foreground'
                     }`}>
                       {username}
                     </p>
-                    {isLeader && (
-                      <Crown className="w-3 h-3 text-gold" />
-                    )}
+                    {isLeader && <Crown className="w-3.5 h-3.5 text-gold" />}
+                    {index === 0 && <span className="text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-bold">LATEST</span>}
                   </div>
-                  <p className="text-foreground text-sm">{comment.content}</p>
+                  <p className="text-foreground text-sm mt-0.5">{comment.content}</p>
                 </div>
               </div>
             );
@@ -608,27 +625,35 @@ export const FingerArena = () => {
       </div>
 
       {/* Input */}
-      <div className="bg-card/98 backdrop-blur-xl border-t border-border/50 p-4 sticky bottom-0">
+      <div className={`backdrop-blur-xl border-t p-4 sticky bottom-0 ${isGameTimeDanger ? 'bg-destructive/5 border-destructive/30' : 'bg-card/95 border-border/50'}`}>
         {isSpectator ? (
           <div className="text-center py-3 bg-muted/50 rounded-xl">
             <p className="text-sm text-muted-foreground">👀 You're watching as a spectator</p>
             <p className="text-xs text-muted-foreground mt-1">You can still talk in voice chat</p>
           </div>
         ) : (
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <input
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Type to claim the lead..."
-              className="flex-1 bg-muted/50 border border-border/50 rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              placeholder={isGameTimeDanger ? "⚡ Quick! Type to take the lead..." : "Type to claim the lead..."}
+              className={`flex-1 border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                isGameTimeDanger 
+                  ? 'bg-destructive/10 border-destructive/30 focus:ring-destructive' 
+                  : 'bg-muted/50 border-border/50 focus:ring-primary'
+              }`}
               disabled={sending}
             />
             <button
               onClick={handleSend}
               disabled={!inputValue.trim() || sending}
-              className="btn-primary px-5 disabled:opacity-50"
+              className={`px-5 rounded-xl font-bold disabled:opacity-50 transition-all ${
+                isGameTimeDanger 
+                  ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' 
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              }`}
             >
               <Send className="w-5 h-5" />
             </button>

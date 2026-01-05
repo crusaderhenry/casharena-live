@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Users, Eye, X, Trophy, Clock } from 'lucide-react';
+import { useState, useEffect, forwardRef } from 'react';
+import { Users, Eye, Trophy, Clock, Sparkles } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -34,6 +34,21 @@ const mockParticipants = [
   { id: '7', user_id: 'u7', joined_at: new Date().toISOString(), profile: { username: 'QuickDraw', avatar: '🎯' } },
   { id: '8', user_id: 'u8', joined_at: new Date().toISOString(), profile: { username: 'NightOwl', avatar: '🦉' } },
 ];
+
+// Trigger component that properly forwards refs
+const SheetTriggerButton = forwardRef<HTMLButtonElement, { children: React.ReactNode; onClick?: () => void }>(
+  ({ children, onClick, ...props }, ref) => (
+    <button
+      ref={ref}
+      onClick={onClick}
+      className="flex items-center gap-2 text-xs text-primary font-medium hover:underline transition-colors"
+      {...props}
+    >
+      {children}
+    </button>
+  )
+);
+SheetTriggerButton.displayName = 'SheetTriggerButton';
 
 export const PoolParticipantsSheet = ({ 
   gameId, 
@@ -122,82 +137,101 @@ export const PoolParticipantsSheet = ({
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        {children || (
-          <button className="flex items-center gap-2 text-xs text-primary font-medium hover:underline">
+        {children ? (
+          <SheetTriggerButton>{children}</SheetTriggerButton>
+        ) : (
+          <SheetTriggerButton>
             <Eye className="w-3.5 h-3.5" />
             View {participantCount} in pool
-          </button>
+          </SheetTriggerButton>
         )}
       </SheetTrigger>
-      <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
+      <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl bg-background/95 backdrop-blur-xl">
         <SheetHeader className="pb-4 border-b border-border">
           <SheetTitle className="flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
-              Pool Participants
+              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                <Users className="w-4 h-4 text-primary" />
+              </div>
+              <span>Pool Participants</span>
             </span>
           </SheetTitle>
         </SheetHeader>
 
         <div className="py-4 space-y-4 overflow-y-auto max-h-[calc(80vh-120px)]">
           {/* Game Info */}
-          <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-xl p-4 border border-primary/20">
-            <h3 className="font-bold text-foreground mb-2">{gameName}</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-xs text-muted-foreground">Prize Pool</p>
-                <p className="text-lg font-black text-primary">{formatMoney(poolValue)}</p>
+          <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-4">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <h3 className="font-bold text-foreground">{gameName}</h3>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Players</p>
-                <p className="text-lg font-bold text-foreground">{participantCount}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Entry Fee</p>
-                <p className="text-lg font-bold text-foreground">₦{entryFee}</p>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center p-2 rounded-lg bg-background/50">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Prize Pool</p>
+                  <p className="text-lg font-black text-primary">{formatMoney(poolValue)}</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-background/50">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Players</p>
+                  <p className="text-lg font-bold text-foreground">{participantCount}</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-background/50">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Entry</p>
+                  <p className="text-lg font-bold text-foreground">₦{entryFee}</p>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Transparency notice */}
-          <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
-            <Eye className="w-4 h-4 text-green-400 flex-shrink-0" />
+          <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+            <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0">
+              <Eye className="w-4 h-4 text-green-400" />
+            </div>
             <p className="text-xs text-muted-foreground">
-              All participants visible for complete transparency
+              All participants visible for <span className="text-green-400 font-medium">complete transparency</span>
             </p>
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="flex items-center justify-center py-12">
+              <div className="w-10 h-10 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
             </div>
           ) : (
             <div className="space-y-2">
               {participants.map((p, index) => (
                 <div 
                   key={p.id} 
-                  className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50"
+                  className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50 hover:border-primary/30 transition-colors"
                 >
-                  <span className="w-6 text-center text-xs font-bold text-muted-foreground">
-                    #{index + 1}
+                  <span className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">
+                    {index + 1}
                   </span>
-                  <div className="w-10 h-10 rounded-full bg-card-elevated flex items-center justify-center text-lg border border-border/50">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary/20 to-card flex items-center justify-center text-xl border border-border/50">
                     {p.profile?.avatar || '🎮'}
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-foreground">{p.profile?.username || 'Player'}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground truncate">{p.profile?.username || 'Player'}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       Joined {formatTime(p.joined_at)}
                     </p>
                   </div>
+                  {index < 3 && (
+                    <span className="text-lg">
+                      {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                    </span>
+                  )}
                 </div>
               ))}
 
               {participants.length === 0 && (
-                <div className="text-center py-8">
-                  <Users className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
-                  <p className="text-muted-foreground">No participants yet</p>
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                    <Users className="w-8 h-8 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-muted-foreground font-medium">No participants yet</p>
                   <p className="text-xs text-muted-foreground mt-1">Be the first to join!</p>
                 </div>
               )}
