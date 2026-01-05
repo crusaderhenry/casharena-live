@@ -1,22 +1,12 @@
-import { Settings, Save, Zap, AlertTriangle, Users, Power, Key, RefreshCw, Trash2, Database, PlayCircle, Shield } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { Settings, Save, Zap, AlertTriangle, Users, Power } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAdmin } from '@/contexts/AdminContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useToast } from '@/hooks/use-toast';
-
-interface SecretInfo {
-  name: string;
-  description: string;
-  lastUpdated?: string;
-  isSet: boolean;
-}
 
 export const AdminSettings = () => {
   const { settings: dbSettings, updateSettings: updateDbSettings, toggleTestMode, isTestMode, loading } = usePlatformSettings();
-  const { simulateHighTraffic, createGameWithConfig, refreshData } = useAdmin();
-  const { toast: toastHook } = useToast();
+  const { simulateHighTraffic } = useAdmin();
   
   const [localSettings, setLocalSettings] = useState({
     platformName: 'FortunesHQ',
@@ -24,16 +14,6 @@ export const AdminSettings = () => {
     testMode: true,
     maintenanceMode: false,
   });
-
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  // API Keys state - these are the known secrets
-  const [apiKeys] = useState<SecretInfo[]>([
-    { name: 'PAYSTACK_TEST_SECRET_KEY', description: 'Paystack Test Secret Key for sandbox transactions', isSet: true },
-    { name: 'PAYSTACK_LIVE_SECRET_KEY', description: 'Paystack Live Secret Key for real transactions', isSet: true },
-    { name: 'ELEVENLABS_API_KEY', description: 'ElevenLabs API Key for voice/TTS features', isSet: true },
-    { name: 'CRON_SECRET', description: 'Secret for authenticating scheduled cron jobs', isSet: true },
-  ]);
 
   useEffect(() => {
     if (dbSettings) {
@@ -47,122 +27,26 @@ export const AdminSettings = () => {
   }, [dbSettings]);
 
   const handleSave = async () => {
-    setActionLoading('save');
     const success = await updateDbSettings({
       platform_name: localSettings.platformName,
       platform_cut_percent: localSettings.platformCut,
     });
-    setActionLoading(null);
     
     if (success) {
-      toast.success('Settings saved successfully');
+      toast.success('Settings saved');
     } else {
       toast.error('Failed to save settings');
     }
   };
 
   const handleTestModeToggle = async () => {
-    setActionLoading('testMode');
     const newValue = !isTestMode;
     
     const success = await toggleTestMode(newValue);
-    setActionLoading(null);
-    
     if (!success) {
       toast.error('Failed to toggle test mode');
     } else {
       toast.success(newValue ? 'Test Mode enabled' : 'Live Mode enabled - Real payments active!');
-    }
-  };
-
-  // Test Action: Simulate High Traffic
-  const handleSimulateTraffic = async () => {
-    setActionLoading('traffic');
-    try {
-      // Add mock transactions
-      const mockUsers = ['TestUser1', 'TestUser2', 'TestUser3'];
-      simulateHighTraffic();
-      toast.success('High traffic simulation started');
-    } catch (err) {
-      toast.error('Failed to simulate traffic');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // Test Action: Create Multiple Test Games
-  const handleSimulateMultipleGames = async () => {
-    setActionLoading('games');
-    try {
-      const gameConfigs = [
-        { name: 'Test Game 1', entry_fee: 500, max_duration: 10, comment_timer: 30, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2], min_participants: 2, countdown: 30 },
-        { name: 'Test Game 2', entry_fee: 1000, max_duration: 15, comment_timer: 45, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2], min_participants: 2, countdown: 30 },
-        { name: 'Test Game 3', entry_fee: 2000, max_duration: 20, comment_timer: 60, payout_type: 'winner_takes_all', payout_distribution: [1], min_participants: 2, countdown: 30 },
-      ];
-
-      for (const config of gameConfigs) {
-        await createGameWithConfig(config);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Stagger creation
-      }
-      
-      toast.success('Created 3 test games successfully');
-      refreshData();
-    } catch (err) {
-      toast.error('Failed to create test games');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // Test Action: Reset Test Data
-  const handleResetTestData = async () => {
-    if (!confirm('Are you sure you want to reset all test data? This will delete test transactions and ended games.')) {
-      return;
-    }
-    
-    setActionLoading('reset');
-    try {
-      // Delete test mode transactions
-      await supabase
-        .from('wallet_transactions')
-        .delete()
-        .eq('mode', 'test');
-
-      // Delete ended games
-      await supabase
-        .from('fastest_finger_games')
-        .delete()
-        .eq('status', 'ended');
-
-      toast.success('Test data reset successfully');
-      refreshData();
-    } catch (err) {
-      console.error('Reset error:', err);
-      toast.error('Failed to reset test data');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // Trigger Weekly Rank Reset
-  const handleWeeklyReset = async () => {
-    if (!confirm('Are you sure you want to reset weekly ranks? This will set all weekly_rank to null.')) {
-      return;
-    }
-    
-    setActionLoading('weeklyReset');
-    try {
-      await supabase
-        .from('profiles')
-        .update({ weekly_rank: null })
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all
-
-      toast.success('Weekly ranks reset successfully');
-      refreshData();
-    } catch (err) {
-      toast.error('Failed to reset weekly ranks');
-    } finally {
-      setActionLoading(null);
     }
   };
 
@@ -171,7 +55,7 @@ export const AdminSettings = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-black text-foreground">System Settings</h1>
-        <p className="text-sm text-muted-foreground">Platform configuration, API keys, and controls</p>
+        <p className="text-sm text-muted-foreground">Platform configuration and controls</p>
       </div>
 
       {/* Test Mode Toggle - Prominent */}
@@ -186,13 +70,13 @@ export const AdminSettings = () => {
                 {isTestMode ? 'Test Mode' : 'Live Mode'}
               </h2>
               <p className={`text-sm ${isTestMode ? 'text-yellow-500' : 'text-green-500'}`}>
-                {isTestMode ? 'Using PAYSTACK_TEST_SECRET_KEY for sandbox' : 'Using PAYSTACK_LIVE_SECRET_KEY for real payments'}
+                {isTestMode ? 'Using mock payments and simulated transactions' : 'Real Paystack payments active'}
               </p>
             </div>
           </div>
           <button
             onClick={handleTestModeToggle}
-            disabled={loading || actionLoading === 'testMode'}
+            disabled={loading}
             className={`relative w-20 h-10 rounded-full transition-colors ${
               isTestMode ? 'bg-yellow-500' : 'bg-green-500'
             }`}
@@ -211,56 +95,6 @@ export const AdminSettings = () => {
             </span>
           </div>
         )}
-      </div>
-
-      {/* API Keys Management */}
-      <div className="bg-card rounded-xl border border-border p-6">
-        <h2 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
-          <Key className="w-5 h-5 text-gold" />
-          API Keys & Secrets
-        </h2>
-        <p className="text-sm text-muted-foreground mb-6">
-          These secrets are stored securely and used by backend functions. Contact support or use the Lovable secrets panel to update them.
-        </p>
-
-        <div className="space-y-3">
-          {apiKeys.map((key) => (
-            <div key={key.name} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${key.isSet ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-                  <Key className={`w-5 h-5 ${key.isSet ? 'text-green-500' : 'text-red-500'}`} />
-                </div>
-                <div>
-                  <p className="font-mono text-sm text-foreground">{key.name}</p>
-                  <p className="text-xs text-muted-foreground">{key.description}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {key.isSet ? (
-                  <span className="px-3 py-1 bg-green-500/20 text-green-400 text-xs rounded-full font-medium">
-                    ✓ Configured
-                  </span>
-                ) : (
-                  <span className="px-3 py-1 bg-red-500/20 text-red-400 text-xs rounded-full font-medium">
-                    Not Set
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-4 p-4 bg-primary/10 rounded-xl border border-primary/30">
-          <div className="flex items-start gap-3">
-            <Shield className="w-5 h-5 text-primary mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-foreground">How to Update API Keys</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                API keys are managed through Lovable's secure secrets system. To update a key, ask Lovable to "update the PAYSTACK_LIVE_SECRET_KEY" or any other secret name.
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* General Settings */}
@@ -293,14 +127,14 @@ export const AdminSettings = () => {
               min={0}
               max={50}
             />
-            <p className="text-[10px] text-muted-foreground mt-1">Percentage of pool taken as platform fee (0-50%)</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Percentage of pool taken as platform fee</p>
           </div>
         </div>
       </div>
 
       {/* Mode Toggles */}
       <div className="bg-card rounded-xl border border-border p-6">
-        <h2 className="text-lg font-bold text-foreground mb-6">System Controls</h2>
+        <h2 className="text-lg font-bold text-foreground mb-6">Other Controls</h2>
 
         <div className="space-y-4">
           {/* Maintenance Mode */}
@@ -325,78 +159,35 @@ export const AdminSettings = () => {
               }`} />
             </button>
           </div>
-
-          {/* Weekly Rank Reset */}
-          <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                <RefreshCw className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">Weekly Rank Reset</p>
-                <p className="text-sm text-muted-foreground">Reset all weekly rankings to start fresh</p>
-              </div>
-            </div>
-            <button
-              onClick={handleWeeklyReset}
-              disabled={actionLoading === 'weeklyReset'}
-              className="px-4 py-2 bg-primary/20 text-primary rounded-lg font-medium hover:bg-primary/30 transition-colors disabled:opacity-50"
-            >
-              {actionLoading === 'weeklyReset' ? 'Resetting...' : 'Reset Now'}
-            </button>
-          </div>
         </div>
       </div>
 
       {/* Test Actions */}
       <div className="bg-card rounded-xl border border-border p-6">
-        <h2 className="text-lg font-bold text-foreground mb-2">Test Actions</h2>
-        <p className="text-sm text-muted-foreground mb-4">Simulate various scenarios for testing and demos. Only affects test data.</p>
+        <h2 className="text-lg font-bold text-foreground mb-6">Test Actions</h2>
+        <p className="text-sm text-muted-foreground mb-4">Simulate various scenarios for testing and demos</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
-            onClick={handleSimulateTraffic}
-            disabled={actionLoading === 'traffic'}
-            className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors text-left disabled:opacity-50"
+            onClick={simulateHighTraffic}
+            className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors text-left"
           >
-            <Users className={`w-6 h-6 text-primary mb-2 ${actionLoading === 'traffic' ? 'animate-pulse' : ''}`} />
+            <Users className="w-6 h-6 text-primary mb-2" />
             <p className="font-medium text-foreground">Simulate High Traffic</p>
-            <p className="text-sm text-muted-foreground">Add mock activity to stats</p>
+            <p className="text-sm text-muted-foreground">Add mock users and increase stats</p>
           </button>
 
-          <button
-            onClick={handleSimulateMultipleGames}
-            disabled={actionLoading === 'games'}
-            className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors text-left disabled:opacity-50"
-          >
-            <PlayCircle className={`w-6 h-6 text-primary mb-2 ${actionLoading === 'games' ? 'animate-spin' : ''}`} />
-            <p className="font-medium text-foreground">Create Test Games</p>
-            <p className="text-sm text-muted-foreground">Create 3 scheduled test games</p>
+          <button className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors text-left">
+            <Zap className="w-6 h-6 text-primary mb-2" />
+            <p className="font-medium text-foreground">Simulate Multiple Games</p>
+            <p className="text-sm text-muted-foreground">Create rapid game cycles</p>
           </button>
 
-          <button
-            onClick={handleResetTestData}
-            disabled={actionLoading === 'reset'}
-            className="p-4 bg-red-500/10 rounded-xl hover:bg-red-500/20 transition-colors text-left disabled:opacity-50 border border-red-500/30"
-          >
-            <Trash2 className={`w-6 h-6 text-red-400 mb-2 ${actionLoading === 'reset' ? 'animate-pulse' : ''}`} />
-            <p className="font-medium text-foreground">Reset Test Data</p>
-            <p className="text-sm text-muted-foreground">Delete test transactions & ended games</p>
+          <button className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors text-left">
+            <Settings className="w-6 h-6 text-primary mb-2" />
+            <p className="font-medium text-foreground">Reset All Data</p>
+            <p className="text-sm text-muted-foreground">Clear all mock data and start fresh</p>
           </button>
-        </div>
-      </div>
-
-      {/* Database Quick Stats */}
-      <div className="bg-card rounded-xl border border-border p-6">
-        <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-          <Database className="w-5 h-5 text-primary" />
-          Database Status
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <DatabaseStat label="Tables" value="11" />
-          <DatabaseStat label="RLS Policies" value="Active" status="success" />
-          <DatabaseStat label="Edge Functions" value="10" />
-          <DatabaseStat label="Realtime" value="Enabled" status="success" />
         </div>
       </div>
 
@@ -404,11 +195,10 @@ export const AdminSettings = () => {
       <div className="flex justify-end">
         <button
           onClick={handleSave}
-          disabled={actionLoading === 'save'}
-          className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
         >
           <Save className="w-5 h-5" />
-          {actionLoading === 'save' ? 'Saving...' : 'Save Settings'}
+          Save Settings
         </button>
       </div>
 
@@ -419,23 +209,9 @@ export const AdminSettings = () => {
           {JSON.stringify({
             ...localSettings,
             mode: isTestMode ? 'test' : 'live',
-            paystackKey: isTestMode ? 'PAYSTACK_TEST_SECRET_KEY' : 'PAYSTACK_LIVE_SECRET_KEY',
           }, null, 2)}
         </pre>
       </div>
     </div>
   );
 };
-
-// Helper component for database stats
-const DatabaseStat = ({ label, value, status }: { label: string; value: string; status?: 'success' | 'warning' | 'error' }) => (
-  <div className="p-3 bg-muted/30 rounded-lg">
-    <p className="text-[10px] text-muted-foreground uppercase">{label}</p>
-    <p className={`text-lg font-bold ${
-      status === 'success' ? 'text-green-400' : 
-      status === 'warning' ? 'text-yellow-400' : 
-      status === 'error' ? 'text-red-400' : 
-      'text-foreground'
-    }`}>{value}</p>
-  </div>
-);
