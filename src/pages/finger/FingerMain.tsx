@@ -13,7 +13,7 @@ import { useLiveGame } from '@/hooks/useLiveGame';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Zap, Users, Clock, Trophy, MessageSquare, ChevronRight, Play, Calendar, Timer, Coins, Eye } from 'lucide-react';
+import { ArrowLeft, Zap, Users, Clock, Trophy, MessageSquare, ChevronRight, Play, Calendar, Timer, Coins, Eye, Swords } from 'lucide-react';
 
 // Mock games for test mode
 const mockGamesForTest = [
@@ -177,7 +177,10 @@ export const FingerMain = () => {
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <div className="flex-1">
-            <h1 className="text-xl font-black text-foreground">Play Games</h1>
+            <div className="flex items-center gap-2">
+              <Swords className="w-5 h-5 text-primary" />
+              <h1 className="text-xl font-black text-foreground">Arena</h1>
+            </div>
             <p className="text-sm text-muted-foreground">
               {liveGames.length} live • {scheduledGames.length} upcoming
             </p>
