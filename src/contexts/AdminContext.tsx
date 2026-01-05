@@ -30,7 +30,7 @@ interface AdminTransaction {
 interface AdminGame {
   id: string;
   name: string;
-  status: 'scheduled' | 'live' | 'ended';
+  status: 'scheduled' | 'open' | 'live' | 'ended';
   poolValue: number;
   participants: number;
   entryFee: number;
@@ -43,6 +43,7 @@ interface AdminGame {
   commentTimer: number;
   maxDuration: number;
   minParticipants: number;
+  scheduledAt?: string;
 }
 
 interface LiveComment {
@@ -106,8 +107,10 @@ interface AdminContextType {
   
   createGame: () => Promise<void>;
   createGameWithConfig: (config: CreateGameConfig) => Promise<void>;
+  openGame: (gameId: string) => Promise<void>;
   startGame: (gameId?: string) => Promise<void>;
   endGame: (gameId?: string) => Promise<void>;
+  deleteGame: (gameId: string) => Promise<void>;
   resetGame: () => void;
   pauseSimulation: () => void;
   resumeSimulation: () => void;
@@ -202,7 +205,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
         const mappedGames: AdminGame[] = gamesData.map(g => ({
           id: g.id,
           name: (g as any).name || 'Fastest Finger',
-          status: g.status as 'scheduled' | 'live' | 'ended',
+          status: g.status as 'scheduled' | 'open' | 'live' | 'ended',
           poolValue: g.pool_value,
           participants: g.participant_count,
           entryFee: g.entry_fee,
@@ -214,6 +217,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
           commentTimer: (g as any).comment_timer || 60,
           maxDuration: g.max_duration,
           minParticipants: (g as any).min_participants || 3,
+          scheduledAt: (g as any).scheduled_at || undefined,
         }));
         setGames(mappedGames);
         
@@ -223,13 +227,18 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
           setCurrentGame(liveGame);
           setIsSimulating(true);
         } else {
-          const scheduledGame = mappedGames.find(g => g.status === 'scheduled');
-          if (scheduledGame) {
-            setCurrentGame(scheduledGame);
+          const openGame = mappedGames.find(g => g.status === 'open');
+          if (openGame) {
+            setCurrentGame(openGame);
+          } else {
+            const scheduledGame = mappedGames.find(g => g.status === 'scheduled');
+            if (scheduledGame) {
+              setCurrentGame(scheduledGame);
+            }
           }
         }
         
-        const activeGames = mappedGames.filter(g => g.status === 'live' || g.status === 'scheduled').length;
+        const activeGames = mappedGames.filter(g => g.status === 'live' || g.status === 'open' || g.status === 'scheduled').length;
         setStats(prev => ({ ...prev, activeGames }));
       }
 
@@ -467,6 +476,49 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [currentGame, games, refreshData, toast]);
 
+  const openGame = useCallback(async (gameId: string) => {
+    const targetGame = games.find(g => g.id === gameId);
+    if (!targetGame) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('game-manager', {
+        body: { action: 'open_game', gameId },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({ title: 'Entries Open', description: `${targetGame.name || 'Game'} is now accepting entries!` });
+      refreshData();
+    } catch (error: any) {
+      console.error('Open game error:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  }, [games, refreshData, toast]);
+
+  const deleteGame = useCallback(async (gameId: string) => {
+    const targetGame = games.find(g => g.id === gameId);
+    if (!targetGame) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('game-manager', {
+        body: { action: 'delete_game', gameId },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (targetGame.id === currentGame?.id) {
+        setCurrentGame(null);
+      }
+      toast({ title: 'Game Deleted', description: `${targetGame.name || 'Game'} has been deleted` });
+      refreshData();
+    } catch (error: any) {
+      console.error('Delete game error:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  }, [currentGame, games, refreshData, toast]);
+
   const resetGame = useCallback(() => {
     setCurrentGame(null);
     setLiveComments([]);
@@ -525,7 +577,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AdminContext.Provider value={{
       users, transactions, games, currentGame, liveComments, settings, stats, isSimulating, loading,
-      createGame, createGameWithConfig, startGame, endGame, resetGame, pauseSimulation, resumeSimulation,
+      createGame, createGameWithConfig, openGame, startGame, endGame, deleteGame, resetGame, pauseSimulation, resumeSimulation,
       updateSettings, suspendUser, flagUser, activateUser, approvePayout, triggerWeeklyReset, simulateHighTraffic, refreshData,
     }}>
       {children}

@@ -59,8 +59,10 @@ export const AdminFingerControl = () => {
     games,
     settings, 
     createGameWithConfig, 
+    openGame,
     startGame, 
     endGame, 
+    deleteGame,
     resetGame,
     updateSettings,
     refreshData,
@@ -149,8 +151,11 @@ export const AdminFingerControl = () => {
     });
   };
 
-  // Get active games
-  const activeGames = games.filter(g => g.status === 'live' || g.status === 'scheduled');
+  // Get active games by status
+  const scheduledGames = games.filter(g => g.status === 'scheduled');
+  const openGames = games.filter(g => g.status === 'open');
+  const liveGames = games.filter(g => g.status === 'live');
+  const activeGames = [...scheduledGames, ...openGames, ...liveGames];
   const recentEndedGames = games.filter(g => g.status === 'ended').slice(0, 5);
 
   return (
@@ -393,9 +398,11 @@ export const AdminFingerControl = () => {
                   <div className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
                     game.status === 'live' 
                       ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                      : game.status === 'open'
+                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                       : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                   }`}>
-                    {game.status}
+                    {game.status === 'scheduled' ? 'Coming Soon' : game.status === 'open' ? 'Accepting Entries' : game.status}
                   </div>
                 </div>
                 
@@ -419,15 +426,35 @@ export const AdminFingerControl = () => {
                 </div>
                 
                 <div className="flex gap-2">
+                  {/* Scheduled: Can Open Entries or Delete */}
                   {game.status === 'scheduled' && (
+                    <>
+                      <button
+                        onClick={() => openGame(game.id)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-medium hover:bg-blue-500/30 transition-colors"
+                      >
+                        <Users className="w-4 h-4" />
+                        Open Entries
+                      </button>
+                      <button
+                        onClick={() => deleteGame(game.id)}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                  {/* Open: Can Start Game */}
+                  {game.status === 'open' && (
                     <button
                       onClick={() => startGame(game.id)}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-medium hover:bg-green-500/30 transition-colors"
                     >
                       <Play className="w-4 h-4" />
-                      Start
+                      Go Live
                     </button>
                   )}
+                  {/* Live: Can End Game */}
                   {game.status === 'live' && (
                     <button
                       onClick={() => endGame(game.id)}
