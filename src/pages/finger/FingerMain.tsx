@@ -423,26 +423,39 @@ export const FingerMain = () => {
                     )}
                   </div>
                 ) : (
-                  <button
-                    onClick={handleJoin}
-                    disabled={balance < entryFee || joining || selectedGame.status === 'scheduled'}
-                    className="w-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
-                  >
-                    {selectedGame.is_sponsored ? (
-                      <>
-                        <Gift className="w-5 h-5" />
-                        Join FREE Game
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="w-5 h-5" />
-                        {joining ? 'Joining...' : 
-                         balance < entryFee ? `Need ₦${(entryFee - balance).toLocaleString()} more` : 
-                         selectedGame.status === 'scheduled' ? 'Entry Not Open Yet' :
-                         `Join Game — ₦${entryFee.toLocaleString()}`}
-                      </>
+                  <div className="space-y-2">
+                    {/* Main Join Button */}
+                    <button
+                      onClick={handleJoin}
+                      disabled={balance < entryFee || joining || selectedGame.status === 'scheduled'}
+                      className="w-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                    >
+                      {selectedGame.is_sponsored ? (
+                        <>
+                          <Gift className="w-5 h-5" />
+                          Join FREE Game
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-5 h-5" />
+                          {joining ? 'Joining...' : 
+                           balance < entryFee ? `Need ₦${(entryFee - balance).toLocaleString()} more` : 
+                           selectedGame.status === 'scheduled' ? 'Entry Not Open Yet' :
+                           `Join Pool — ₦${entryFee.toLocaleString()}`}
+                        </>
+                      )}
+                    </button>
+                    {/* Watch as Spectator Option (for live/open games) */}
+                    {(selectedGame.status === 'live' || selectedGame.status === 'open') && (
+                      <button
+                        onClick={handleWatchAsSpectator}
+                        className="w-full bg-card border border-border text-muted-foreground py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-muted/50 hover:text-foreground transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Watch as Spectator (Free)
+                      </button>
                     )}
-                  </button>
+                  </div>
                 )}
               </>
             ) : (
