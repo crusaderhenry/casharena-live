@@ -14,9 +14,12 @@ async function verifyAuth(req: Request, supabase: any): Promise<{ user: any | nu
   }
 
   const token = authHeader.replace('Bearer ', '');
+  
+  // Use the service role client to verify the token
   const { data: { user }, error } = await supabase.auth.getUser(token);
   
   if (error || !user) {
+    console.error('Auth verification error:', error?.message || 'No user found');
     return { user: null, error: 'Invalid or expired token' };
   }
 
@@ -71,10 +74,8 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
-    // Use anon key for auth verification, service key for data operations
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+    // Use service key for all operations including auth verification
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
@@ -89,7 +90,7 @@ serve(async (req) => {
 
     // Verify authentication for protected actions
     if (authRequiredActions.includes(action)) {
-      const { user, error } = await verifyAuth(req, supabaseAuth);
+      const { user, error } = await verifyAuth(req, supabase);
       if (error) {
         return new Response(JSON.stringify({ error }), {
           status: 401,
