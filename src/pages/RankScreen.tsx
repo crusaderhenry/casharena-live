@@ -1,4 +1,5 @@
 import { BottomNav } from '@/components/BottomNav';
+import { AllTimeLeaderboard } from '@/components/AllTimeLeaderboard';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
@@ -163,6 +164,9 @@ export const RankScreen = () => {
             </div>
           </div>
         )}
+
+        {/* All-Time Leaderboard */}
+        <AllTimeLeaderboard isTestMode={isTestMode} />
 
         {/* How rankings work */}
         <div className="card-panel bg-muted/30">

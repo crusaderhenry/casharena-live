@@ -6,7 +6,7 @@ import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutori
 import { getPayoutLabel } from '@/components/PrizeDistribution';
 import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
 import { GameHistory } from '@/components/GameHistory';
-import { AllTimeLeaderboard } from '@/components/AllTimeLeaderboard';
+
 import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
 import { Zap, Trophy, Users, Clock, ChevronRight, Flame, Bell, TrendingUp, Play, Calendar, Eye } from 'lucide-react';
@@ -454,9 +454,6 @@ export const Home = () => {
 
         {/* Game History CTA */}
         <GameHistory isTestMode={isTestMode} />
-
-        {/* All-Time Leaderboard */}
-        <AllTimeLeaderboard isTestMode={isTestMode} />
       </div>
       
       <BottomNav />
