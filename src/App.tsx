@@ -37,6 +37,7 @@ import { AdminUsers } from "@/pages/admin/AdminUsers";
 import { AdminWallet } from "@/pages/admin/AdminWallet";
 import { AdminRank } from "@/pages/admin/AdminRank";
 import { AdminAnalytics } from "@/pages/admin/AdminAnalytics";
+import { AdminAuditLogs } from "@/pages/admin/AdminAuditLogs";
 import { AdminSettings } from "@/pages/admin/AdminSettings";
 
 import NotFound from "./pages/NotFound";
@@ -157,6 +158,7 @@ const AppRoutes = () => (
       <Route path="wallet" element={<AdminWallet />} />
       <Route path="rank" element={<AdminRank />} />
       <Route path="analytics" element={<AdminAnalytics />} />
+      <Route path="audit-logs" element={<AdminAuditLogs />} />
       <Route path="settings" element={<AdminSettings />} />
     </Route>
     
