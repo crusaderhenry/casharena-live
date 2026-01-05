@@ -81,6 +81,7 @@ export type Database = {
       }
       fastest_finger_games: {
         Row: {
+          comment_timer: number | null
           countdown: number
           created_at: string
           created_by: string | null
@@ -88,12 +89,17 @@ export type Database = {
           entry_fee: number
           id: string
           max_duration: number
+          min_participants: number | null
+          name: string | null
           participant_count: number
+          payout_distribution: number[] | null
+          payout_type: string | null
           pool_value: number
           start_time: string | null
           status: string
         }
         Insert: {
+          comment_timer?: number | null
           countdown?: number
           created_at?: string
           created_by?: string | null
@@ -101,12 +107,17 @@ export type Database = {
           entry_fee?: number
           id?: string
           max_duration?: number
+          min_participants?: number | null
+          name?: string | null
           participant_count?: number
+          payout_distribution?: number[] | null
+          payout_type?: string | null
           pool_value?: number
           start_time?: string | null
           status?: string
         }
         Update: {
+          comment_timer?: number | null
           countdown?: number
           created_at?: string
           created_by?: string | null
@@ -114,7 +125,11 @@ export type Database = {
           entry_fee?: number
           id?: string
           max_duration?: number
+          min_participants?: number | null
+          name?: string | null
           participant_count?: number
+          payout_distribution?: number[] | null
+          payout_type?: string | null
           pool_value?: number
           start_time?: string | null
           status?: string
