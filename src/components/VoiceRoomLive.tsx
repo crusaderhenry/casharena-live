@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Mic, MicOff, Volume2, VolumeX, Users, Radio } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Users, Radio, VolumeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGame } from '@/contexts/GameContext';
+import { useAudio } from '@/contexts/AudioContext';
 import { useMockSimulation } from '@/hooks/useMockSimulation';
 
 interface VoiceParticipant {
@@ -17,16 +18,17 @@ interface VoiceRoomLiveProps {
   gameId: string;
   onMicToggle?: (enabled: boolean) => void;
   onSpeakerToggle?: (enabled: boolean) => void;
+  onHostMuteToggle?: (muted: boolean) => void;
 }
 
-export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoomLiveProps) => {
+export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMuteToggle }: VoiceRoomLiveProps) => {
   const { user, profile } = useAuth();
   const { isTestMode } = useGame();
+  const { settings: audioSettings, setVoiceRoomMuted, setHostMuted } = useAudio();
   const { mockVoiceParticipants } = useMockSimulation(isTestMode, gameId);
   
   const [participants, setParticipants] = useState<VoiceParticipant[]>([]);
   const [isMicEnabled, setIsMicEnabled] = useState(false);
-  const [isSpeakerEnabled, setIsSpeakerEnabled] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [micVolume, setMicVolume] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -200,10 +202,34 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
   }, [isMicEnabled, startMicrophone, stopMicrophone]);
 
   const toggleSpeaker = useCallback(() => {
-    const newState = !isSpeakerEnabled;
-    setIsSpeakerEnabled(newState);
-    onSpeakerToggle?.(newState);
-  }, [isSpeakerEnabled, onSpeakerToggle]);
+    const newState = !audioSettings.voiceRoomMuted;
+    setVoiceRoomMuted(newState);
+    onSpeakerToggle?.(!newState); // inverted because muted = not enabled
+  }, [audioSettings.voiceRoomMuted, setVoiceRoomMuted, onSpeakerToggle]);
+
+  const toggleHostMute = useCallback(() => {
+    const newState = !audioSettings.hostMuted;
+    setHostMuted(newState);
+    onHostMuteToggle?.(newState);
+  }, [audioSettings.hostMuted, setHostMuted, onHostMuteToggle]);
+
+  // Sync mute state to database when mic state changes
+  useEffect(() => {
+    if (!user || !gameId) return;
+
+    const updateDbMuteState = async () => {
+      await supabase
+        .from('voice_room_participants')
+        .upsert({
+          game_id: gameId,
+          user_id: user.id,
+          is_muted: !isMicEnabled,
+        }, { onConflict: 'game_id,user_id' })
+        .select();
+    };
+
+    updateDbMuteState();
+  }, [isMicEnabled, user, gameId]);
 
   // Cleanup
   useEffect(() => {
@@ -216,6 +242,10 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
       }
     };
   }, []);
+
+  // Use speaker enabled from audio context (inverted from muted)
+  const isSpeakerEnabled = !audioSettings.voiceRoomMuted;
+  const isHostMuted = audioSettings.hostMuted;
 
   // Use mock participants in test mode, real ones otherwise
   const displaySource = isTestMode ? mockVoiceParticipants : participants;
@@ -232,8 +262,21 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
           <span className="text-xs text-muted-foreground">• {displaySource.length} online</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Speaker toggle */}
+        <div className="flex items-center gap-1.5">
+          {/* Host mute toggle */}
+          <button
+            onClick={toggleHostMute}
+            className={`p-2 rounded-full transition-all ${
+              isHostMuted 
+                ? 'bg-orange-500/20 text-orange-400' 
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+            title={isHostMuted ? 'Unmute Host' : 'Mute Host'}
+          >
+            <VolumeOff className="w-4 h-4" />
+          </button>
+
+          {/* Speaker toggle (voice room) */}
           <button
             onClick={toggleSpeaker}
             className={`p-2 rounded-full transition-all ${
@@ -241,7 +284,7 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
                 ? 'bg-muted text-muted-foreground hover:bg-muted/80' 
                 : 'bg-destructive/20 text-destructive'
             }`}
-            title={isSpeakerEnabled ? 'Mute Others' : 'Unmute Others'}
+            title={isSpeakerEnabled ? 'Mute Voice Room' : 'Unmute Voice Room'}
           >
             {isSpeakerEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>

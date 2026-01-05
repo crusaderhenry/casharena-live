@@ -5,6 +5,8 @@ interface AudioSettings {
   sfxEnabled: boolean;
   commentaryEnabled: boolean;
   volume: number;
+  hostMuted: boolean;
+  voiceRoomMuted: boolean;
 }
 
 interface AudioContextType {
@@ -15,6 +17,10 @@ interface AudioContextType {
   setVolume: (volume: number) => void;
   playBackgroundMusic: (type: 'lobby' | 'arena' | 'tense') => void;
   stopBackgroundMusic: () => void;
+  toggleHostMute: () => void;
+  toggleVoiceRoomMute: () => void;
+  setHostMuted: (muted: boolean) => void;
+  setVoiceRoomMuted: (muted: boolean) => void;
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -78,6 +84,8 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       sfxEnabled: true,
       commentaryEnabled: true,
       volume: 0.5,
+      hostMuted: false,
+      voiceRoomMuted: false,
     };
   });
 
@@ -142,6 +150,22 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const toggleHostMute = useCallback(() => {
+    setSettings(prev => ({ ...prev, hostMuted: !prev.hostMuted }));
+  }, []);
+
+  const toggleVoiceRoomMute = useCallback(() => {
+    setSettings(prev => ({ ...prev, voiceRoomMuted: !prev.voiceRoomMuted }));
+  }, []);
+
+  const setHostMuted = useCallback((muted: boolean) => {
+    setSettings(prev => ({ ...prev, hostMuted: muted }));
+  }, []);
+
+  const setVoiceRoomMuted = useCallback((muted: boolean) => {
+    setSettings(prev => ({ ...prev, voiceRoomMuted: muted }));
+  }, []);
+
   return (
     <AudioContext.Provider value={{
       settings,
@@ -151,6 +175,10 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       setVolume,
       playBackgroundMusic,
       stopBackgroundMusic,
+      toggleHostMute,
+      toggleVoiceRoomMute,
+      setHostMuted,
+      setVoiceRoomMuted,
     }}>
       {children}
     </AudioContext.Provider>
