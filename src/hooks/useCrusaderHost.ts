@@ -1,8 +1,9 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
 import { supabase } from '@/integrations/supabase/client';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
-// Crusader - Your custom voice game host with game-aware commentary
+// Game Host with game-aware commentary
 interface GameState {
   timer: number;
   gameTimeRemaining: number;
@@ -17,11 +18,39 @@ interface GameState {
   chatIntensity: 'low' | 'medium' | 'high';
 }
 
+// Host configurations
+export interface HostConfig {
+  id: string;
+  name: string;
+  voiceId: string;
+  emoji: string;
+  description: string;
+}
+
+export const AVAILABLE_HOSTS: HostConfig[] = [
+  {
+    id: 'crusader',
+    name: 'Crusader',
+    voiceId: 'I26ofw8CwlRZ6PZzoFaX',
+    emoji: '🎙️',
+    description: 'Bold African voice, high energy hype man',
+  },
+  {
+    id: 'mark',
+    name: 'Mark',
+    voiceId: 'owJJWiaBmclx8j0HiPWm',
+    emoji: '🎤',
+    description: 'Smooth and confident host',
+  },
+];
+
+// Get host by ID
+export const getHostById = (hostId: string): HostConfig => {
+  return AVAILABLE_HOSTS.find(h => h.id === hostId) || AVAILABLE_HOSTS[0];
+};
+
 // Prize milestone thresholds for callouts
 const PRIZE_MILESTONES = [5000, 10000, 20000, 50000, 100000, 250000, 500000];
-
-// Voice ID for your custom cloned voice
-const CRUSADER_VOICE_ID = "I26ofw8CwlRZ6PZzoFaX";
 
 // Format pool value for speech (e.g., 50000 -> "fifty thousand")
 const formatPoolForSpeech = (amount: number): string => {
@@ -211,10 +240,13 @@ const GAME_PHRASES = {
 
 export const useCrusaderHost = () => {
   const { settings } = useAudio();
+  const { selectedHost } = usePlatformSettings();
   const [isEnabled, setIsEnabled] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [lastPhrase, setLastPhrase] = useState('');
   
+  // Get the current host configuration
+  const currentHost = getHostById(selectedHost);
   const enabledRef = useRef(true);
   const lastAnnouncementRef = useRef<number>(0);
   const minIntervalRef = useRef(3000); // Minimum 3 seconds between announcements
@@ -307,7 +339,7 @@ export const useCrusaderHost = () => {
     }
   }, [playNextInQueue]);
 
-  // Generate TTS using ElevenLabs with your cloned voice
+  // Generate TTS using ElevenLabs with the selected host's voice
   const speak = useCallback(async (text: string) => {
     if (!enabledRef.current) return;
     
@@ -316,11 +348,11 @@ export const useCrusaderHost = () => {
     lastAnnouncementRef.current = now;
 
     setLastPhrase(text);
-    console.log('[Crusader]:', text);
+    console.log(`[${currentHost.name}]:`, text);
 
     try {
       const { data, error } = await supabase.functions.invoke('crusader-tts', {
-        body: { text, voiceId: CRUSADER_VOICE_ID },
+        body: { text, voiceId: currentHost.voiceId },
       });
 
       if (error) {
@@ -337,7 +369,7 @@ export const useCrusaderHost = () => {
       console.error('TTS request failed:', err);
       fallbackSpeak(text);
     }
-  }, [queueAudio]);
+  }, [queueAudio, currentHost]);
 
   // Fallback to Web Speech API
   const fallbackSpeak = useCallback((text: string) => {
@@ -641,6 +673,7 @@ export const useCrusaderHost = () => {
     isSpeaking,
     isEnabled,
     lastPhrase,
+    currentHost,
     setEnabled,
     updateGameState,
     welcomeToArena,

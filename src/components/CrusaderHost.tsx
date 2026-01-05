@@ -1,4 +1,6 @@
 import { Mic } from 'lucide-react';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
+import { getHostById } from '@/hooks/useCrusaderHost';
 
 interface CrusaderHostProps {
   isLive?: boolean;
@@ -6,12 +8,15 @@ interface CrusaderHostProps {
 }
 
 export const CrusaderHost = ({ isLive, message }: CrusaderHostProps) => {
+  const { selectedHost } = usePlatformSettings();
+  const host = getHostById(selectedHost);
+
   return (
     <div className="card-panel border-primary/40 bg-gradient-to-r from-primary/10 to-primary/5">
       <div className="flex items-center gap-3">
         <div className="relative">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-teal-400 flex items-center justify-center text-2xl border-2 border-primary shadow-lg">
-            🎙️
+            {host.emoji}
           </div>
           {isLive && (
             <div className="absolute -top-1 -right-1">
@@ -21,7 +26,7 @@ export const CrusaderHost = ({ isLive, message }: CrusaderHostProps) => {
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-foreground">Crusader</h3>
+            <h3 className="font-bold text-foreground">{host.name}</h3>
             <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary rounded-full flex items-center gap-1">
               <Mic className="w-3 h-3" /> Host
             </span>
