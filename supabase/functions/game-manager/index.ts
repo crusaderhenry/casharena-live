@@ -157,76 +157,31 @@ serve(async (req) => {
 
         if (!gameId) throw new Error('Missing gameId');
 
-        // Get game info
-        const { data: game, error: gameError } = await supabase
-          .from('fastest_finger_games')
-          .select('*')
-          .eq('id', gameId)
-          .single();
+        // Use atomic database function to prevent race conditions
+        // This wraps all operations (check, deduct, insert, update) in a single transaction
+        const { data: result, error: rpcError } = await supabase
+          .rpc('join_game_atomic', {
+            p_game_id: gameId,
+            p_user_id: userId,
+          });
 
-        if (gameError || !game) throw new Error('Game not found');
-        if (game.status !== 'scheduled' && game.status !== 'live') {
-          throw new Error('Game is not accepting participants');
+        if (rpcError) {
+          console.error('Join game RPC error:', rpcError);
+          throw new Error('Failed to join game');
         }
 
-        // Get user profile
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('wallet_balance')
-          .eq('id', userId)
-          .single();
-
-        if (profileError || !profile) throw new Error('User not found');
-        if (profile.wallet_balance < game.entry_fee) {
-          throw new Error('Insufficient balance');
-        }
-
-        // Check if already joined
-        const { data: existing } = await supabase
-          .from('fastest_finger_participants')
-          .select('id')
-          .eq('game_id', gameId)
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (existing) {
-          return new Response(JSON.stringify({ success: true, alreadyJoined: true }), {
+        if (!result.success) {
+          return new Response(JSON.stringify({ error: result.error }), {
+            status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
 
-        // Deduct entry fee
-        const { error: walletError } = await supabase
-          .from('profiles')
-          .update({ wallet_balance: profile.wallet_balance - game.entry_fee })
-          .eq('id', userId);
-
-        if (walletError) throw walletError;
-
-        // Record transaction
-        await supabase.from('wallet_transactions').insert({
-          user_id: userId,
-          type: 'entry',
-          amount: -game.entry_fee,
-          description: `${(game as any).name || 'Fastest Finger'} Entry`,
-          game_id: gameId,
-        });
-
-        // Add participant
-        const { error: participantError } = await supabase
-          .from('fastest_finger_participants')
-          .insert({ game_id: gameId, user_id: userId });
-
-        if (participantError) throw participantError;
-
-        // Update game pool and participant count
-        await supabase
-          .from('fastest_finger_games')
-          .update({
-            pool_value: game.pool_value + game.entry_fee,
-            participant_count: game.participant_count + 1,
-          })
-          .eq('id', gameId);
+        if (result.alreadyJoined) {
+          return new Response(JSON.stringify({ success: true, alreadyJoined: true }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
 
         console.log('User joined game:', userId, gameId);
         return new Response(JSON.stringify({ success: true }), {
