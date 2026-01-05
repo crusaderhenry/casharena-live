@@ -1,6 +1,7 @@
 import { useAdmin } from '@/contexts/AdminContext';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle, XCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
@@ -83,9 +84,16 @@ export const AdminFingerControl = () => {
     cancelGame,
     deleteGame,
     resetGame,
-    updateSettings,
     refreshData,
   } = useAdmin();
+
+  const {
+    defaultEntryFee,
+    defaultMaxDuration,
+    defaultCommentTimer,
+    platformCut,
+    updateSettings: updatePlatformSettings,
+  } = usePlatformSettings();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -117,9 +125,9 @@ export const AdminFingerControl = () => {
   const [formData, setFormData] = useState<GameFormData>({
     name: 'Fastest Finger',
     description: '',
-    entryFee: 700,
-    maxDuration: 20,
-    commentTimer: 60,
+    entryFee: defaultEntryFee,
+    maxDuration: defaultMaxDuration,
+    commentTimer: defaultCommentTimer,
     payoutType: 'top3',
     minParticipants: 3,
     entryWaitSeconds: 60,
@@ -132,22 +140,44 @@ export const AdminFingerControl = () => {
     minParticipantsAction: 'reset',
     isSponsored: false,
     sponsoredAmount: 0,
-    platformCutPercentage: 10,
+    platformCutPercentage: platformCut,
   });
 
+  // Sync form data with platform settings when they load
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      entryFee: defaultEntryFee,
+      maxDuration: defaultMaxDuration,
+      commentTimer: defaultCommentTimer,
+      platformCutPercentage: platformCut,
+    }));
+    setLocalSettings({
+      entryFee: defaultEntryFee,
+      maxGameDuration: defaultMaxDuration,
+      countdownTimer: defaultCommentTimer,
+      platformCut: platformCut,
+    });
+  }, [defaultEntryFee, defaultMaxDuration, defaultCommentTimer, platformCut]);
+
   const [localSettings, setLocalSettings] = useState({
-    entryFee: settings.entryFee,
-    maxGameDuration: settings.maxGameDuration,
-    countdownTimer: settings.countdownTimer,
-    platformCut: settings.platformCut,
+    entryFee: defaultEntryFee,
+    maxGameDuration: defaultMaxDuration,
+    countdownTimer: defaultCommentTimer,
+    platformCut: platformCut,
   });
 
   const handleSettingChange = (key: string, value: number) => {
     setLocalSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  const applySettings = () => {
-    updateSettings(localSettings);
+  const applySettings = async () => {
+    await updatePlatformSettings({
+      default_entry_fee: localSettings.entryFee,
+      default_max_duration: localSettings.maxGameDuration,
+      default_comment_timer: localSettings.countdownTimer,
+      platform_cut_percent: localSettings.platformCut,
+    });
   };
 
   const handleCreateGame = async () => {

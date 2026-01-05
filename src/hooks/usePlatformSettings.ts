@@ -9,6 +9,9 @@ export interface PlatformSettings {
   selected_host: string;
   secondary_host: string | null;
   updated_at: string;
+  default_entry_fee: number;
+  default_max_duration: number;
+  default_comment_timer: number;
 }
 
 export const usePlatformSettings = () => {
@@ -94,9 +97,13 @@ export const usePlatformSettings = () => {
     error,
     isTestMode: settings?.test_mode ?? true,
     platformName: settings?.platform_name ?? 'FortunesHQ',
+    platformCut: settings?.platform_cut_percent ?? 10,
     selectedHost: settings?.selected_host ?? 'crusader',
     secondaryHost: settings?.secondary_host ?? null,
     isCoHostMode: !!(settings?.secondary_host),
+    defaultEntryFee: settings?.default_entry_fee ?? 700,
+    defaultMaxDuration: settings?.default_max_duration ?? 20,
+    defaultCommentTimer: settings?.default_comment_timer ?? 60,
     updateSettings,
     toggleTestMode,
     refetch: fetchSettings,
