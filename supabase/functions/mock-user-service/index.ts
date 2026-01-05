@@ -85,8 +85,10 @@ serve(async (req) => {
         // Triggered when a real user joins or game needs activity
         if (!gameId) throw new Error('Missing gameId');
 
-        // Check probability
-        if (Math.random() * 100 > settings.join_probability) {
+        // Always try to add users (ignore probability for continuous triggers)
+        // Random chance still applies but at a higher rate
+        const shouldJoin = Math.random() * 100 < Math.max(settings.join_probability, 70);
+        if (!shouldJoin) {
           return new Response(JSON.stringify({ success: true, joined: 0 }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
@@ -105,12 +107,12 @@ serve(async (req) => {
           });
         }
 
-        // Determine how many to add (1-3 based on activity level)
-        let toAdd = 1;
+        // More aggressive join rates: 2-5 users at a time based on activity level
+        let toAdd = 2;
         if (settings.activity_level === 'high') {
-          toAdd = Math.min(3, remainingSlots);
+          toAdd = Math.min(5, remainingSlots);
         } else if (settings.activity_level === 'medium') {
-          toAdd = Math.min(2, remainingSlots);
+          toAdd = Math.min(3, remainingSlots);
         }
 
         // Get random mock users not already in this game

@@ -282,19 +282,31 @@ Deno.serve(async (req) => {
       results.immediate++;
     }
 
-    // 5. Periodically trigger mock user joins for all OPEN games
-    const { data: allOpenGames } = await supabase
+    // 5. Periodically trigger mock user joins for all OPEN and LIVE games
+    const { data: gamesNeedingMocks } = await supabase
       .from('fastest_finger_games')
-      .select('id')
-      .eq('status', 'open');
+      .select('id, status')
+      .in('status', ['open', 'live']);
 
-    for (const game of (allOpenGames || [])) {
+    for (const game of (gamesNeedingMocks || [])) {
       try {
-        await supabase.functions.invoke('mock-user-service', {
-          body: { action: 'trigger_joins', gameId: game.id },
-        });
+        // For open games, trigger joins
+        if (game.status === 'open') {
+          await supabase.functions.invoke('mock-user-service', {
+            body: { action: 'trigger_joins', gameId: game.id },
+          });
+        }
+        // For live games, trigger both joins (if still accepting) and comments
+        if (game.status === 'live') {
+          await supabase.functions.invoke('mock-user-service', {
+            body: { action: 'trigger_joins', gameId: game.id },
+          });
+          await supabase.functions.invoke('mock-user-service', {
+            body: { action: 'trigger_comment', gameId: game.id },
+          });
+        }
       } catch (mockError) {
-        // Silent fail - mock joins are optional
+        // Silent fail - mock actions are optional
       }
     }
 

@@ -76,21 +76,43 @@ export const PoolParticipantsSheet = ({
 
     const fetchParticipants = async () => {
       setLoading(true);
-      const { data } = await supabase
+      
+      // Fetch real participants
+      const { data: realParticipants } = await supabase
         .from('fastest_finger_participants')
         .select('*')
         .eq('game_id', gameId)
         .order('joined_at', { ascending: false });
 
-      if (data) {
-        const withProfiles = await Promise.all(
-          data.map(async (p) => {
-            const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: p.user_id });
-            return { ...p, profile: profileData?.[0] };
-          })
-        );
-        setParticipants(withProfiles);
-      }
+      // Fetch mock participants for display
+      const { data: mockData } = await supabase.functions.invoke('mock-user-service', {
+        body: { action: 'get_mock_participants', gameId },
+      });
+      const mockParticipantsList = mockData?.participants || [];
+
+      // Get profiles for real participants
+      const realWithProfiles = await Promise.all(
+        (realParticipants || []).map(async (p) => {
+          const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: p.user_id });
+          return { ...p, profile: profileData?.[0], isMock: false };
+        })
+      );
+
+      // Format mock participants
+      const mockFormatted = mockParticipantsList.map((m: any) => ({
+        id: m.id,
+        user_id: m.id,
+        joined_at: m.joined_at,
+        profile: { username: m.username, avatar: m.avatar },
+        isMock: true,
+      }));
+
+      // Combine and sort by join time
+      const combined = [...realWithProfiles, ...mockFormatted].sort(
+        (a, b) => new Date(b.joined_at).getTime() - new Date(a.joined_at).getTime()
+      );
+
+      setParticipants(combined);
       setLoading(false);
     };
 
