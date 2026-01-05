@@ -414,10 +414,78 @@ export const FingerArena = () => {
   // Loading state (skip loading spinner in test mode)
   if (loading && !isTestMode) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-14 h-14 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground font-medium">Entering arena...</p>
+      <div className="min-h-screen bg-background flex flex-col">
+        {/* Header Skeleton */}
+        <div className="bg-card/80 backdrop-blur-sm border-b border-border p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+              <div className="h-5 w-32 bg-muted rounded animate-pulse" />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-16 bg-muted rounded-full animate-pulse" />
+              <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />
+            </div>
+          </div>
+        </div>
+        
+        {/* Timer Skeleton */}
+        <div className="p-4">
+          <div className="bg-card rounded-2xl p-6 border border-border">
+            <div className="flex items-center justify-between mb-4">
+              <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+              <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
+            </div>
+            <div className="flex items-center justify-center gap-4">
+              <div className="w-20 h-20 rounded-2xl bg-muted animate-pulse" />
+              <div className="w-20 h-20 rounded-2xl bg-muted animate-pulse" />
+            </div>
+          </div>
+        </div>
+        
+        {/* Leaderboard Skeleton */}
+        <div className="px-4 mb-4">
+          <div className="h-4 w-20 bg-muted rounded animate-pulse mb-3" />
+          <div className="flex gap-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex-1 bg-card rounded-xl p-3 border border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+                  <div className="h-3 w-16 bg-muted rounded animate-pulse" />
+                </div>
+                <div className="h-2 w-full bg-muted rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Chat Skeleton */}
+        <div className="flex-1 px-4 space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-start gap-3" style={{ opacity: 1 - i * 0.2 }}>
+              <div className="w-8 h-8 rounded-full bg-muted animate-pulse flex-shrink-0" />
+              <div className="flex-1">
+                <div className="h-3 w-20 bg-muted rounded animate-pulse mb-2" />
+                <div className="h-4 bg-muted rounded animate-pulse" style={{ width: `${70 - i * 10}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* Input Skeleton */}
+        <div className="p-4 border-t border-border bg-card/80 backdrop-blur-sm">
+          <div className="flex gap-2">
+            <div className="flex-1 h-12 bg-muted rounded-xl animate-pulse" />
+            <div className="w-12 h-12 bg-muted rounded-xl animate-pulse" />
+          </div>
+        </div>
+        
+        {/* Loading indicator */}
+        <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+          <div className="text-center">
+            <div className="w-14 h-14 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground font-medium">Entering arena...</p>
+          </div>
         </div>
       </div>
     );
