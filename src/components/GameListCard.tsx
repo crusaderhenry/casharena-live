@@ -151,11 +151,15 @@ export const NoGamesCard = () => {
   return (
     <div className="card-panel text-center py-8">
       <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 relative">
-        <Swords className="w-8 h-8 text-primary" />
-        <div className="absolute inset-0 bg-primary/5 rounded-2xl animate-pulse" />
+        <Swords className="w-8 h-8 text-primary animate-pulse" />
+        <div className="absolute inset-0 bg-primary/20 rounded-2xl animate-ping opacity-30" />
       </div>
       <h3 className="font-bold text-foreground mb-2">Arena is Quiet</h3>
-      <p className="text-sm text-muted-foreground">No battles right now. New matches coming soon!</p>
+      <p className="text-sm text-muted-foreground mb-3">No battles right now. New matches coming soon!</p>
+      <div className="flex items-center justify-center gap-2 text-xs text-primary">
+        <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+        <span className="animate-pulse">Waiting for challengers...</span>
+      </div>
     </div>
   );
 };
