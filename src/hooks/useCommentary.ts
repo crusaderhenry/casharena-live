@@ -1,12 +1,19 @@
 import { useCallback, useRef, useEffect } from 'react';
+import { useAudio } from '@/contexts/AudioContext';
 
 type CommentaryType = 'leader_change' | 'timer_low' | 'game_start' | 'game_end' | 'close_call';
 
 // Using Web Speech API for commentary
 export const useCommentary = () => {
+  const { settings } = useAudio();
   const enabledRef = useRef(true);
   const lastAnnouncementRef = useRef<number>(0);
   const synthRef = useRef<SpeechSynthesis | null>(null);
+
+  // Update enabledRef when host is muted
+  useEffect(() => {
+    enabledRef.current = settings.commentaryEnabled && !settings.hostMuted;
+  }, [settings.commentaryEnabled, settings.hostMuted]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {

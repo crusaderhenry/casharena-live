@@ -589,8 +589,8 @@ export const useCrusaderHost = () => {
   });
 
   useEffect(() => {
-    enabledRef.current = settings.commentaryEnabled && isEnabled;
-  }, [settings.commentaryEnabled, isEnabled]);
+    enabledRef.current = settings.commentaryEnabled && isEnabled && !settings.hostMuted;
+  }, [settings.commentaryEnabled, settings.hostMuted, isEnabled]);
 
   // Calculate chat intensity based on comment velocity
   const calculateChatIntensity = useCallback((commentCount: number): 'low' | 'medium' | 'high' => {
