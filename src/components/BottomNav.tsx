@@ -1,11 +1,11 @@
-import { Home, Zap, Trophy, User, Wallet } from 'lucide-react';
+import { Home, Swords, Trophy, User, Wallet } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 
 const navItems = [
   { icon: Home, label: 'Home', path: '/home' },
-  { icon: Zap, label: 'Arena', path: '/finger' },
+  { icon: Swords, label: 'Arena', path: '/finger' },
   { icon: Trophy, label: 'Rank', path: '/rank' },
   { icon: Wallet, label: 'Wallet', path: '/wallet' },
   { icon: User, label: 'Profile', path: '/profile' },
