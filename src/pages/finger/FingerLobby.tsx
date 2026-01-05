@@ -7,7 +7,7 @@ import { MicCheckModal } from '@/components/MicCheckModal';
 import { PrizeDistribution } from '@/components/PrizeDistribution';
 import { useGame } from '@/contexts/GameContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
-import { useGameTimer, useServerTime } from '@/hooks/useServerTime';
+import { useGameTimer } from '@/hooks/useServerTime';
 import { useCrusader } from '@/hooks/useCrusader';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
@@ -35,8 +35,14 @@ export const FingerLobby = () => {
 
   const { isTestMode, resetFingerGame } = useGame();
   const { game, participants, loading } = useLiveGame();
-  const { lobbyCountdown, synced } = useGameTimer(game);
-  const { getSecondsUntil } = useServerTime();
+  const { 
+    lobbyCountdown, 
+    countdownToOpen, 
+    countdownToLive, 
+    countdownToEnd,
+    phase,
+    synced 
+  } = useGameTimer(game);
   const crusader = useCrusader();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { play } = useSounds();
@@ -47,38 +53,17 @@ export const FingerLobby = () => {
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [micCheckComplete, setMicCheckComplete] = useState(false);
   const [hostActive, setHostActive] = useState(false);
-  const [timeToOpen, setTimeToOpen] = useState<number | null>(null);
 
   // Determine game state
-  const isScheduled = game?.status === 'scheduled';
-  const isOpen = game?.status === 'open';
-  const isLive = game?.status === 'live';
+  const isScheduled = phase === 'scheduled';
+  const isOpen = phase === 'open';
+  const isLive = phase === 'live';
 
-  // Use server-synced countdown for open games
-  const countdown = lobbyCountdown;
+  // Use appropriate countdown based on phase
+  const countdown = isOpen ? countdownToLive : isScheduled ? countdownToOpen : countdownToEnd;
 
-  // Calculate time until game opens (for scheduled games with scheduled_at)
-  useEffect(() => {
-    if (!isScheduled) {
-      setTimeToOpen(null);
-      return;
-    }
-
-    // If game has a scheduled_at time, use it
-    if (game?.scheduled_at) {
-      const calculateTimeToOpen = () => {
-        const remaining = getSecondsUntil(game.scheduled_at!);
-        setTimeToOpen(remaining);
-      };
-
-      calculateTimeToOpen();
-      const interval = setInterval(calculateTimeToOpen, 1000);
-      return () => clearInterval(interval);
-    } else {
-      // For games without scheduled_at (immediate go-live type), show message to wait for admin
-      setTimeToOpen(-1); // Use -1 to indicate "waiting for admin"
-    }
-  }, [isScheduled, game?.scheduled_at, getSecondsUntil]);
+  // Determine if waiting for admin (no scheduled_at)
+  const waitingForAdmin = isScheduled && countdownToOpen < 0;
 
   // Check entry closed state (only for open games)
   useEffect(() => {
@@ -247,17 +232,17 @@ export const FingerLobby = () => {
               <div className="flex items-center justify-center gap-2 mb-2">
                 <Calendar className="w-6 h-6 text-yellow-500" />
                 <span className="text-sm text-muted-foreground font-medium">
-                  {timeToOpen === -1 ? 'Waiting for Admin' : 'Opens In'}
+                  {waitingForAdmin ? 'Waiting for Admin' : 'Opens In'}
                 </span>
               </div>
               <p className="timer-display text-yellow-500">
-                {timeToOpen === -1 ? '⏳' : timeToOpen !== null && timeToOpen > 0 ? formatTime(timeToOpen) : '--:--'}
+                {waitingForAdmin ? '⏳' : countdownToOpen > 0 ? formatTime(countdownToOpen) : '--:--'}
               </p>
               <p className="text-sm text-muted-foreground mt-2">
                 Entry fee: ₦{game?.entry_fee?.toLocaleString() || 700}
               </p>
               <div className="mt-4 py-3 px-4 rounded-xl bg-muted/30 text-muted-foreground text-sm">
-                {timeToOpen === -1 
+                {waitingForAdmin 
                   ? '🔒 Entries will open once the admin starts this game'
                   : '⏳ Join button will activate when entries open'
                 }

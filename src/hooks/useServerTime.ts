@@ -95,6 +95,11 @@ export const useServerTime = () => {
 
 /**
  * Hook for real-time game countdown based on server state
+ * 
+ * Provides unified countdown for all game phases:
+ * - Scheduled: countdown to open (scheduled_at)
+ * - Open: countdown to go live (start_time + countdown)
+ * - Live: countdown to game end (start_time + lobby + max_duration)
  */
 export const useGameTimer = (game: {
   status: string;
@@ -108,29 +113,80 @@ export const useGameTimer = (game: {
   const [lobbyCountdown, setLobbyCountdown] = useState(60);
   const [gameTimeRemaining, setGameTimeRemaining] = useState(0);
   const [commentTimer, setCommentTimer] = useState(60);
+  const [countdownToOpen, setCountdownToOpen] = useState(0);
+  const [countdownToLive, setCountdownToLive] = useState(0);
+  const [countdownToEnd, setCountdownToEnd] = useState(0);
+  const [phase, setPhase] = useState<'scheduled' | 'open' | 'live' | 'ended'>('scheduled');
 
   useEffect(() => {
     if (!game || !synced) return;
 
     const updateTimers = () => {
-      if (game.status === 'scheduled') {
-        // Calculate lobby countdown
+      const status = game.status as string;
+      
+      if (status === 'scheduled') {
+        setPhase('scheduled');
+        
         if (game.scheduled_at) {
-          // Scheduled game: count down to scheduled_at
+          // Countdown to when entries open
           const remaining = getSecondsUntil(game.scheduled_at);
+          setCountdownToOpen(remaining);
           setLobbyCountdown(remaining);
         } else {
-          // Immediate game: use the countdown field from server
+          // Waiting for manual open
+          setCountdownToOpen(-1);
+          setLobbyCountdown(-1);
+        }
+        setCountdownToLive(0);
+        setCountdownToEnd(0);
+        
+      } else if (status === 'open') {
+        setPhase('open');
+        setCountdownToOpen(0);
+        
+        if (game.start_time) {
+          // Countdown to go live = start_time + lobby countdown
+          const lobbyDuration = game.countdown || 60;
+          const lobbyEndTime = new Date(new Date(game.start_time).getTime() + lobbyDuration * 1000);
+          const remaining = getSecondsUntil(lobbyEndTime);
+          setCountdownToLive(remaining);
+          setLobbyCountdown(remaining);
+        } else {
+          setCountdownToLive(game.countdown);
           setLobbyCountdown(game.countdown);
         }
-      } else if (game.status === 'live' && game.start_time) {
-        // Calculate time remaining in game
-        const elapsed = getSecondsElapsed(game.start_time);
-        const maxDurationSeconds = game.max_duration * 60;
-        setGameTimeRemaining(Math.max(0, maxDurationSeconds - elapsed));
-
-        // Comment timer comes from game state (resets on each comment, server-controlled)
+        setCountdownToEnd(0);
+        
+      } else if (status === 'live') {
+        setPhase('live');
+        setCountdownToOpen(0);
+        setCountdownToLive(0);
+        
+        if (game.start_time) {
+          // Game started when it went live
+          // Calculate remaining game time based on when it went live
+          const lobbyDuration = game.countdown || 60;
+          const startTime = new Date(game.start_time).getTime();
+          const liveStartTime = startTime + (lobbyDuration * 1000);
+          const maxDurationMs = game.max_duration * 60 * 1000;
+          const gameEndTime = new Date(liveStartTime + maxDurationMs);
+          
+          const remaining = getSecondsUntil(gameEndTime);
+          setCountdownToEnd(remaining);
+          setGameTimeRemaining(remaining);
+        }
+        
+        // Comment timer from server
         setCommentTimer(game.countdown || game.comment_timer);
+        setLobbyCountdown(0);
+        
+      } else {
+        setPhase('ended');
+        setCountdownToOpen(0);
+        setCountdownToLive(0);
+        setCountdownToEnd(0);
+        setLobbyCountdown(0);
+        setGameTimeRemaining(0);
       }
     };
 
@@ -146,6 +202,10 @@ export const useGameTimer = (game: {
     lobbyCountdown,
     gameTimeRemaining,
     commentTimer,
+    countdownToOpen,
+    countdownToLive,
+    countdownToEnd,
+    phase,
     synced,
   };
 };
