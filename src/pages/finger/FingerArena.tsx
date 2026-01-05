@@ -68,9 +68,9 @@ export const FingerArena = () => {
   
   const { mockComments, triggerCommentBurst } = useMockSimulation(isTestMode, game?.id, handleMockComment);
   
-  // Use countdown ticker to keep game countdown synced (only for live non-test games)
-  const isLiveGame = game?.status === 'live' && !isTestMode;
-  useCountdownTicker(isLiveGame, isTestMode, game?.id);
+  // Use countdown ticker to keep backend status/countdowns synced (open→live + live ticks)
+  const shouldTickBackend = !isTestMode && (game?.status === 'open' || game?.status === 'live');
+  useCountdownTicker(shouldTickBackend, isTestMode, game?.id);
   
   const [timer, setTimer] = useState(testScenario?.commentTimer || 60);
   const [gameTime, setGameTime] = useState(testScenario?.gameTimeRemaining || 20 * 60);
@@ -100,26 +100,29 @@ export const FingerArena = () => {
 
   // Track last server countdown to detect resets
   const lastServerCountdownRef = useRef<number>(game?.countdown || 60);
-  
-  // Active comment timer countdown - runs locally but syncs with server updates
+
+  // Sync winner countdown from backend (only meaningful when live)
   useEffect(() => {
     if (isGameOver) return;
-    
-    // Update from server when countdown changes (e.g., someone commented and reset it)
+    if (isTestMode) return;
+    if (game?.status !== 'live') return;
+
     if (game?.countdown !== undefined && game.countdown !== lastServerCountdownRef.current) {
       lastServerCountdownRef.current = game.countdown;
       setTimer(game.countdown);
     }
-  }, [game?.countdown, isGameOver]);
+  }, [game?.countdown, game?.status, isGameOver, isTestMode]);
 
-  // Local countdown tick (runs every second in both test and live mode)
+  // Local winner countdown tick (only when live/test)
   useEffect(() => {
     if (isGameOver) return;
-    
+
+    const winnerTimerActive = isTestMode || game?.status === 'live';
+    if (!winnerTimerActive) return;
+
     const interval = setInterval(() => {
-      setTimer(prev => {
+      setTimer((prev) => {
         if (prev <= 1) {
-          // Auto-end game when timer reaches 0
           setIsGameOver(true);
           setShowFreezeScreen(true);
           stopBackgroundMusic();
@@ -130,9 +133,9 @@ export const FingerArena = () => {
         return prev - 1;
       });
     }, 1000);
-    
+
     return () => clearInterval(interval);
-  }, [isGameOver, stopBackgroundMusic, play, vibrate]);
+  }, [isGameOver, isTestMode, game?.status, stopBackgroundMusic, play, vibrate]);
 
   // Active game time countdown (server-synced in live mode, local in test mode)
   useEffect(() => {

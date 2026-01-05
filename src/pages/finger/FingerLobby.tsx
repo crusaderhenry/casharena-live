@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { TestControls } from '@/components/TestControls';
@@ -13,6 +13,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useServerTime, formatCountdown } from '@/hooks/useServerTime';
+import { supabase } from '@/integrations/supabase/client';
 import { ChevronLeft, Zap, Lock, Users, Mic, Trophy, Clock, Play, Sparkles, Radio, Eye, Gift } from 'lucide-react';
 
 const CRUSADER_LOBBY_MESSAGES = [
@@ -25,7 +26,6 @@ const CRUSADER_LOBBY_MESSAGES = [
 export const FingerLobby = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const preferLobby = Boolean((location.state as any)?.preferLobby);
   const gameIdFromState = (location.state as any)?.gameId;
   const isSpectatorFromState = Boolean((location.state as any)?.isSpectator);
 
@@ -36,7 +36,7 @@ export const FingerLobby = () => {
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
-  const { secondsUntil, synced } = useServerTime();
+  const { secondsUntil } = useServerTime();
   
   const [countdown, setCountdown] = useState(60);
   const [entryClosed, setEntryClosed] = useState(false);
@@ -46,33 +46,40 @@ export const FingerLobby = () => {
   const [isSpectator, setIsSpectator] = useState(isSpectatorFromState);
   const [joining, setJoining] = useState(false);
 
-  // Sync with server countdown using server time - automatic arena transition
+  const startTriggeredRef = useRef(false);
+
+  useEffect(() => {
+    // reset per-game
+    startTriggeredRef.current = false;
+  }, [game?.id]);
+
+  // Sync with server countdown using server time - automatic go-live
   useEffect(() => {
     if (!game) return;
-    
+
     const updateCountdown = () => {
       if (game.start_time) {
         const secsUntilLive = secondsUntil(game.start_time);
         setCountdown(Math.max(0, secsUntilLive));
-        
-        // Auto-transition to arena when countdown reaches 0 (don't wait for server status)
-        if (secsUntilLive <= 0 && hasJoined && !isSpectator) {
-          play('success');
-          buttonClick();
-          navigate('/finger/arena', { state: { gameId: game.id } });
+
+        // When countdown hits 0 but backend hasn't flipped status yet, trigger go-live immediately
+        if (secsUntilLive <= 0 && game.status === 'open' && !startTriggeredRef.current) {
+          startTriggeredRef.current = true;
+          void supabase.functions
+            .invoke('countdown-ticker', { body: {} })
+            .then(({ error }) => {
+              if (error) console.error('[FingerLobby] countdown-ticker error', error);
+            });
         }
-      } else if (game.status === 'open') {
-        // For open games waiting to go live, use countdown
-        setCountdown(game.countdown || 60);
       } else {
         setCountdown(game.countdown || 60);
       }
     };
-    
+
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
-  }, [game, synced, secondsUntil, hasJoined, isSpectator, navigate, play, buttonClick]);
+  }, [game?.id, game?.status, game?.start_time, game?.countdown, secondsUntil]);
 
   // Redirect based on game status for live game show experience
   useEffect(() => {
@@ -81,11 +88,10 @@ export const FingerLobby = () => {
       return;
     }
 
-    // Auto-enter arena when game goes live OR countdown reaches 0
-    if ((game?.status === 'live' || countdown <= 0) && (hasJoined || isSpectator)) {
+    if (game?.status === 'live' && (hasJoined || isSpectator)) {
       navigate('/finger/arena', { state: { gameId: game.id, isSpectator } });
     }
-  }, [game?.status, game?.id, countdown, hasJoined, isSpectator, navigate]);
+  }, [game?.status, game?.id, hasJoined, isSpectator, navigate]);
 
   // Start lobby music and Crusader welcome
   useEffect(() => {
