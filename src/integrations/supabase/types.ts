@@ -165,9 +165,69 @@ export type Database = {
           },
         ]
       }
+      payment_provider_logs: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json | null
+          provider: string
+          reference: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json | null
+          provider?: string
+          reference: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          provider?: string
+          reference?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      platform_settings: {
+        Row: {
+          id: string
+          platform_cut_percent: number
+          platform_name: string
+          test_mode: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          platform_cut_percent?: number
+          platform_name?: string
+          test_mode?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          platform_cut_percent?: number
+          platform_name?: string
+          test_mode?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar: string | null
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_code: string | null
           created_at: string
           email: string
           games_played: number
@@ -177,10 +237,14 @@ export type Database = {
           updated_at: string
           username: string
           wallet_balance: number
+          wallet_locked: boolean
           weekly_rank: number | null
         }
         Insert: {
           avatar?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_code?: string | null
           created_at?: string
           email: string
           games_played?: number
@@ -190,10 +254,14 @@ export type Database = {
           updated_at?: string
           username: string
           wallet_balance?: number
+          wallet_locked?: boolean
           weekly_rank?: number | null
         }
         Update: {
           avatar?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_code?: string | null
           created_at?: string
           email?: string
           games_played?: number
@@ -203,6 +271,7 @@ export type Database = {
           updated_at?: string
           username?: string
           wallet_balance?: number
+          wallet_locked?: boolean
           weekly_rank?: number | null
         }
         Relationships: []
@@ -305,6 +374,10 @@ export type Database = {
           description: string | null
           game_id: string | null
           id: string
+          mode: string
+          provider_reference: string | null
+          reference: string | null
+          status: string
           type: string
           user_id: string
         }
@@ -314,6 +387,10 @@ export type Database = {
           description?: string | null
           game_id?: string | null
           id?: string
+          mode?: string
+          provider_reference?: string | null
+          reference?: string | null
+          status?: string
           type: string
           user_id: string
         }
@@ -323,6 +400,10 @@ export type Database = {
           description?: string | null
           game_id?: string | null
           id?: string
+          mode?: string
+          provider_reference?: string | null
+          reference?: string | null
+          status?: string
           type?: string
           user_id?: string
         }
