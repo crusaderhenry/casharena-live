@@ -1,10 +1,11 @@
 import { BottomNav } from '@/components/BottomNav';
+import { ProfileBadges } from '@/components/ProfileBadges';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield } from 'lucide-react';
+import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -272,6 +273,18 @@ export const ProfileScreen = () => {
               <p className="text-2xl font-black text-gold">₦{totalEarnings.toLocaleString()}</p>
             </div>
           </div>
+        </div>
+
+        {/* Badges & Achievements */}
+        <div className="card-panel">
+          <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+            <Award className="w-5 h-5 text-primary" />
+            Badges & Achievements
+          </h3>
+          <ProfileBadges 
+            totalWins={displayProfile.wins} 
+            gamesPlayed={displayProfile.gamesPlayed} 
+          />
         </div>
 
         {/* Audio Settings */}

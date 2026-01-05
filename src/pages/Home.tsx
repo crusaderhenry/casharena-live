@@ -230,6 +230,33 @@ export const Home = () => {
         {/* Wallet - Compact */}
         <WalletCard compact />
 
+        {/* Recent Winners - Moved up */}
+        {displayActivity.length > 0 && (
+          <div className="card-panel">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-3">
+              <Flame className="w-4 h-4 text-orange-400" />
+              Recent Winners
+            </h3>
+            
+            <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+              {displayActivity.slice(0, 5).map((activity) => (
+                <div key={activity.id} className="flex-shrink-0 flex flex-col items-center gap-1.5 w-16">
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-full bg-card-elevated flex items-center justify-center text-xl border-2 border-gold/30">
+                      {activity.playerAvatar}
+                    </div>
+                    <span className="absolute -bottom-1 -right-1 text-sm">
+                      {activity.position === 1 ? '🥇' : activity.position === 2 ? '🥈' : '🥉'}
+                    </span>
+                  </div>
+                  <p className="text-xs font-medium text-foreground truncate w-full text-center">{activity.playerName}</p>
+                  <p className="text-xs font-bold text-gold">+{formatMoney(activity.amount || 0)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Live Games Section */}
         {liveGames.length > 0 && (
           <div className="space-y-3">
@@ -417,33 +444,6 @@ export const Home = () => {
 
         {/* All-Time Leaderboard */}
         <AllTimeLeaderboard isTestMode={isTestMode} />
-
-        {/* Recent Wins */}
-        {displayActivity.length > 0 && (
-          <div className="card-panel">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-3">
-              <Flame className="w-4 h-4 text-orange-400" />
-              Recent Winners
-            </h3>
-            
-            <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-              {displayActivity.slice(0, 5).map((activity) => (
-                <div key={activity.id} className="flex-shrink-0 flex flex-col items-center gap-1.5 w-16">
-                  <div className="relative">
-                    <div className="w-12 h-12 rounded-full bg-card-elevated flex items-center justify-center text-xl border-2 border-gold/30">
-                      {activity.playerAvatar}
-                    </div>
-                    <span className="absolute -bottom-1 -right-1 text-sm">
-                      {activity.position === 1 ? '🥇' : activity.position === 2 ? '🥈' : '🥉'}
-                    </span>
-                  </div>
-                  <p className="text-xs font-medium text-foreground truncate w-full text-center">{activity.playerName}</p>
-                  <p className="text-xs font-bold text-gold">+{formatMoney(activity.amount || 0)}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
       
       <BottomNav />
