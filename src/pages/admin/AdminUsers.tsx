@@ -17,6 +17,7 @@ interface AdminUser {
   status: 'active' | 'suspended' | 'flagged';
   joinedAt: string;
   kycVerified: boolean;
+  userType: 'real' | 'mock';
 }
 
 export const AdminUsers = () => {
@@ -27,6 +28,7 @@ export const AdminUsers = () => {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<'all' | 'real' | 'mock'>('all');
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -50,6 +52,7 @@ export const AdminUsers = () => {
         status: ((p as any).status || 'active') as 'active' | 'suspended' | 'flagged',
         joinedAt: p.created_at,
         kycVerified: p.kyc_verified,
+        userType: ((p as any).user_type || 'real') as 'real' | 'mock',
       }));
       setUsers(mappedUsers);
     } catch (err) {
@@ -99,10 +102,15 @@ export const AdminUsers = () => {
   const flagUser = (userId: string) => updateUserStatus(userId, 'flagged');
   const activateUser = (userId: string) => updateUserStatus(userId, 'active');
 
-  const filteredUsers = users.filter(u => 
-    u.username.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = u.username.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase());
+    const matchesType = filterType === 'all' || u.userType === filterType;
+    return matchesSearch && matchesType;
+  });
+
+  const realUserCount = users.filter(u => u.userType === 'real').length;
+  const mockUserCount = users.filter(u => u.userType === 'mock').length;
 
   const selectedUserData = users.find(u => u.id === selectedUser);
 
@@ -125,7 +133,9 @@ export const AdminUsers = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-foreground">Users Management</h1>
-          <p className="text-sm text-muted-foreground">{users.length} registered users</p>
+          <p className="text-sm text-muted-foreground">
+            {realUserCount} real users • {mockUserCount} mock users
+          </p>
         </div>
         <button
           onClick={fetchUsers}
@@ -135,6 +145,35 @@ export const AdminUsers = () => {
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
+      </div>
+
+      {/* Filter & Search */}
+      <div className="flex gap-4 items-center">
+        <div className="flex gap-2">
+          {(['all', 'real', 'mock'] as const).map((type) => (
+            <button
+              key={type}
+              onClick={() => setFilterType(type)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                filterType === type
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {type === 'all' ? 'All' : type === 'real' ? '👤 Real' : '🤖 Mock'}
+            </button>
+          ))}
+        </div>
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search by username or email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 bg-card border border-border rounded-xl focus:border-primary focus:outline-none text-foreground"
+          />
+        </div>
       </div>
 
       {/* Search */}
@@ -156,6 +195,7 @@ export const AdminUsers = () => {
             <thead>
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left p-4 text-[10px] text-muted-foreground uppercase tracking-wider">User</th>
+                <th className="text-left p-4 text-[10px] text-muted-foreground uppercase tracking-wider">Type</th>
                 <th className="text-left p-4 text-[10px] text-muted-foreground uppercase tracking-wider">Balance</th>
                 <th className="text-left p-4 text-[10px] text-muted-foreground uppercase tracking-wider">Games</th>
                 <th className="text-left p-4 text-[10px] text-muted-foreground uppercase tracking-wider">Wins</th>
@@ -170,6 +210,7 @@ export const AdminUsers = () => {
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-border/50">
                     <td className="p-4"><Skeleton className="h-10 w-32" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-12" /></td>
                     <td className="p-4"><Skeleton className="h-4 w-20" /></td>
                     <td className="p-4"><Skeleton className="h-4 w-12" /></td>
                     <td className="p-4"><Skeleton className="h-4 w-12" /></td>
@@ -181,7 +222,7 @@ export const AdminUsers = () => {
                 ))
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="p-8 text-center text-muted-foreground">
                     No users found
                   </td>
                 </tr>
@@ -198,6 +239,13 @@ export const AdminUsers = () => {
                           <p className="text-[10px] text-muted-foreground">{user.email}</p>
                         </div>
                       </div>
+                    </td>
+                    <td className="p-4">
+                      {user.userType === 'mock' ? (
+                        <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] rounded-full uppercase">Mock</span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] rounded-full uppercase">Real</span>
+                      )}
                     </td>
                     <td className="p-4">
                       <span className="font-medium text-foreground">₦{user.balance.toLocaleString()}</span>
