@@ -42,13 +42,6 @@ export const AVAILABLE_HOSTS: HostConfig[] = [
     emoji: '🎤',
     description: 'Smooth and confident host',
   },
-  {
-    id: 'esther',
-    name: 'Esther',
-    voiceId: 'oC2pCZZWEDRe6lmZpaaw',
-    emoji: '💃',
-    description: 'Nigerian pidgin queen, vibrant female energy',
-  },
 ];
 
 // Get host by ID
@@ -150,83 +143,8 @@ const DEFAULT_PRIZE_CALLOUT_PHRASES = {
   },
 };
 
-// Esther's Nigerian Pidgin prize callout phrases
-const ESTHER_PRIZE_CALLOUT_PHRASES = {
-  value_highlight: (pool: number, isSponsored: boolean) => {
-    const formattedPool = formatPoolForSpeech(pool);
-    const sponsorNote = isSponsored ? ' E be free game o!' : '';
-    return [
-      `Oya see am! ${formattedPool} naira dey wait for person!${sponsorNote}`,
-      `Chai! ${formattedPool} naira dey ground o! Who go carry am?`,
-      `Make una no sleep! ${formattedPool} naira dey table!`,
-      `E sweet me! ${formattedPool} naira fit change somebody life today!`,
-    ];
-  },
-  value_vague: () => [
-    `This money serious o! Somebody go chop today!`,
-    `Real kudi dey wait! No be play play!`,
-    `This one fit pay person rent... I dey tell una!`,
-    `Whoever win this one go dey happy scatter!`,
-    `Wahala for who no get fast finger today!`,
-  ],
-  milestone: (pool: number, _isSponsored: boolean) => {
-    const formattedPool = formatPoolForSpeech(pool);
-    return [
-      `Haaaa! E don reach ${formattedPool} naira! This one na big money o!`,
-      `See as money dey climb! ${formattedPool} naira don land!`,
-      `Omo! ${formattedPool} naira! Competition don enter another level!`,
-    ];
-  },
-  danger_mode: (pool: number) => {
-    const formattedPool = formatPoolForSpeech(pool);
-    return [
-      `Time dey go o! ${formattedPool} naira still dey wait for owner!`,
-      `Oya sharp sharp! ${formattedPool} naira fit be your own!`,
-      `Wahala dey! ${formattedPool} naira go soon find owner!`,
-      `Last chance o! Who go carry ${formattedPool} naira go house?`,
-    ];
-  },
-  leader_prize: (name: string, pool: number) => {
-    const formattedPool = formatPoolForSpeech(pool);
-    return [
-      `See ${name} o! E dey hold ${formattedPool} naira tight! Who go collect am?`,
-      `${name} don grip the money! ${formattedPool} naira dey e hand!`,
-      `Ehen! ${name} dey control ${formattedPool} naira now now!`,
-    ];
-  },
-  sponsored: (pool: number, sponsoredAmount: number) => {
-    const formattedSponsored = formatPoolForSpeech(sponsoredAmount);
-    return [
-      `Free game alert! ${formattedSponsored} naira dey wait! No entry fee o!`,
-      `Omo see free money! ${formattedSponsored} naira for free! Oya enter!`,
-      `Sponsored game don land! ${formattedSponsored} naira, you no go pay kobo!`,
-    ];
-  },
-  silence_breaker: (pool: number) => {
-    const formattedPool = formatPoolForSpeech(pool);
-    return [
-      `Hello? Anybody dey here? ${formattedPool} naira dey wait o!`,
-      `Why everywhere quiet? ${formattedPool} naira no get leg, e no fit run!`,
-      `Una don sleep? ${formattedPool} naira still dey ground!`,
-    ];
-  },
-  late_game: (pool: number, leader: string | null) => {
-    const formattedPool = formatPoolForSpeech(pool);
-    return leader ? [
-      `${leader} don nearly carry ${formattedPool} naira go! Who go stop am?`,
-      `See as ${leader} dey run with the money! ${formattedPool} naira o!`,
-      `Oya do something! ${leader} wan chop ${formattedPool} naira!`,
-    ] : [
-      `${formattedPool} naira dey find owner!`,
-      `Somebody go soon carry ${formattedPool} naira go house!`,
-      `The money dey there! ${formattedPool} naira for the taking!`,
-    ];
-  },
-};
-
 // Get prize callout phrases based on host
-const getPrizeCalloutPhrases = (hostId: string) => {
-  if (hostId === 'esther') return ESTHER_PRIZE_CALLOUT_PHRASES;
+const getPrizeCalloutPhrases = (_hostId: string) => {
   return DEFAULT_PRIZE_CALLOUT_PHRASES;
 };
 
@@ -310,89 +228,8 @@ const DEFAULT_GAME_PHRASES = {
   ],
 };
 
-// Esther's Nigerian Pidgin game phrases
-const ESTHER_GAME_PHRASES = {
-  welcome: (participants: number, pool: number) => [
-    `Oya! Welcome to the arena o! ${participants} players dey here, una dey fight for ${formatPoolForSpeech(pool)} naira!`,
-    `Esther dey here! ${participants} people don enter, ${formatPoolForSpeech(pool)} naira dey wait! Make we start!`,
-    `Chai! ${participants} fighters don land! ${formatPoolForSpeech(pool)} naira dey table! E go be!`,
-  ],
-  
-  game_start: (participants: number) => [
-    `We don go LIVE! ${participants} players ready to scatter ground!`,
-    `Oya na! All ${participants} of una, show me wetin una get!`,
-    `E don start o! ${participants} players, make una run am!`,
-  ],
-  
-  leader_change: (name: string, timer: number) => [
-    `Haaaa! ${name} don collect the crown! ${timer} seconds remain!`,
-    `See ${name} o! E just take over! ${timer} seconds dey!`,
-    `${name} say make everybody shift! E dey lead now!`,
-    `Omo! ${name} don carry first position! Only ${timer} seconds left!`,
-    `Na wa o! ${name} don climb top! Who go push am down?`,
-  ],
-  
-  timer_60: (leader: string | null) => leader ? [
-    `One minute remain! ${leader} dey lead but anything fit happen!`,
-    `60 seconds o! ${leader} better shine eye!`,
-  ] : [
-    `One minute dey! Who go show face?`,
-    `60 seconds remain! Tension dey build!`,
-  ],
-  
-  timer_30: (leader: string | null, comments: number) => [
-    `30 seconds o! ${comments} comments don enter! Things dey pepper!`,
-    `Half minute! ${leader ? `${leader} still dey top!` : 'Nobody dey lead clear!'} Who go choke?`,
-    `30 seconds! The tension too much!`,
-  ],
-  
-  timer_15: (leader: string | null) => [
-    `15 SECONDS! My heart dey cut!${leader ? ` ${leader} dey sweat!` : ''}`,
-    `Danger zone don land! 15 seconds!`,
-    `FIFTEEN! Make somebody do something!`,
-  ],
-  
-  timer_10: (leader: string | null) => [
-    `TEN SECONDS! ${leader ? `${leader} dey hold tight!` : 'Na now o!'}`,
-    `10! 9! E fit end now now!`,
-    `Single digits! Who want am pass?!`,
-  ],
-  
-  timer_5: () => [
-    `FIVE SECONDS! OYA TYPE SOMETHING!`,
-    `5! 4! 3! Chai this one tight!`,
-    `FIVE! I no fit breathe!`,
-  ],
-  
-  close_call: (name: string) => [
-    `Heee! ${name} just save am for last minute!`,
-    `${name} nearly miss am! That one close die!`,
-    `By whisker! ${name} survive!`,
-  ],
-  
-  game_over: (winner: string, prize: number) => [
-    `E DON END! ${winner} carry ${formatPoolForSpeech(prize)} naira go house! What a fight!`,
-    `FINISH! ${winner} na champion with ${formatPoolForSpeech(prize)} naira!`,
-    `Dust don settle! ${winner} don claim ${formatPoolForSpeech(prize)} naira!`,
-  ],
-  
-  hype: (participants: number, comments: number) => [
-    `${participants} players, ${comments} comments! Wahala dey o!`,
-    `See energy! Una too much! Keep the comments coming!`,
-    `Shoutout to everybody wey dey compete! Una na legends!`,
-    `Chat dey fly! I no fit follow!`,
-  ],
-  
-  quiet_game: () => [
-    `Hello? Where the energy dey? OYA TYPE SOMETHING!`,
-    `E too quiet here o! Make una show me action!`,
-    `Who want win? Show me that hunger!`,
-  ],
-};
-
 // Get game phrases based on host
-const getGamePhrases = (hostId: string) => {
-  if (hostId === 'esther') return ESTHER_GAME_PHRASES;
+const getGamePhrases = (_hostId: string) => {
   return DEFAULT_GAME_PHRASES;
 };
 
