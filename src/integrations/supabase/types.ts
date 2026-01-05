@@ -393,6 +393,31 @@ export type Database = {
       }
     }
     Functions: {
+      get_leaderboard: {
+        Args: { limit_count?: number }
+        Returns: {
+          avatar: string
+          games_played: number
+          id: string
+          rank_points: number
+          total_wins: number
+          username: string
+          weekly_rank: number
+        }[]
+      }
+      get_public_profile: {
+        Args: { profile_id: string }
+        Returns: {
+          avatar: string
+          created_at: string
+          games_played: number
+          id: string
+          rank_points: number
+          total_wins: number
+          username: string
+          weekly_rank: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

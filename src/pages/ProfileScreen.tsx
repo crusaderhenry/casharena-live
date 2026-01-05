@@ -1,28 +1,122 @@
 import { BottomNav } from '@/components/BottomNav';
 import { useGame } from '@/contexts/GameContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic } from 'lucide-react';
+import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useUserRole } from '@/hooks/useUserRole';
 
 const avatarOptions = ['🎮', '👑', '💎', '🚀', '⚡', '🔥', '🌟', '🎯'];
 
 export const ProfileScreen = () => {
   const navigate = useNavigate();
-  const { userProfile, updateProfile } = useGame();
+  const { userProfile, updateProfile, isTestMode } = useGame();
+  const { user, profile, signOut, refreshProfile } = useAuth();
+  const { isAdmin, isModerator } = useUserRole();
   const { settings, toggleMusic, toggleSfx, toggleCommentary, setVolume } = useAudio();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
   const [isEditing, setIsEditing] = useState(false);
-  const [newName, setNewName] = useState(userProfile.username);
+  const [newName, setNewName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [totalEarnings, setTotalEarnings] = useState(0);
 
-  const handleSave = () => {
-    updateProfile({ username: newName });
+  // Use real profile data if available
+  const displayProfile = {
+    username: profile?.username || userProfile.username,
+    avatar: profile?.avatar || userProfile.avatar,
+    gamesPlayed: profile?.games_played || userProfile.gamesPlayed,
+    wins: profile?.total_wins || userProfile.wins,
+    rank: profile?.weekly_rank || userProfile.rank,
+    rankPoints: profile?.rank_points || 0,
+  };
+
+  // Set initial name when profile loads
+  useEffect(() => {
+    if (profile?.username) {
+      setNewName(profile.username);
+    }
+  }, [profile?.username]);
+
+  // Fetch total earnings from wallet transactions
+  useEffect(() => {
+    const fetchEarnings = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from('wallet_transactions')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('type', 'win');
+
+      if (data) {
+        const total = data.reduce((sum, t) => sum + t.amount, 0);
+        setTotalEarnings(total);
+      }
+    };
+
+    if (!isTestMode) {
+      fetchEarnings();
+    } else {
+      setTotalEarnings(userProfile.totalEarnings);
+    }
+  }, [user, isTestMode, userProfile.totalEarnings]);
+
+  const handleSave = async () => {
+    if (!newName.trim()) return;
+    
+    setSaving(true);
+    
+    if (!isTestMode && user) {
+      // Update in Supabase
+      const { error } = await supabase
+        .from('profiles')
+        .update({ username: newName.trim() })
+        .eq('id', user.id);
+      
+      if (error) {
+        toast.error('Failed to update username');
+        setSaving(false);
+        return;
+      }
+      
+      await refreshProfile();
+      toast.success('Username updated!');
+    } else {
+      // Test mode - update local state
+      updateProfile({ username: newName });
+    }
+    
     setIsEditing(false);
     play('success');
     buttonClick();
+    setSaving(false);
+  };
+
+  const handleAvatarChange = async (emoji: string) => {
+    play('click');
+    buttonClick();
+    
+    if (!isTestMode && user) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ avatar: emoji })
+        .eq('id', user.id);
+      
+      if (error) {
+        toast.error('Failed to update avatar');
+        return;
+      }
+      
+      await refreshProfile();
+    } else {
+      updateProfile({ avatar: emoji });
+    }
   };
 
   const handleBack = () => {
@@ -37,34 +131,57 @@ export const ProfileScreen = () => {
     toggle();
   };
 
+  const handleSignOut = async () => {
+    play('click');
+    buttonClick();
+    await signOut();
+    navigate('/auth');
+  };
+
   const stats = [
-    { label: 'Games', value: userProfile.gamesPlayed, icon: Zap, color: 'text-primary' },
-    { label: 'Top 3', value: userProfile.wins, icon: Trophy, color: 'text-gold' },
-    { label: 'Rank', value: `#${userProfile.rank}`, icon: Trophy, color: 'text-primary' },
+    { label: 'Games', value: displayProfile.gamesPlayed, icon: Zap, color: 'text-primary' },
+    { label: 'Top 3', value: displayProfile.wins, icon: Trophy, color: 'text-gold' },
+    { label: 'Rank', value: displayProfile.rank ? `#${displayProfile.rank}` : '-', icon: Trophy, color: 'text-primary' },
   ];
 
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="p-4 space-y-5">
         {/* Header */}
-        <div className="flex items-center gap-3 pt-2">
-          <button 
-            onClick={handleBack} 
-            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
-          >
-            <ArrowLeft className="w-5 h-5 text-foreground" />
-          </button>
-          <div>
-            <h1 className="text-xl font-black text-foreground">Profile</h1>
-            <p className="text-sm text-muted-foreground">Your Fastest Finger stats</p>
+        <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={handleBack} 
+              className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
+            >
+              <ArrowLeft className="w-5 h-5 text-foreground" />
+            </button>
+            <div>
+              <h1 className="text-xl font-black text-foreground">Profile</h1>
+              <p className="text-sm text-muted-foreground">
+                Your Fastest Finger stats
+                {isTestMode && <span className="text-primary ml-2">(Test Mode)</span>}
+              </p>
+            </div>
           </div>
+          
+          {/* Admin/Mod Badge */}
+          {(isAdmin || isModerator) && (
+            <button
+              onClick={() => navigate(isAdmin ? '/admin' : '/moderator')}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/20 border border-primary/30 text-primary text-sm font-medium"
+            >
+              <Shield className="w-4 h-4" />
+              {isAdmin ? 'Admin' : 'Mod'}
+            </button>
+          )}
         </div>
 
         {/* Profile Card */}
         <div className="card-panel border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card">
           <div className="flex flex-col items-center text-center py-4">
             <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center text-4xl border-2 border-primary/30 mb-4">
-              {userProfile.avatar}
+              {displayProfile.avatar}
             </div>
             
             {/* Avatar Selection */}
@@ -72,13 +189,9 @@ export const ProfileScreen = () => {
               {avatarOptions.map((emoji) => (
                 <button 
                   key={emoji} 
-                  onClick={() => {
-                    updateProfile({ avatar: emoji });
-                    play('click');
-                    buttonClick();
-                  }} 
+                  onClick={() => handleAvatarChange(emoji)} 
                   className={`w-9 h-9 rounded-full flex items-center justify-center text-lg transition-all ${
-                    userProfile.avatar === emoji 
+                    displayProfile.avatar === emoji 
                       ? 'bg-primary/20 border-2 border-primary scale-110' 
                       : 'bg-card-elevated hover:bg-card border border-border/50'
                   }`}
@@ -96,18 +209,31 @@ export const ProfileScreen = () => {
                   onChange={(e) => setNewName(e.target.value)} 
                   className="flex-1 bg-background border border-border rounded-xl px-4 py-2 text-foreground text-center"
                   autoFocus
+                  maxLength={20}
                 />
-                <button onClick={handleSave} className="btn-primary px-4 py-2">Save</button>
+                <button 
+                  onClick={handleSave} 
+                  disabled={saving}
+                  className="btn-primary px-4 py-2"
+                >
+                  {saving ? '...' : 'Save'}
+                </button>
               </div>
             ) : (
               <button 
-                onClick={() => setIsEditing(true)} 
+                onClick={() => {
+                  setNewName(displayProfile.username);
+                  setIsEditing(true);
+                }} 
                 className="text-xl font-black text-foreground hover:text-primary transition-colors"
               >
-                {userProfile.username}
+                {displayProfile.username}
               </button>
             )}
             <p className="text-xs text-muted-foreground mt-1">Tap name to edit</p>
+            {profile?.email && (
+              <p className="text-xs text-muted-foreground mt-1">{profile.email}</p>
+            )}
           </div>
         </div>
 
@@ -122,6 +248,19 @@ export const ProfileScreen = () => {
           ))}
         </div>
 
+        {/* Rank Points */}
+        <div className="card-panel border-primary/30 bg-gradient-to-r from-primary/10 to-transparent">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+              <Trophy className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Rank Points</p>
+              <p className="text-2xl font-black text-primary">{displayProfile.rankPoints}</p>
+            </div>
+          </div>
+        </div>
+
         {/* Total Earnings */}
         <div className="card-panel border-gold/30 bg-gradient-to-r from-gold/10 to-transparent">
           <div className="flex items-center gap-4">
@@ -130,7 +269,7 @@ export const ProfileScreen = () => {
             </div>
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Earnings</p>
-              <p className="text-2xl font-black text-gold">₦{userProfile.totalEarnings.toLocaleString()}</p>
+              <p className="text-2xl font-black text-gold">₦{totalEarnings.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -203,6 +342,15 @@ export const ProfileScreen = () => {
             </div>
           </div>
         </div>
+
+        {/* Sign Out */}
+        <button
+          onClick={handleSignOut}
+          className="w-full card-panel flex items-center justify-center gap-2 text-destructive hover:bg-destructive/10 transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+          <span className="font-medium">Sign Out</span>
+        </button>
 
         {/* App Info */}
         <div className="text-center py-4">
