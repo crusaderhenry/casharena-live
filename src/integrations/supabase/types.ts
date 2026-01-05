@@ -232,6 +232,11 @@ export type Database = {
           email: string
           games_played: number
           id: string
+          kyc_first_name: string | null
+          kyc_last_name: string | null
+          kyc_type: string | null
+          kyc_verified: boolean
+          kyc_verified_at: string | null
           rank_points: number
           total_wins: number
           updated_at: string
@@ -249,6 +254,11 @@ export type Database = {
           email: string
           games_played?: number
           id: string
+          kyc_first_name?: string | null
+          kyc_last_name?: string | null
+          kyc_type?: string | null
+          kyc_verified?: boolean
+          kyc_verified_at?: string | null
           rank_points?: number
           total_wins?: number
           updated_at?: string
@@ -266,6 +276,11 @@ export type Database = {
           email?: string
           games_played?: number
           id?: string
+          kyc_first_name?: string | null
+          kyc_last_name?: string | null
+          kyc_type?: string | null
+          kyc_verified?: boolean
+          kyc_verified_at?: string | null
           rank_points?: number
           total_wins?: number
           updated_at?: string

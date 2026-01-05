@@ -3,10 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, AlertTriangle, CheckCircle, ArrowUpRight, BadgeCheck, XCircle } from 'lucide-react';
+import { Loader2, AlertTriangle, CheckCircle, ArrowUpRight, BadgeCheck, XCircle, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
+import { KycVerificationModal } from './KycVerificationModal';
 import { toast } from 'sonner';
 
 interface Bank {
@@ -34,6 +35,52 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
   const [verified, setVerified] = useState(false);
   const [verificationError, setVerificationError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [kycVerified, setKycVerified] = useState(false);
+  const [kycName, setKycName] = useState({ firstName: '', lastName: '' });
+
+  // Check KYC status on open
+  useEffect(() => {
+    if (open && profile) {
+      // Check if profile has kyc_verified field (we need to fetch it fresh)
+      checkKycStatus();
+    }
+  }, [open, profile]);
+
+  const checkKycStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('kyc_verified, kyc_first_name, kyc_last_name')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data?.kyc_verified) {
+        setKycVerified(true);
+        setKycName({ 
+          firstName: data.kyc_first_name || '', 
+          lastName: data.kyc_last_name || '' 
+        });
+      } else {
+        setKycVerified(false);
+        // Show KYC modal on first withdrawal attempt
+        setShowKycModal(true);
+      }
+    } catch (err) {
+      console.error('Failed to check KYC status:', err);
+    }
+  };
+
+  const handleKycVerified = (firstName: string, lastName: string) => {
+    setKycVerified(true);
+    setKycName({ firstName, lastName });
+    setShowKycModal(false);
+    refreshProfile();
+  };
 
   useEffect(() => {
     const fetchBanks = async () => {
@@ -110,6 +157,12 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
   };
 
   const handleWithdraw = async () => {
+    // Check KYC first
+    if (!kycVerified) {
+      setShowKycModal(true);
+      return;
+    }
+
     const withdrawAmount = parseInt(amount);
     const walletBalance = profile?.wallet_balance || 0;
     
@@ -125,6 +178,19 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
 
     if (!verified || !accountName) {
       toast.error('Please verify your bank account first');
+      return;
+    }
+
+    // Verify account name matches KYC name
+    const fullKycName = `${kycName.firstName} ${kycName.lastName}`.toLowerCase();
+    const normalizedAccountName = accountName.toLowerCase();
+    
+    // Check if account name contains the KYC name parts
+    const firstNameMatch = normalizedAccountName.includes(kycName.firstName.toLowerCase());
+    const lastNameMatch = normalizedAccountName.includes(kycName.lastName.toLowerCase());
+    
+    if (!firstNameMatch || !lastNameMatch) {
+      toast.error('Bank account name must match your verified identity');
       return;
     }
 
@@ -222,6 +288,25 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
                 <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
                 <span className="text-sm text-yellow-500">Test Mode — instant simulation</span>
               </div>
+            )}
+
+            {/* KYC Status */}
+            {kycVerified ? (
+              <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-lg border border-primary/30">
+                <ShieldCheck className="w-4 h-4 text-primary flex-shrink-0" />
+                <div className="flex-1">
+                  <span className="text-sm text-primary font-medium">Identity Verified</span>
+                  <p className="text-xs text-muted-foreground">{kycName.firstName} {kycName.lastName}</p>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowKycModal(true)}
+                className="w-full flex items-center gap-2 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30 hover:bg-yellow-500/20 transition-colors"
+              >
+                <ShieldCheck className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                <span className="text-sm text-yellow-500">Tap to verify your identity</span>
+              </button>
             )}
 
             <div className="p-3 bg-muted/50 rounded-lg">
@@ -331,6 +416,12 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
           </div>
         )}
       </DialogContent>
+
+      <KycVerificationModal
+        open={showKycModal}
+        onOpenChange={setShowKycModal}
+        onVerified={handleKycVerified}
+      />
     </Dialog>
   );
 };
