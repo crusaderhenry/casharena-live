@@ -23,6 +23,17 @@ import { ProfileScreen } from "@/pages/ProfileScreen";
 import { WalletMain } from "@/pages/wallet/WalletMain";
 import { TransactionHistory } from "@/pages/wallet/TransactionHistory";
 
+// Admin
+import { AdminLayout } from "@/pages/admin/AdminLayout";
+import { AdminDashboard } from "@/pages/admin/AdminDashboard";
+import { AdminFingerControl } from "@/pages/admin/AdminFingerControl";
+import { AdminLiveMonitor } from "@/pages/admin/AdminLiveMonitor";
+import { AdminUsers } from "@/pages/admin/AdminUsers";
+import { AdminWallet } from "@/pages/admin/AdminWallet";
+import { AdminRank } from "@/pages/admin/AdminRank";
+import { AdminAnalytics } from "@/pages/admin/AdminAnalytics";
+import { AdminSettings } from "@/pages/admin/AdminSettings";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +66,18 @@ const App = () => (
                   <Route path="/profile" element={<ProfileScreen />} />
                   <Route path="/wallet" element={<WalletMain />} />
                   <Route path="/wallet/history" element={<TransactionHistory />} />
+                  
+                  {/* Admin Dashboard */}
+                  <Route path="/admin" element={<AdminLayout />}>
+                    <Route index element={<AdminDashboard />} />
+                    <Route path="finger-control" element={<AdminFingerControl />} />
+                    <Route path="live-monitor" element={<AdminLiveMonitor />} />
+                    <Route path="users" element={<AdminUsers />} />
+                    <Route path="wallet" element={<AdminWallet />} />
+                    <Route path="rank" element={<AdminRank />} />
+                    <Route path="analytics" element={<AdminAnalytics />} />
+                    <Route path="settings" element={<AdminSettings />} />
+                  </Route>
                   
                   {/* Catch-all */}
                   <Route path="*" element={<NotFound />} />
