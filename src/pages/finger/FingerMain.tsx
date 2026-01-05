@@ -4,7 +4,8 @@ import { BottomNav } from '@/components/BottomNav';
 import { WalletCard } from '@/components/WalletCard';
 import { TestControls } from '@/components/TestControls';
 import { PrizeDistribution, getPayoutLabel, getWinnerCount } from '@/components/PrizeDistribution';
-import { PoolParticipants } from '@/components/PoolParticipants';
+import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
+import { GameHistory } from '@/components/GameHistory';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGame } from '@/contexts/GameContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
@@ -396,15 +397,20 @@ export const FingerMain = () => {
           </ul>
         </details>
 
-        {/* Pool Participants - Show who's in the game */}
+        {/* View Pool CTA */}
         {selectedGame && (
-          <PoolParticipants
+          <PoolParticipantsSheet
             gameId={selectedGame.id}
+            gameName={(selectedGame as any).name || 'Fastest Finger'}
             participantCount={selectedGame.participant_count || 0}
             poolValue={poolValue}
+            entryFee={entryFee}
             isTestMode={isTestMode}
           />
         )}
+
+        {/* Game History */}
+        <GameHistory isTestMode={isTestMode} />
 
         {/* Prize Distribution - Only show if game selected */}
         {selectedGame && (
