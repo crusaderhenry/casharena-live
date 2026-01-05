@@ -4,7 +4,9 @@ import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 export const TestModeBanner = () => {
   const { isTestMode, loading } = usePlatformSettings();
 
-  if (loading || !isTestMode) return null;
+  // Don't render anything while loading or if not in test mode
+  if (loading) return null;
+  if (!isTestMode) return null;
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-500 text-yellow-950 py-1.5 px-4 text-center">

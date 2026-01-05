@@ -56,6 +56,7 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
           isUrgent: isEndingSoon,
         });
       } else if (isOpen) {
+        // For open games, calculate time until start_time (goes live)
         const remaining = secondsUntil(game.start_time);
         setTimeDisplay({ 
           label: 'Goes Live', 
@@ -63,6 +64,7 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
           isUrgent: remaining <= 60,
         });
       } else if (isScheduled) {
+        // For scheduled games, calculate time until scheduled_at (when it opens)
         const remaining = secondsUntil(game.scheduled_at);
         setTimeDisplay({ 
           label: 'Opens In', 
@@ -75,7 +77,7 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
     calculateTime();
     const interval = setInterval(calculateTime, 1000);
     return () => clearInterval(interval);
-  }, [game, isLive, isOpen, isScheduled, gameTimeRemaining, secondsUntil]);
+  }, [game.id, game.start_time, game.scheduled_at, game.max_duration, isLive, isOpen, isScheduled, gameTimeRemaining, secondsUntil]);
 
   const formatGameTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
