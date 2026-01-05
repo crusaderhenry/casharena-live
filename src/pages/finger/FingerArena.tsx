@@ -13,7 +13,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useCrusaderHost } from '@/hooks/useCrusaderHost';
 import { useAudio } from '@/contexts/AudioContext';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, Wifi, WifiOff } from 'lucide-react';
+import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -216,7 +216,8 @@ export const FingerArena = () => {
     setTimeout(() => setSystemMessage(''), 3000);
   };
 
-  const isGameTimeDanger = gameTime <= 5 * 60;
+  const isGameTimeDanger = gameTime <= 5 * 60; // Last 5 minutes = "Ending Soon" mode
+  const isEndingSoon = isGameTimeDanger;
   const audienceCount = participants.length || game?.participant_count || 0;
 
   const formatGameTime = (seconds: number) => {
@@ -342,9 +343,18 @@ export const FingerArena = () => {
   }
 
   return (
-    <div className={`min-h-screen bg-background flex flex-col ${isShaking ? 'animate-intense-shake' : ''}`}>
+    <div className={`min-h-screen flex flex-col ${isShaking ? 'animate-intense-shake' : ''} ${isEndingSoon ? 'bg-gradient-to-b from-red-950/30 to-background' : 'bg-background'}`}>
+      {/* ENDING SOON WARNING BANNER */}
+      {isEndingSoon && (
+        <div className="bg-red-500/90 text-white py-2 px-4 flex items-center justify-center gap-2 animate-pulse">
+          <AlertTriangle className="w-4 h-4" />
+          <span className="font-bold text-sm uppercase tracking-wider">⚡ DANGER ZONE - Game Ending Soon! ⚡</span>
+          <AlertTriangle className="w-4 h-4" />
+        </div>
+      )}
+      
       {/* Header */}
-      <div className="bg-card/98 backdrop-blur-xl border-b border-border/50 p-4 sticky top-0 z-10">
+      <div className={`backdrop-blur-xl border-b p-4 sticky top-0 z-10 ${isEndingSoon ? 'bg-red-900/50 border-red-500/50' : 'bg-card/98 border-border/50'}`}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             {/* Leave Button */}
