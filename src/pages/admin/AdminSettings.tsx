@@ -1,4 +1,4 @@
-import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus } from 'lucide-react';
+import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAdmin } from '@/contexts/AdminContext';
@@ -6,8 +6,17 @@ import { AVAILABLE_HOSTS, getHostById } from '@/hooks/useCrusaderHost';
 import { toast } from 'sonner';
 
 export const AdminSettings = () => {
-  const { settings: dbSettings, updateSettings: updateDbSettings, toggleTestMode, isTestMode, selectedHost, secondaryHost, loading } = usePlatformSettings();
-  const { simulateHighTraffic } = useAdmin();
+  const { 
+    settings: dbSettings, 
+    updateSettings: updateDbSettings, 
+    toggleTestMode, 
+    isTestMode, 
+    selectedHost, 
+    secondaryHost, 
+    maintenanceMode: dbMaintenanceMode,
+    loading 
+  } = usePlatformSettings();
+  const { simulateHighTraffic, triggerWeeklyReset } = useAdmin();
   
   const [localSettings, setLocalSettings] = useState({
     platformName: 'FortunesHQ',
@@ -25,6 +34,7 @@ export const AdminSettings = () => {
         platformName: dbSettings.platform_name,
         platformCut: dbSettings.platform_cut_percent,
         testMode: dbSettings.test_mode,
+        maintenanceMode: dbSettings.maintenance_mode ?? false,
         selectedHost: dbSettings.selected_host || 'crusader',
         secondaryHost: dbSettings.secondary_host || null,
       }));
@@ -37,6 +47,7 @@ export const AdminSettings = () => {
       platform_cut_percent: localSettings.platformCut,
       selected_host: localSettings.selectedHost,
       secondary_host: localSettings.secondaryHost,
+      maintenance_mode: localSettings.maintenanceMode,
     });
     
     if (success) {
@@ -55,6 +66,25 @@ export const AdminSettings = () => {
     } else {
       toast.success(newValue ? 'Test Mode enabled' : 'Live Mode enabled - Real payments active!');
     }
+  };
+
+  const handleMaintenanceToggle = async () => {
+    const newValue = !localSettings.maintenanceMode;
+    setLocalSettings(prev => ({ ...prev, maintenanceMode: newValue }));
+    
+    const success = await updateDbSettings({ maintenance_mode: newValue });
+    if (success) {
+      toast.success(newValue ? 'Maintenance mode enabled' : 'Maintenance mode disabled');
+    } else {
+      toast.error('Failed to toggle maintenance mode');
+      setLocalSettings(prev => ({ ...prev, maintenanceMode: !newValue }));
+    }
+  };
+
+  const handleResetRanks = async () => {
+    if (!confirm('Are you sure you want to reset all weekly rank points? This action cannot be undone.')) return;
+    await triggerWeeklyReset();
+    toast.success('Weekly ranks have been reset');
   };
 
   return (
@@ -297,7 +327,8 @@ export const AdminSettings = () => {
               </div>
             </div>
             <button
-              onClick={() => setLocalSettings(prev => ({ ...prev, maintenanceMode: !prev.maintenanceMode }))}
+              onClick={handleMaintenanceToggle}
+              disabled={loading}
               className={`relative w-14 h-8 rounded-full transition-colors ${
                 localSettings.maintenanceMode ? 'bg-yellow-500' : 'bg-muted'
               }`}
@@ -312,8 +343,8 @@ export const AdminSettings = () => {
 
       {/* Test Actions */}
       <div className="bg-card rounded-xl border border-border p-6">
-        <h2 className="text-lg font-bold text-foreground mb-6">Test Actions</h2>
-        <p className="text-sm text-muted-foreground mb-4">Simulate various scenarios for testing and demos</p>
+        <h2 className="text-lg font-bold text-foreground mb-6">Admin Actions</h2>
+        <p className="text-sm text-muted-foreground mb-4">Administrative controls and test scenarios</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
@@ -325,16 +356,22 @@ export const AdminSettings = () => {
             <p className="text-sm text-muted-foreground">Add mock users and increase stats</p>
           </button>
 
-          <button className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors text-left">
-            <Zap className="w-6 h-6 text-primary mb-2" />
-            <p className="font-medium text-foreground">Simulate Multiple Games</p>
-            <p className="text-sm text-muted-foreground">Create rapid game cycles</p>
+          <button 
+            onClick={handleResetRanks}
+            className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors text-left"
+          >
+            <RotateCcw className="w-6 h-6 text-primary mb-2" />
+            <p className="font-medium text-foreground">Reset Weekly Ranks</p>
+            <p className="text-sm text-muted-foreground">Reset all users' weekly rank points to zero</p>
           </button>
 
-          <button className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors text-left">
-            <Settings className="w-6 h-6 text-primary mb-2" />
-            <p className="font-medium text-foreground">Reset All Data</p>
-            <p className="text-sm text-muted-foreground">Clear all mock data and start fresh</p>
+          <button 
+            onClick={() => toast.info('This feature is for future development')}
+            className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors text-left opacity-50"
+          >
+            <Settings className="w-6 h-6 text-muted-foreground mb-2" />
+            <p className="font-medium text-foreground">Reset Test Data</p>
+            <p className="text-sm text-muted-foreground">Coming soon</p>
           </button>
         </div>
       </div>

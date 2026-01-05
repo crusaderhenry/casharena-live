@@ -249,6 +249,7 @@ export type Database = {
           default_entry_fee: number
           default_max_duration: number
           id: string
+          maintenance_mode: boolean
           platform_cut_percent: number
           platform_name: string
           secondary_host: string | null
@@ -261,6 +262,7 @@ export type Database = {
           default_entry_fee?: number
           default_max_duration?: number
           id?: string
+          maintenance_mode?: boolean
           platform_cut_percent?: number
           platform_name?: string
           secondary_host?: string | null
@@ -273,6 +275,7 @@ export type Database = {
           default_entry_fee?: number
           default_max_duration?: number
           id?: string
+          maintenance_mode?: boolean
           platform_cut_percent?: number
           platform_name?: string
           secondary_host?: string | null
