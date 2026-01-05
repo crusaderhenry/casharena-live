@@ -58,34 +58,34 @@ async function syncServerTime(): Promise<void> {
 }
 
 export const useServerTime = () => {
-  const [state, setState] = useState<ServerTimeState>(globalTimeState);
+  const [, forceRender] = useState(0);
 
   // Initial sync
   useEffect(() => {
     if (!globalTimeState.synced || Date.now() - globalTimeState.lastSync > 60000) {
-      syncServerTime().then(() => setState({ ...globalTimeState }));
+      syncServerTime().then(() => forceRender(n => n + 1));
     }
 
     // Re-sync every 60 seconds
     const interval = setInterval(() => {
-      syncServerTime().then(() => setState({ ...globalTimeState }));
+      syncServerTime().then(() => forceRender(n => n + 1));
     }, 60000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Get corrected current time
+  // Get corrected current time - always read from global state for fresh offset
   const getServerTime = useCallback(() => {
-    return Date.now() + state.offset;
-  }, [state.offset]);
+    return Date.now() + globalTimeState.offset;
+  }, []);
 
   // Calculate seconds until a target time
   const secondsUntil = useCallback((targetTime: string | Date | null): number => {
     if (!targetTime) return 0;
     const target = typeof targetTime === 'string' ? new Date(targetTime).getTime() : targetTime.getTime();
-    const now = getServerTime();
+    const now = Date.now() + globalTimeState.offset;
     return Math.max(0, Math.floor((target - now) / 1000));
-  }, [getServerTime]);
+  }, []);
 
   // Calculate seconds since a start time
   const secondsSince = useCallback((startTime: string | Date | null): number => {
@@ -106,8 +106,8 @@ export const useServerTime = () => {
   }, [secondsSince]);
 
   return {
-    synced: state.synced,
-    offset: state.offset,
+    synced: globalTimeState.synced,
+    offset: globalTimeState.offset,
     getServerTime,
     secondsUntil,
     secondsSince,
