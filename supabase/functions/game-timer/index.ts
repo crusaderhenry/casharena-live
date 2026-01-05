@@ -43,9 +43,16 @@ Deno.serve(async (req) => {
 
       // Verify admin role for manual calls
       const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
       const token = authHeader.replace('Bearer ', '');
-      const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
+      
+      // Create client with user's JWT to verify their identity
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      });
+      
+      const { data: { user }, error } = await supabaseAuth.auth.getUser();
       
       if (error || !user) {
         console.log('[game-timer] Unauthorized: Invalid JWT');
