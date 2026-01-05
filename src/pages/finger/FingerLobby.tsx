@@ -222,12 +222,17 @@ export const FingerLobby = () => {
     name: game.name,
     status: game.status,
     pool_value: game.pool_value,
+    effective_prize_pool: game.effective_prize_pool,
     participant_count: game.participant_count,
     countdown: game.countdown,
+    comment_timer: game.comment_timer,
     entry_fee: game.entry_fee,
     max_duration: game.max_duration,
     payout_type: game.payout_type,
     start_time: game.start_time,
+    is_sponsored: game.is_sponsored,
+    sponsored_amount: game.sponsored_amount,
+    entry_cutoff_minutes: game.entry_cutoff_minutes,
   } : null;
 
   if (loading) {
