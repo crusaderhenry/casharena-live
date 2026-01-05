@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { TestControls } from '@/components/TestControls';
@@ -7,6 +7,7 @@ import { MicCheckModal } from '@/components/MicCheckModal';
 import { PrizeDistribution } from '@/components/PrizeDistribution';
 import { useGame } from '@/contexts/GameContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
+import { supabase } from '@/integrations/supabase/client';
 import { useGameTimer } from '@/hooks/useServerTime';
 import { useCrusader } from '@/hooks/useCrusader';
 import { useAudio } from '@/contexts/AudioContext';
@@ -53,6 +54,7 @@ export const FingerLobby = () => {
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [micCheckComplete, setMicCheckComplete] = useState(false);
   const [hostActive, setHostActive] = useState(false);
+  const autoStartAttemptRef = useRef<string | null>(null);
 
   // Determine game state
   const isScheduled = phase === 'scheduled';
@@ -60,9 +62,12 @@ export const FingerLobby = () => {
   const isLive = phase === 'live';
 
   // Use appropriate countdown based on phase
-  const countdown = isOpen ? countdownToLive : isScheduled ? countdownToOpen : countdownToEnd;
+  const countdown =
+    (isOpen && countdownToLive !== 0 ? countdownToLive : undefined) ??
+    (isScheduled && countdownToOpen !== 0 ? countdownToOpen : undefined) ??
+    (isLive ? countdownToEnd : undefined) ??
+    lobbyCountdown;
 
-  // Determine if waiting for admin (no scheduled_at)
   const waitingForAdmin = isScheduled && countdownToOpen < 0;
 
   // Check entry closed state (only for open games)
@@ -91,19 +96,30 @@ export const FingerLobby = () => {
     }
   }, [countdown, hostActive, crusader, isOpen]);
 
-  // Handle navigation when countdown ends (for open games)
+  // When lobby countdown hits 0, trigger auto-start (don't navigate until status flips to live)
   useEffect(() => {
-    if (!isOpen) return;
-    
-    if (countdown <= 0 && game?.status !== 'ended') {
-      const timeout = setTimeout(() => {
-        if (!(preferLobby && game?.status === 'live')) {
-          navigate('/finger/arena');
-        }
-      }, 500);
-      return () => clearTimeout(timeout);
+    if (!isOpen || !game?.id) return;
+
+    // Reset guard once countdown is running again (e.g. lobby extended)
+    if (countdown > 0) {
+      autoStartAttemptRef.current = null;
+      return;
     }
-  }, [countdown, game?.status, preferLobby, navigate, isOpen]);
+
+    if (autoStartAttemptRef.current === game.id) return;
+    autoStartAttemptRef.current = game.id;
+
+    (async () => {
+      try {
+        await supabase.functions.invoke('auto-start-games', {
+          body: { trigger: 'lobby', gameId: game.id },
+        });
+      } catch (err) {
+        console.error('[FingerLobby] Failed to trigger auto-start:', err);
+        autoStartAttemptRef.current = null;
+      }
+    })();
+  }, [isOpen, countdown, game?.id]);
 
   // Redirect based on game status changes
   useEffect(() => {
