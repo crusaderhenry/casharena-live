@@ -3,7 +3,7 @@ import { WalletCard } from '@/components/WalletCard';
 import { BottomNav } from '@/components/BottomNav';
 import { TestModeToggle } from '@/components/TestControls';
 import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutorial';
-import { Zap, Trophy, Users, Clock, ChevronRight, Flame } from 'lucide-react';
+import { Zap, Trophy, Users, Clock, ChevronRight, Flame, Bell } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
@@ -12,31 +12,94 @@ import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
 
+// Mock games for test mode
+const mockActiveGames = [
+  { id: 'mock-1', name: 'Fastest Finger', status: 'live', pool_value: 35000, participant_count: 23, countdown: 45, entry_fee: 700 },
+  { id: 'mock-2', name: 'Speed Rush', status: 'live', pool_value: 18500, participant_count: 15, countdown: 32, entry_fee: 500 },
+  { id: 'mock-3', name: 'Quick Draw', status: 'scheduled', pool_value: 12000, participant_count: 8, countdown: 60, entry_fee: 300 },
+];
+
+const mockTestWinners = [
+  { id: 'tw1', type: 'finger_win' as const, playerName: 'CryptoKing', playerAvatar: '👑', amount: 15750, position: 1 },
+  { id: 'tw2', type: 'finger_win' as const, playerName: 'LuckyAce', playerAvatar: '🎰', amount: 9450, position: 2 },
+  { id: 'tw3', type: 'finger_win' as const, playerName: 'FastHands', playerAvatar: '⚡', amount: 6300, position: 3 },
+  { id: 'tw4', type: 'finger_win' as const, playerName: 'GoldRush', playerAvatar: '💰', amount: 4200, position: 1 },
+];
+
 export const Home = () => {
-  const { recentActivity, isTestMode } = useGame();
+  const { isTestMode } = useGame();
   const { profile } = useAuth();
-  const { game, participants } = useLiveGame();
+  const { game, participants, fetchAllActiveGames } = useLiveGame();
   const navigate = useNavigate();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
   const { showOnboarding, completeOnboarding } = useOnboarding();
-  const [countdown, setCountdown] = useState(300);
+  const [nextGameCountdown, setNextGameCountdown] = useState(300);
   const [recentWinners, setRecentWinners] = useState<any[]>([]);
+  const [allGames, setAllGames] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<string[]>([]);
 
-  // Use real game data if available, otherwise use mock for test mode
-  const poolValue = game?.pool_value || 16100;
-  const playerCount = game?.participant_count || participants.length || 23;
+  // Fetch all active games
+  useEffect(() => {
+    if (!isTestMode) {
+      const loadGames = async () => {
+        const games = await fetchAllActiveGames();
+        setAllGames(games);
+      };
+      loadGames();
+
+      // Refresh every 30 seconds
+      const interval = setInterval(loadGames, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [isTestMode, fetchAllActiveGames]);
+
+  // Real data values
+  const displayGames = isTestMode ? mockActiveGames : allGames;
+  const liveGames = displayGames.filter(g => g.status === 'live');
+  const scheduledGames = displayGames.filter(g => g.status === 'scheduled');
+  
+  // Primary game to show in hero (first live game or first scheduled)
+  const primaryGame = isTestMode 
+    ? mockActiveGames[0] 
+    : (game || (liveGames[0] || scheduledGames[0]));
+
+  const poolValue = primaryGame?.pool_value || 0;
+  const playerCount = primaryGame?.participant_count || participants.length || 0;
   const userRank = profile?.weekly_rank || Math.ceil((profile?.rank_points || 0) / 100) || 1;
 
+  // Countdown for next game when no live game
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown(prev => prev > 0 ? prev - 1 : 300);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    if (!primaryGame || primaryGame.status !== 'live') {
+      const timer = setInterval(() => {
+        setNextGameCountdown(prev => prev > 0 ? prev - 1 : 300);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [primaryGame]);
+
+  // Generate notifications based on real data
+  useEffect(() => {
+    const newNotifications: string[] = [];
+    if (liveGames.length > 0) {
+      newNotifications.push(`🎮 ${liveGames.length} game${liveGames.length > 1 ? 's' : ''} live now!`);
+    }
+    if (scheduledGames.length > 0) {
+      newNotifications.push(`⏰ ${scheduledGames.length} game${scheduledGames.length > 1 ? 's' : ''} starting soon`);
+    }
+    if (recentWinners.length > 0 && recentWinners[0]?.profile?.username) {
+      newNotifications.push(`🏆 ${recentWinners[0].profile.username} just won ₦${recentWinners[0].amount_won?.toLocaleString()}!`);
+    }
+    setNotifications(newNotifications);
+  }, [liveGames.length, scheduledGames.length, recentWinners]);
 
   // Fetch recent winners
   useEffect(() => {
+    if (isTestMode) {
+      setRecentWinners([]);
+      return;
+    }
+
     const fetchRecentWinners = async () => {
       const { data } = await supabase
         .from('winners')
@@ -45,14 +108,12 @@ export const Home = () => {
         .limit(5);
 
       if (data) {
-        // Fetch profiles for winners
+        // Fetch profiles for winners using RPC
         const winnersWithProfiles = await Promise.all(
           data.map(async (w) => {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('username, avatar')
-              .eq('id', w.user_id)
-              .single();
+            const { data: profileData } = await supabase
+              .rpc('get_public_profile', { profile_id: w.user_id });
+            const profile = profileData?.[0];
             return { ...w, profile };
           })
         );
@@ -61,7 +122,7 @@ export const Home = () => {
     };
 
     fetchRecentWinners();
-  }, []);
+  }, [isTestMode]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -85,19 +146,17 @@ export const Home = () => {
     navigate('/rank');
   };
 
-  // Combine real winners with mock activity for test mode
-  const displayActivity = recentWinners.length > 0
-    ? recentWinners.map((w) => ({
+  // Display activity: real winners when not in test mode, mock when in test mode
+  const displayActivity = isTestMode
+    ? mockTestWinners
+    : recentWinners.map((w) => ({
         id: w.id,
-        type: 'finger_win',
+        type: 'finger_win' as const,
         playerName: w.profile?.username || 'Unknown',
         playerAvatar: w.profile?.avatar || '🎮',
         amount: w.amount_won,
         position: w.position,
-      }))
-    : isTestMode
-    ? recentActivity.filter((a) => a.type === 'finger_win' || a.type === 'rank_up')
-    : [];
+      }));
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -112,11 +171,26 @@ export const Home = () => {
             </h1>
             <p className="text-sm text-muted-foreground flex items-center gap-1.5">
               <span className="live-dot" />
-              {game?.status === 'live' ? 'Game Live!' : 'Live now'}
+              {liveGames.length > 0 ? `${liveGames.length} Game${liveGames.length > 1 ? 's' : ''} Live!` : 'Live now'}
             </p>
           </div>
           <TestModeToggle />
         </div>
+
+        {/* Notifications Banner */}
+        {notifications.length > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20 overflow-hidden">
+            <Bell className="w-4 h-4 text-primary flex-shrink-0" />
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm text-foreground truncate animate-pulse">
+                {notifications[0]}
+              </p>
+            </div>
+            {notifications.length > 1 && (
+              <span className="text-xs text-muted-foreground flex-shrink-0">+{notifications.length - 1}</span>
+            )}
+          </div>
+        )}
 
         {/* Wallet */}
         <WalletCard compact />
@@ -131,15 +205,15 @@ export const Home = () => {
             {/* Live badge */}
             <div className="flex items-center justify-between mb-4">
               <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
-                game?.status === 'live' 
+                primaryGame?.status === 'live' 
                   ? 'bg-green-500/20 border-green-500/30' 
-                  : 'bg-red-500/20 border-red-500/30'
+                  : 'bg-yellow-500/20 border-yellow-500/30'
               }`}>
                 <span className="live-dot" />
                 <span className={`text-xs font-bold uppercase tracking-wider ${
-                  game?.status === 'live' ? 'text-green-400' : 'text-red-400'
+                  primaryGame?.status === 'live' ? 'text-green-400' : 'text-yellow-400'
                 }`}>
-                  {game?.status === 'live' ? 'Live Now' : game?.status === 'scheduled' ? 'Starting Soon' : 'Join Next'}
+                  {primaryGame?.status === 'live' ? 'Live Now' : primaryGame?.status === 'scheduled' ? 'Starting Soon' : 'No Games'}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -154,7 +228,9 @@ export const Home = () => {
                 <Zap className="w-8 h-8 text-primary" />
               </div>
               <div>
-                <h2 className="text-xl font-black text-foreground">Fastest Finger</h2>
+                <h2 className="text-xl font-black text-foreground">
+                  {isTestMode ? 'Fastest Finger' : (primaryGame as any)?.name || 'Fastest Finger'}
+                </h2>
                 <p className="text-sm text-muted-foreground">Last comment standing wins</p>
               </div>
             </div>
@@ -167,12 +243,12 @@ export const Home = () => {
               </div>
               <div className="bg-background/50 backdrop-blur-sm rounded-xl p-4 border border-border/30">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-                  {game?.status === 'live' ? 'Countdown' : 'Next Game'}
+                  {primaryGame?.status === 'live' ? 'Countdown' : 'Next Game'}
                 </p>
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-primary" />
                   <p className="text-2xl font-black text-foreground">
-                    {game?.status === 'live' ? `${game.countdown}s` : formatTime(countdown)}
+                    {primaryGame?.status === 'live' ? `${primaryGame.countdown}s` : formatTime(nextGameCountdown)}
                   </p>
                 </div>
               </div>
@@ -184,11 +260,29 @@ export const Home = () => {
               className="w-full btn-primary flex items-center justify-center gap-2 text-lg"
             >
               <Zap className="w-5 h-5" />
-              {game?.status === 'live' ? 'Join Live Game' : 'Enter Lobby'}
+              {primaryGame?.status === 'live' ? 'Join Live Game' : 'Enter Lobby'}
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         </div>
+
+        {/* Active Games Count (when multiple games) */}
+        {displayGames.length > 1 && (
+          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-card border border-border/30">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-foreground">
+                {liveGames.length} live, {scheduledGames.length} upcoming
+              </span>
+            </div>
+            <button 
+              onClick={handleJoinGame}
+              className="text-xs text-primary font-medium"
+            >
+              View All →
+            </button>
+          </div>
+        )}
 
         {/* Your Rank */}
         <button
