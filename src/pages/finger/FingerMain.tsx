@@ -108,6 +108,48 @@ export const FingerMain = () => {
   const liveGames = allGames.filter(g => g.status === 'live');
   const scheduledGames = allGames.filter(g => g.status === 'scheduled');
   
+  // Find next scheduled game for countdown
+  const nextScheduledGame = scheduledGames
+    .filter(g => g.start_time)
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())[0];
+
+  // Real-time countdown to next game
+  const [timeToNext, setTimeToNext] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (!nextScheduledGame?.start_time) {
+      setTimeToNext(null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const now = new Date().getTime();
+      const target = new Date(nextScheduledGame.start_time).getTime();
+      const diff = target - now;
+
+      if (diff <= 0) {
+        setTimeToNext('Starting now!');
+        return;
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (hours > 0) {
+        setTimeToNext(`${hours}h ${mins}m ${secs}s`);
+      } else if (mins > 0) {
+        setTimeToNext(`${mins}m ${secs}s`);
+      } else {
+        setTimeToNext(`${secs}s`);
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [nextScheduledGame?.start_time]);
+  
   // Only auto-select if user came from a specific game context, otherwise require manual selection
   const selectedGame = selectedGameId 
     ? allGames.find(g => g.id === selectedGameId) 
@@ -215,7 +257,9 @@ export const FingerMain = () => {
             <p className="text-sm text-muted-foreground mb-4">No battles right now. New matches coming soon!</p>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
               <Clock className="w-4 h-4 text-primary animate-pulse" />
-              <span className="text-sm font-medium text-primary">Next battle in ~5 mins</span>
+              <span className="text-sm font-medium text-primary">
+                {timeToNext ? `Next battle in ${timeToNext}` : 'Waiting for challengers...'}
+              </span>
             </div>
           </div>
         )}
