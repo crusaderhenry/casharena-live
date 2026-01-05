@@ -88,10 +88,9 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
 
       // Voice activity detection loop
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let lastSpeakingState = false;
       
       const detectVoice = () => {
-        if (!isMicEnabled) return;
-        
         analyser.getByteFrequencyData(dataArray);
         let sum = 0;
         for (let i = 0; i < dataArray.length; i++) {
@@ -101,8 +100,19 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
         setMicVolume(avg);
         
         const speaking = avg > 0.1;
-        if (speaking !== isSpeaking) {
+        if (speaking !== lastSpeakingState) {
+          lastSpeakingState = speaking;
           setIsSpeaking(speaking);
+          
+          // Broadcast speaking state to other participants
+          const channel = supabase.channel(`voice-${gameId}`);
+          channel.track({
+            user_id: user?.id,
+            username: profile?.username || 'Player',
+            avatar: profile?.avatar || '🎮',
+            is_speaking: speaking,
+            is_muted: false,
+          });
         }
         
         requestAnimationFrame(detectVoice);
@@ -114,7 +124,7 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
     } catch (error) {
       console.error('Microphone access denied:', error);
     }
-  }, [isMicEnabled, isSpeaking, onMicToggle]);
+  }, [gameId, user, profile, onMicToggle]);
 
   const stopMicrophone = useCallback(() => {
     if (stream) {
@@ -128,8 +138,21 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
     setIsMicEnabled(false);
     setIsSpeaking(false);
     setMicVolume(0);
+    
+    // Broadcast muted state
+    if (gameId && user) {
+      const channel = supabase.channel(`voice-${gameId}`);
+      channel.track({
+        user_id: user.id,
+        username: profile?.username || 'Player',
+        avatar: profile?.avatar || '🎮',
+        is_speaking: false,
+        is_muted: true,
+      });
+    }
+    
     onMicToggle?.(false);
-  }, [stream, audioContext, onMicToggle]);
+  }, [stream, audioContext, gameId, user, profile, onMicToggle]);
 
   const toggleMic = useCallback(() => {
     if (isMicEnabled) {
@@ -224,27 +247,32 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
               key={participant.user_id}
               className="flex flex-col items-center gap-1"
             >
-              <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all ${
-                  speaking && isSpeakerEnabled
-                    ? 'bg-primary/30 ring-2 ring-primary/50 animate-pulse'
-                    : participant.is_muted && !isMe
-                      ? 'bg-muted/50 opacity-60'
-                      : 'bg-card-elevated'
-                } ${isMe ? 'ring-2 ring-accent/50' : ''}`}
-              >
-                {participant.avatar}
+              <div className="relative">
+                {/* Speaking ring animation */}
+                {speaking && isSpeakerEnabled && (
+                  <div className="absolute inset-0 rounded-full bg-primary/40 animate-ping" />
+                )}
+                <div
+                  className={`relative w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all ${
+                    speaking && isSpeakerEnabled
+                      ? 'bg-primary/30 ring-2 ring-primary shadow-lg shadow-primary/30'
+                      : participant.is_muted && !isMe
+                        ? 'bg-muted/50 opacity-60'
+                        : 'bg-card-elevated'
+                  } ${isMe ? 'ring-2 ring-accent/50' : ''}`}
+                >
+                  {participant.avatar}
+                </div>
+                {/* Small speaking indicator dot */}
+                {speaking && isSpeakerEnabled && (
+                  <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
+                )}
               </div>
               <span className={`text-[9px] truncate max-w-[40px] ${
-                isMe ? 'text-primary font-medium' : 'text-muted-foreground'
+                speaking && isSpeakerEnabled ? 'text-primary font-bold' : isMe ? 'text-primary font-medium' : 'text-muted-foreground'
               }`}>
                 {isMe ? 'You' : participant.username.split(' ')[0]}
               </span>
-              {speaking && isSpeakerEnabled && (
-                <div className="voice-wave scale-50">
-                  <span /><span /><span />
-                </div>
-              )}
             </div>
           );
         })}
