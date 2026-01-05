@@ -74,37 +74,18 @@ export const WalletMain = () => {
         />
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            onClick={() => setDepositOpen(true)}
-            className="card-panel flex flex-col items-center gap-2 py-4 hover:border-primary/40 transition-all"
-          >
-            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-              <Wallet className="w-5 h-5 text-primary" />
-            </div>
-            <span className="font-medium text-foreground text-sm">Deposit</span>
-          </button>
-          
-          <button
-            onClick={() => setWithdrawOpen(true)}
-            className="card-panel flex flex-col items-center gap-2 py-4 hover:border-primary/40 transition-all"
-          >
-            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-              <ArrowUpRight className="w-5 h-5 text-primary" />
-            </div>
-            <span className="font-medium text-foreground text-sm">Withdraw</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/wallet/history')}
-            className="card-panel flex flex-col items-center gap-2 py-4 hover:border-primary/40 transition-all"
-          >
+        <button
+          onClick={() => navigate('/wallet/history')}
+          className="card-panel flex items-center justify-between py-4 hover:border-primary/40 transition-all w-full"
+        >
+          <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
               <Clock className="w-5 h-5 text-muted-foreground" />
             </div>
-            <span className="font-medium text-foreground text-sm">History</span>
-          </button>
-        </div>
+            <span className="font-medium text-foreground">Transaction History</span>
+          </div>
+          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+        </button>
 
         {/* Recent Transactions */}
         <div className="space-y-3">
