@@ -215,19 +215,46 @@ export const useLiveGame = (gameId?: string) => {
       return false;
     }
 
+    const extractInvokeError = (invokeError: any, invokeData: any) => {
+      // Prefer explicit JSON error returned by the function
+      const dataError = invokeData && typeof invokeData === 'object' ? (invokeData as any).error : null;
+      if (typeof dataError === 'string' && dataError.trim()) return dataError;
+
+      const msg = typeof invokeError?.message === 'string' ? invokeError.message : '';
+      if (!msg) return 'Failed to join game';
+
+      // supabase-js often embeds the JSON payload in the message, e.g.
+      // "Edge function returned 400: Error, {\"error\":\"...\"}"
+      const jsonMatch = msg.match(/\{.*\}$/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (typeof parsed?.error === 'string') return parsed.error;
+        } catch {
+          // ignore
+        }
+      }
+
+      return msg;
+    };
+
     try {
-      const response = await supabase.functions.invoke('game-manager', {
+      setError(null);
+      const { data, error: invokeError } = await supabase.functions.invoke('game-manager', {
         body: { action: 'join', gameId: gameToJoin, userId: user.id },
       });
 
-      if (response.error) throw new Error(response.error.message);
-      if (response.data?.error) throw new Error(response.data.error);
+      if (invokeError || (data as any)?.error) {
+        setError(extractInvokeError(invokeError, data));
+        return false;
+      }
 
       setHasJoined(true);
       await refreshProfile();
       return true;
     } catch (err: any) {
-      setError(err.message);
+      // Catch any unexpected client/runtime errors without crashing the UI
+      setError(err?.message || 'Failed to join game');
       return false;
     }
   }, [game, user, refreshProfile]);
