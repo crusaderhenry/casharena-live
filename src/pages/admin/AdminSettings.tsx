@@ -1,4 +1,4 @@
-import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic } from 'lucide-react';
+import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAdmin } from '@/contexts/AdminContext';
@@ -6,7 +6,7 @@ import { AVAILABLE_HOSTS, getHostById } from '@/hooks/useCrusaderHost';
 import { toast } from 'sonner';
 
 export const AdminSettings = () => {
-  const { settings: dbSettings, updateSettings: updateDbSettings, toggleTestMode, isTestMode, selectedHost, loading } = usePlatformSettings();
+  const { settings: dbSettings, updateSettings: updateDbSettings, toggleTestMode, isTestMode, selectedHost, secondaryHost, loading } = usePlatformSettings();
   const { simulateHighTraffic } = useAdmin();
   
   const [localSettings, setLocalSettings] = useState({
@@ -15,6 +15,7 @@ export const AdminSettings = () => {
     testMode: true,
     maintenanceMode: false,
     selectedHost: 'crusader',
+    secondaryHost: null as string | null,
   });
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export const AdminSettings = () => {
         platformCut: dbSettings.platform_cut_percent,
         testMode: dbSettings.test_mode,
         selectedHost: dbSettings.selected_host || 'crusader',
+        secondaryHost: dbSettings.secondary_host || null,
       }));
     }
   }, [dbSettings]);
@@ -34,6 +36,7 @@ export const AdminSettings = () => {
       platform_name: localSettings.platformName,
       platform_cut_percent: localSettings.platformCut,
       selected_host: localSettings.selectedHost,
+      secondary_host: localSettings.secondaryHost,
     });
     
     if (success) {
@@ -146,39 +149,134 @@ export const AdminSettings = () => {
           Choose the AI voice host for live game commentary
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {AVAILABLE_HOSTS.map((host) => {
-            const isSelected = localSettings.selectedHost === host.id;
-            return (
-              <button
-                key={host.id}
-                onClick={() => setLocalSettings(prev => ({ ...prev, selectedHost: host.id }))}
-                className={`p-4 rounded-xl border-2 transition-all text-left ${
-                  isSelected
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border bg-muted/30 hover:border-primary/50'
-                }`}
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-3xl">{host.emoji}</span>
-                  <div>
-                    <p className="font-bold text-foreground">{host.name}</p>
-                    <p className="text-xs text-muted-foreground">{host.description}</p>
+        {/* Primary Host */}
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">1</span>
+            Primary Host
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {AVAILABLE_HOSTS.map((host) => {
+              const isSelected = localSettings.selectedHost === host.id;
+              return (
+                <button
+                  key={host.id}
+                  onClick={() => setLocalSettings(prev => ({ 
+                    ...prev, 
+                    selectedHost: host.id,
+                    // Clear secondary if same as new primary
+                    secondaryHost: prev.secondaryHost === host.id ? null : prev.secondaryHost
+                  }))}
+                  className={`p-4 rounded-xl border-2 transition-all text-left ${
+                    isSelected
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border bg-muted/30 hover:border-primary/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-3xl">{host.emoji}</span>
+                    <div>
+                      <p className="font-bold text-foreground">{host.name}</p>
+                      <p className="text-xs text-muted-foreground">{host.description}</p>
+                    </div>
                   </div>
+                  {isSelected && (
+                    <div className="mt-2 text-xs text-primary font-medium flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                      Primary Host
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Co-Host Selection */}
+        <div className="pt-6 border-t border-border">
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-secondary-foreground" />
+            Co-Host (Optional)
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Add a second host for interactive banter and a live show feel
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* No Co-Host Option */}
+            <button
+              onClick={() => setLocalSettings(prev => ({ ...prev, secondaryHost: null }))}
+              className={`p-4 rounded-xl border-2 transition-all text-left ${
+                !localSettings.secondaryHost
+                  ? 'border-yellow-500 bg-yellow-500/10'
+                  : 'border-border bg-muted/30 hover:border-yellow-500/50'
+              }`}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-3xl">🎙️</span>
+                <div>
+                  <p className="font-bold text-foreground">Solo Host</p>
+                  <p className="text-xs text-muted-foreground">Single host mode</p>
                 </div>
-                {isSelected && (
-                  <div className="mt-2 text-xs text-primary font-medium flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    Currently Active
-                  </div>
-                )}
-              </button>
-            );
-          })}
+              </div>
+              {!localSettings.secondaryHost && (
+                <div className="mt-2 text-xs text-yellow-500 font-medium flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                  Active
+                </div>
+              )}
+            </button>
+            
+            {/* Available Co-Hosts (excluding primary) */}
+            {AVAILABLE_HOSTS
+              .filter(host => host.id !== localSettings.selectedHost)
+              .map((host) => {
+                const isSelected = localSettings.secondaryHost === host.id;
+                return (
+                  <button
+                    key={host.id}
+                    onClick={() => setLocalSettings(prev => ({ ...prev, secondaryHost: host.id }))}
+                    className={`p-4 rounded-xl border-2 transition-all text-left ${
+                      isSelected
+                        ? 'border-green-500 bg-green-500/10'
+                        : 'border-border bg-muted/30 hover:border-green-500/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-3xl">{host.emoji}</span>
+                      <div>
+                        <p className="font-bold text-foreground">{host.name}</p>
+                        <p className="text-xs text-muted-foreground">{host.description}</p>
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <div className="mt-2 text-xs text-green-500 font-medium flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        Co-Host
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+          </div>
+          
+          {localSettings.secondaryHost && (
+            <div className="mt-4 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
+              <p className="text-sm text-green-400 flex items-center gap-2">
+                <span className="text-lg">{getHostById(localSettings.selectedHost).emoji}</span>
+                <span>+</span>
+                <span className="text-lg">{getHostById(localSettings.secondaryHost).emoji}</span>
+                <span className="font-medium">
+                  {getHostById(localSettings.selectedHost).name} & {getHostById(localSettings.secondaryHost).name} will co-host together!
+                </span>
+              </p>
+            </div>
+          )}
         </div>
         
         <p className="text-[10px] text-muted-foreground mt-4">
-          Voice ID: {getHostById(localSettings.selectedHost).voiceId}
+          Primary Voice ID: {getHostById(localSettings.selectedHost).voiceId}
+          {localSettings.secondaryHost && ` | Co-Host Voice ID: ${getHostById(localSettings.secondaryHost).voiceId}`}
         </p>
       </div>
 
