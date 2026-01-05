@@ -120,17 +120,22 @@ export const FingerLobby = () => {
     }
   }, [countdown, game?.status, preferLobby, navigate, isOpen]);
 
-  // Redirect if game is ended or live
+  // Redirect based on game status changes
   useEffect(() => {
     if (game?.status === 'ended') {
       navigate('/finger/results');
       return;
     }
 
-    if (game?.status === 'live' && !preferLobby) {
-      navigate('/finger/arena');
+    // When game transitions from open to live, go to arena
+    if (game?.status === 'live') {
+      // Small delay to show transition
+      const timeout = setTimeout(() => {
+        navigate('/finger/arena');
+      }, 500);
+      return () => clearTimeout(timeout);
     }
-  }, [game?.status, preferLobby, navigate]);
+  }, [game?.status, navigate]);
 
   // Start lobby music
   useEffect(() => {
