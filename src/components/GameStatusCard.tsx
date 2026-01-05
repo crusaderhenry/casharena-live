@@ -59,9 +59,14 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
         const scheduledTime = game.scheduled_at;
         if (scheduledTime) {
           const remaining = getSecondsUntil(scheduledTime);
-          setTimeDisplay({ label: 'Opens In', value: formatDuration(remaining) });
+          if (remaining > 0) {
+            setTimeDisplay({ label: 'Opens In', value: formatDuration(remaining) });
+          } else {
+            setTimeDisplay({ label: 'Opening...', value: '--:--' });
+          }
         } else {
-          setTimeDisplay({ label: 'Coming Soon', value: '--:--' });
+          // No scheduled time - waiting for admin
+          setTimeDisplay({ label: 'Status', value: 'Waiting' });
         }
       }
     };

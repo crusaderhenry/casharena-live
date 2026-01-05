@@ -57,21 +57,27 @@ export const FingerLobby = () => {
   // Use server-synced countdown for open games
   const countdown = lobbyCountdown;
 
-  // Calculate time until game opens (for scheduled games)
+  // Calculate time until game opens (for scheduled games with scheduled_at)
   useEffect(() => {
-    if (!isScheduled || !game?.scheduled_at) {
+    if (!isScheduled) {
       setTimeToOpen(null);
       return;
     }
 
-    const calculateTimeToOpen = () => {
-      const remaining = getSecondsUntil(game.scheduled_at!);
-      setTimeToOpen(remaining);
-    };
+    // If game has a scheduled_at time, use it
+    if (game?.scheduled_at) {
+      const calculateTimeToOpen = () => {
+        const remaining = getSecondsUntil(game.scheduled_at!);
+        setTimeToOpen(remaining);
+      };
 
-    calculateTimeToOpen();
-    const interval = setInterval(calculateTimeToOpen, 1000);
-    return () => clearInterval(interval);
+      calculateTimeToOpen();
+      const interval = setInterval(calculateTimeToOpen, 1000);
+      return () => clearInterval(interval);
+    } else {
+      // For games without scheduled_at (immediate go-live type), show message to wait for admin
+      setTimeToOpen(-1); // Use -1 to indicate "waiting for admin"
+    }
   }, [isScheduled, game?.scheduled_at, getSecondsUntil]);
 
   // Check entry closed state (only for open games)
@@ -236,17 +242,20 @@ export const FingerLobby = () => {
               <div className="flex items-center justify-center gap-2 mb-2">
                 <Calendar className="w-6 h-6 text-yellow-500" />
                 <span className="text-sm text-muted-foreground font-medium">
-                  Opens In
+                  {timeToOpen === -1 ? 'Waiting for Admin' : 'Opens In'}
                 </span>
               </div>
               <p className="timer-display text-yellow-500">
-                {timeToOpen !== null ? formatTime(timeToOpen) : '--:--'}
+                {timeToOpen === -1 ? '⏳' : timeToOpen !== null && timeToOpen > 0 ? formatTime(timeToOpen) : '--:--'}
               </p>
               <p className="text-sm text-muted-foreground mt-2">
                 Entry fee: ₦{game?.entry_fee?.toLocaleString() || 700}
               </p>
               <div className="mt-4 py-3 px-4 rounded-xl bg-muted/30 text-muted-foreground text-sm">
-                ⏳ Join button will activate when entries open
+                {timeToOpen === -1 
+                  ? '🔒 Entries will open once the admin starts this game'
+                  : '⏳ Join button will activate when entries open'
+                }
               </div>
             </div>
           </div>
