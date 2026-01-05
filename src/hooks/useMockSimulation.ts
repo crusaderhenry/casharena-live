@@ -104,7 +104,8 @@ const VOICE_REACTIONS = [
 
 export const useMockSimulation = (
   isEnabled: boolean,
-  gameId?: string
+  gameId?: string,
+  onCommentAdded?: () => void // Callback when a mock comment is added (for timer reset)
 ) => {
   const [mockComments, setMockComments] = useState<MockComment[]>([]);
   const [mockVoiceParticipants, setMockVoiceParticipants] = useState<MockVoiceParticipant[]>([]);
@@ -176,6 +177,11 @@ export const useMockSimulation = (
     const addComment = () => {
       const newComment = generateMockComment();
       setMockComments(prev => [newComment, ...prev].slice(0, 50));
+      
+      // Notify that a comment was added (so timer can reset)
+      if (onCommentAdded) {
+        onCommentAdded();
+      }
       
       // Schedule next comment with random interval (faster when more intense)
       const nextDelay = 1000 + Math.random() * 3000; // 1-4 seconds

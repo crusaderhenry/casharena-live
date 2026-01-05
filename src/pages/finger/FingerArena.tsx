@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { VoiceRoomLive } from '@/components/VoiceRoomLive';
 import { TestControls } from '@/components/TestControls';
@@ -47,7 +47,14 @@ export const FingerArena = () => {
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { toast } = useToast();
   const { gameTimeRemaining, synced } = useServerTime();
-  const { mockComments, triggerCommentBurst } = useMockSimulation(isTestMode, game?.id);
+  
+  // Mock comment callback to reset timer when other players comment
+  const handleMockComment = useCallback(() => {
+    // Reset timer when mock players comment (simulating real game behavior)
+    setTimer(60);
+  }, []);
+  
+  const { mockComments, triggerCommentBurst } = useMockSimulation(isTestMode, game?.id, handleMockComment);
   
   const [timer, setTimer] = useState(60);
   const [gameTime, setGameTime] = useState(20 * 60);
@@ -75,25 +82,83 @@ export const FingerArena = () => {
   const isGameTimeDanger = isEndingSoon || gameTime <= 5 * 60;
   const isTimerUrgent = timer <= 15;
 
-  // Sync with server game state using server-authoritative time
+  // Active comment timer countdown (local for test, synced for live)
   useEffect(() => {
-    if (!game) return;
+    if (isGameOver) return;
     
-    setTimer(game.countdown || 60);
+    // In test mode, run a local countdown timer
+    if (isTestMode) {
+      const interval = setInterval(() => {
+        setTimer(prev => {
+          if (prev <= 1) {
+            // Auto-end game when timer reaches 0 in test mode
+            setIsGameOver(true);
+            setShowFreezeScreen(true);
+            stopBackgroundMusic();
+            play('gameOver');
+            vibrate('success');
+            crusader.announceGameOver();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+    
+    // In live mode, sync with server
+    if (game?.countdown !== undefined) {
+      setTimer(game.countdown);
+    }
+  }, [isTestMode, game?.countdown, isGameOver, stopBackgroundMusic, play, vibrate, crusader]);
+
+  // Active game time countdown (local for test, server-synced for live)
+  useEffect(() => {
+    if (isGameOver) return;
+    
+    // In test mode, run a local game timer
+    if (isTestMode) {
+      const interval = setInterval(() => {
+        setGameTime(prev => {
+          if (prev <= 1) {
+            setIsGameOver(true);
+            setShowFreezeScreen(true);
+            stopBackgroundMusic();
+            play('gameOver');
+            return 0;
+          }
+          const inDangerZone = prev <= 300 && prev > 0;
+          setIsEndingSoon(inDangerZone);
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+    
+    // In live mode, use server time
+    if (!game?.start_time) return;
     
     const updateGameTime = () => {
-      if (game.start_time) {
-        const remaining = gameTimeRemaining(game.start_time, game.max_duration);
-        setGameTime(remaining);
-        const inDangerZone = remaining <= 300 && remaining > 0;
-        setIsEndingSoon(inDangerZone);
+      const remaining = gameTimeRemaining(game.start_time, game.max_duration);
+      setGameTime(remaining);
+      const inDangerZone = remaining <= 300 && remaining > 0;
+      setIsEndingSoon(inDangerZone);
+      
+      // Auto-end when game time runs out
+      if (remaining <= 0 && !isGameOver) {
+        setIsGameOver(true);
+        setShowFreezeScreen(true);
+        stopBackgroundMusic();
+        play('gameOver');
+        vibrate('success');
+        crusader.announceGameOver();
       }
     };
     
     updateGameTime();
     const interval = setInterval(updateGameTime, 1000);
     return () => clearInterval(interval);
-  }, [game?.countdown, game?.start_time, game?.max_duration, synced, gameTimeRemaining]);
+  }, [isTestMode, game?.start_time, game?.max_duration, isGameOver, synced, gameTimeRemaining, stopBackgroundMusic, play, vibrate, crusader]);
 
   // Update Crusader with game state
   useEffect(() => {
@@ -259,6 +324,18 @@ export const FingerArena = () => {
     if (!inputValue.trim() || isGameOver || isSpectator || sending) return;
 
     setSending(true);
+    
+    // In test mode, simulate successful comment and reset timer
+    if (isTestMode) {
+      setTimer(60); // Reset timer like in real game
+      setInputValue('');
+      showSystemMessage("⏱️ Timer reset - You're leading!");
+      play('send');
+      buttonClick();
+      setSending(false);
+      return;
+    }
+    
     const success = await sendComment(inputValue.trim());
     
     if (success) {
