@@ -396,7 +396,7 @@ export const FingerLobby = () => {
                       <span className="text-xs opacity-80">{gameJoinStatus.reason}</span>
                     )}
                   </div>
-                ) : (
+                ) : gameJoinStatus.canJoin ? (
                   <div className="space-y-2">
                     <button
                       onClick={handleJoinGame}
@@ -417,6 +417,23 @@ export const FingerLobby = () => {
                         </>
                       )}
                     </button>
+                    <button
+                      onClick={() => setIsSpectator(true)}
+                      className="w-full py-3 rounded-xl font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-orange-500/10 border border-orange-500/30 text-orange-400"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Watch as Spectator
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2 py-2 text-destructive">
+                      <Lock className="w-4 h-4" />
+                      <span className="font-bold text-sm">Entries Closed</span>
+                    </div>
+                    {gameJoinStatus.reason && (
+                      <span className="text-xs text-muted-foreground text-center block">{gameJoinStatus.reason}</span>
+                    )}
                     <button
                       onClick={() => setIsSpectator(true)}
                       className="w-full py-3 rounded-xl font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-orange-500/10 border border-orange-500/30 text-orange-400"

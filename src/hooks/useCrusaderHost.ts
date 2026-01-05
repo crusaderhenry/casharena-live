@@ -588,8 +588,25 @@ export const useCrusaderHost = () => {
     chatIntensity: 'low',
   });
 
+  // Stop all audio immediately when host is muted
   useEffect(() => {
     enabledRef.current = settings.commentaryEnabled && isEnabled && !settings.hostMuted;
+    
+    // If muted, stop all queued and playing audio
+    if (settings.hostMuted) {
+      audioQueueRef.current.forEach(audio => {
+        audio.pause();
+        audio.src = '';
+      });
+      audioQueueRef.current = [];
+      isPlayingRef.current = false;
+      setIsSpeaking(false);
+      
+      // Also stop Web Speech API if active
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
   }, [settings.commentaryEnabled, settings.hostMuted, isEnabled]);
 
   // Calculate chat intensity based on comment velocity
@@ -711,7 +728,8 @@ export const useCrusaderHost = () => {
 
   // Generate TTS using ElevenLabs with the selected host's voice
   const speak = useCallback(async (text: string) => {
-    if (!enabledRef.current) return;
+    // Check muted state before speaking
+    if (!enabledRef.current || settings.hostMuted) return;
     
     const now = Date.now();
     if (now - lastAnnouncementRef.current < minIntervalRef.current) return;
@@ -727,19 +745,19 @@ export const useCrusaderHost = () => {
 
       if (error) {
         console.error('TTS error:', error);
-        fallbackSpeak(text);
+        if (!settings.hostMuted) fallbackSpeak(text);
         return;
       }
 
-      if (data?.audioContent) {
+      if (data?.audioContent && !settings.hostMuted) {
         const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
         queueAudio(audioUrl);
       }
     } catch (err) {
       console.error('TTS request failed:', err);
-      fallbackSpeak(text);
+      if (!settings.hostMuted) fallbackSpeak(text);
     }
-  }, [queueAudio, currentHost]);
+  }, [queueAudio, currentHost, settings.hostMuted]);
 
   // Fallback to Web Speech API
   const fallbackSpeak = useCallback((text: string) => {
