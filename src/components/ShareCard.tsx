@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Share2, MessageCircle, Download, Copy, Check, Loader2, Instagram } from 'lucide-react';
+import { Share2, MessageCircle, Download, Copy, Check, Loader2, Instagram, Facebook } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { useToast } from '@/hooks/use-toast';
 
@@ -182,6 +182,14 @@ export const ShareCard = ({ username, avatar, position, amount, gameType }: Shar
       title: 'Story Image Saved!', 
       description: 'Open Instagram and share to your story' 
     });
+  };
+
+  // Share to Facebook
+  const handleFacebook = async () => {
+    await handleDownload(); // Download image first for manual attachment
+    const appUrl = window.location.origin;
+    const facebookShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(appUrl)}&quote=${encodeURIComponent(shareMessage)}`;
+    window.open(facebookShareUrl, '_blank', 'width=600,height=400');
   };
 
   return (
@@ -376,32 +384,41 @@ export const ShareCard = ({ username, avatar, position, amount, gameType }: Shar
       </div>
 
       {/* Social Platform Buttons */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-2">
         <button
           onClick={handleWhatsApp}
           disabled={isCapturing}
-          className="py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+          className="py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50"
         >
           <MessageCircle className="w-5 h-5" />
-          WhatsApp
+          <span className="text-xs">WhatsApp</span>
         </button>
         <button
           onClick={handleInstagramStory}
           disabled={isCapturing}
-          className="py-3 rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+          className="py-3 rounded-xl text-white font-semibold flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50"
           style={{
             background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
           }}
         >
           <Instagram className="w-5 h-5" />
-          Story
+          <span className="text-xs">Story</span>
+        </button>
+        <button
+          onClick={handleFacebook}
+          disabled={isCapturing}
+          className="py-3 rounded-xl bg-[#1877F2] hover:bg-[#166FE5] text-white font-semibold flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50"
+        >
+          <Facebook className="w-5 h-5" />
+          <span className="text-xs">Facebook</span>
         </button>
         <button
           onClick={handleTwitter}
           disabled={isCapturing}
-          className="py-3 rounded-xl bg-black hover:bg-gray-900 text-white font-semibold flex items-center justify-center gap-2 transition-all border border-gray-700 disabled:opacity-50"
+          className="py-3 rounded-xl bg-black hover:bg-gray-900 text-white font-semibold flex flex-col items-center justify-center gap-1 transition-all border border-gray-700 disabled:opacity-50"
         >
-          𝕏
+          <span className="text-lg">𝕏</span>
+          <span className="text-xs">Twitter</span>
         </button>
       </div>
     </div>
