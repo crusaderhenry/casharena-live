@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
+  ShieldAlert,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,7 @@ const navItems = [
   { label: 'Finger Control', icon: Zap, path: '/admin/finger-control' },
   { label: 'Live Monitor', icon: Monitor, path: '/admin/live-monitor' },
   { label: 'Users', icon: Users, path: '/admin/users' },
+  { label: 'Role Management', icon: ShieldAlert, path: '/admin/roles' },
   { label: 'Wallet & Payouts', icon: Wallet, path: '/admin/wallet' },
   { label: 'Rank & Rewards', icon: Trophy, path: '/admin/rank' },
   { label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
