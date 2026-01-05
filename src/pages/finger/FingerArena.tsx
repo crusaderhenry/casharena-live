@@ -15,7 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useServerTime } from '@/hooks/useServerTime';
 import { useMockSimulation } from '@/hooks/useMockSimulation';
 import { useCountdownTicker } from '@/hooks/useCountdownTicker';
-import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, AlertTriangle, Zap, Trophy, Radio, Timer, Flame, Eye } from 'lucide-react';
+import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, AlertTriangle, Zap, Trophy, Radio, Timer, Flame, Eye, Loader2, RotateCcw, Home } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -87,11 +88,15 @@ export const FingerArena = () => {
   const [audienceMuted, setAudienceMuted] = useState(false);
   const [sending, setSending] = useState(false);
   const [showMicCheck, setShowMicCheck] = useState(false);
+  const [finalizationTimer, setFinalizationTimer] = useState(0);
+  const [finalizationPhase, setFinalizationPhase] = useState<'calculating' | 'retrying' | 'stuck'>('calculating');
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const chatRef = useRef<HTMLDivElement>(null);
   const hasAnnouncedStart = useRef(false);
   const hasNavigatedToResults = useRef(false);
   const hasStartedAudio = useRef(false);
   const lastHypeRef = useRef(0);
+  const finalizationStarted = useRef(false);
 
   const currentUsername = profile?.username || userProfile.username;
   const currentAvatar = profile?.avatar || userProfile.avatar;
@@ -220,9 +225,85 @@ export const FingerArena = () => {
     }
   }, [game?.status, topThree, game?.pool_value]);
 
-  // Navigate to results when the game is ended (even if winners insert is delayed)
+  // Calculate estimated prizes
+  const estimatedPrizes = useMemo(() => {
+    const pool = poolValue || game?.pool_value || 0;
+    const platformCut = Math.floor(pool * 0.1);
+    const prizePool = pool - platformCut;
+    const distribution = game?.payout_distribution || [0.45, 0.30, 0.15];
+    return distribution.map((pct: number) => Math.floor(prizePool * pct));
+  }, [poolValue, game?.pool_value, game?.payout_distribution]);
+
+  // Finalization timer when countdown hits 0 but game is still live
   useEffect(() => {
-    if (!isGameOver) return;
+    const isLiveAndCountdownZero = (game?.countdown === 0 || timer === 0) && game?.status === 'live';
+    
+    if (isLiveAndCountdownZero && !finalizationStarted.current) {
+      finalizationStarted.current = true;
+      setShowFreezeScreen(true);
+      setIsGameOver(true);
+      stopBackgroundMusic();
+      play('gameOver');
+      vibrate('success');
+    }
+    
+    // If game becomes ended, stop finalization and navigate
+    if (game?.status === 'ended') {
+      finalizationStarted.current = false;
+    }
+  }, [game?.countdown, game?.status, timer]);
+
+  // Finalization timeout & retry logic
+  useEffect(() => {
+    if (!showFreezeScreen) return;
+    if (game?.status === 'ended') return; // Already done
+    if (isTestMode) return; // Skip in test mode
+    
+    const interval = setInterval(() => {
+      setFinalizationTimer(prev => {
+        const next = prev + 1;
+        
+        // Phase transitions
+        if (next === 10 && finalizationPhase === 'calculating') {
+          setFinalizationPhase('retrying');
+          setRetryAttempt(1);
+          retryEndGame();
+        } else if (next === 20 && finalizationPhase === 'retrying') {
+          setFinalizationPhase('stuck');
+          setRetryAttempt(2);
+        }
+        
+        return next;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [showFreezeScreen, game?.status, isTestMode, finalizationPhase]);
+
+  // Manual retry function
+  const retryEndGame = async () => {
+    if (!game?.id) return;
+    
+    try {
+      await supabase.functions.invoke('game-timer', {
+        body: { action: 'tick', gameId: game.id }
+      });
+      toast({ 
+        title: 'Retrying...', 
+        description: 'Attempting to finalize results' 
+      });
+    } catch (error) {
+      console.error('Retry failed:', error);
+      toast({ 
+        title: 'Retry failed', 
+        description: 'Please try force end or return home',
+        variant: 'destructive' 
+      });
+    }
+  };
+
+  // Navigate to results when the game is ended
+  useEffect(() => {
     if (game?.status !== 'ended') return;
     if (hasNavigatedToResults.current) return;
 
@@ -246,10 +327,10 @@ export const FingerArena = () => {
           position: userPosition,
         },
       });
-    }, 2500);
+    }, 1500);
 
     return () => clearTimeout(timeout);
-  }, [winners, isGameOver, game?.status, navigate, user?.id, game?.pool_value, topThree]);
+  }, [winners, game?.status, navigate, user?.id, game?.pool_value, topThree]);
 
   // Combine real and mock comments based on test mode
   const displayComments = useMemo(() => {
@@ -506,18 +587,23 @@ export const FingerArena = () => {
     );
   }
 
-  // Freeze Screen
+  // Freeze Screen with Finalization States
   if (showFreezeScreen) {
+    const isFinalized = game?.status === 'ended';
+    const userIsTop3 = topThree.findIndex(t => t.name === currentUsername);
+    
     return (
       <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex flex-col items-center justify-center p-6">
         <div className="text-center mb-8">
           <div className="text-6xl mb-4 animate-bounce-in">🏆</div>
           <h1 className="text-3xl font-black text-foreground mb-2">GAME OVER!</h1>
-          <p className="text-muted-foreground">Winners determined!</p>
+          <p className="text-muted-foreground">
+            {isFinalized ? 'Winners confirmed!' : 'Determining winners...'}
+          </p>
         </div>
 
         {/* Podium Display */}
-        <div className="flex items-end justify-center gap-4 mb-8 w-full max-w-sm">
+        <div className="flex items-end justify-center gap-4 mb-6 w-full max-w-sm">
           {/* 2nd Place */}
           <div className="flex flex-col items-center flex-1">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-silver/30 to-silver/10 flex items-center justify-center text-2xl border-2 border-silver/50 mb-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
@@ -526,6 +612,9 @@ export const FingerArena = () => {
             <div className="bg-gradient-to-t from-silver/20 to-silver/10 rounded-t-xl w-full py-4 text-center border border-silver/30" style={{ height: '70px' }}>
               <p className="font-bold text-sm text-foreground truncate px-2">{topThree[1]?.name || '—'}</p>
               <p className="text-xs text-silver font-bold">2nd</p>
+              {estimatedPrizes[1] > 0 && (
+                <p className="text-[10px] text-muted-foreground">₦{estimatedPrizes[1].toLocaleString()}</p>
+              )}
             </div>
           </div>
 
@@ -538,6 +627,9 @@ export const FingerArena = () => {
             <div className="bg-gradient-to-t from-gold/20 to-gold/10 rounded-t-xl w-full py-6 text-center border border-gold/30" style={{ height: '100px' }}>
               <p className="font-bold text-foreground truncate px-2">{topThree[0]?.name || '—'}</p>
               <p className="text-sm font-black text-gold">1st</p>
+              {estimatedPrizes[0] > 0 && (
+                <p className="text-xs text-gold font-bold">₦{estimatedPrizes[0].toLocaleString()}</p>
+              )}
             </div>
           </div>
 
@@ -549,14 +641,99 @@ export const FingerArena = () => {
             <div className="bg-gradient-to-t from-bronze/20 to-bronze/10 rounded-t-xl w-full py-3 text-center border border-bronze/30" style={{ height: '55px' }}>
               <p className="font-bold text-sm text-foreground truncate px-2">{topThree[2]?.name || '—'}</p>
               <p className="text-xs text-bronze font-bold">3rd</p>
+              {estimatedPrizes[2] > 0 && (
+                <p className="text-[10px] text-muted-foreground">₦{estimatedPrizes[2].toLocaleString()}</p>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-muted-foreground animate-pulse">
-          <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <span className="text-sm">Calculating prizes...</span>
-        </div>
+        {/* Prize Preview for User */}
+        {userIsTop3 >= 0 && userIsTop3 < 3 && (
+          <div className="mb-6 bg-primary/10 border border-primary/30 rounded-xl px-6 py-3 text-center animate-fade-in">
+            <p className="text-sm text-primary font-bold">🎉 You're in the top 3!</p>
+            <p className="text-lg font-black text-foreground">
+              Estimated Prize: ₦{estimatedPrizes[userIsTop3]?.toLocaleString() || '—'}
+            </p>
+          </div>
+        )}
+
+        {/* Finalization Status */}
+        {!isFinalized ? (
+          <div className="text-center space-y-4">
+            {/* Phase 1: Calculating (0-10s) */}
+            {finalizationPhase === 'calculating' && (
+              <div className="flex flex-col items-center gap-2 animate-fade-in">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-sm font-medium">Finalizing results...</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <p className="text-xs text-muted-foreground">Usually takes 3-5 seconds</p>
+              </div>
+            )}
+
+            {/* Phase 2: Retrying (10-20s) */}
+            {finalizationPhase === 'retrying' && (
+              <div className="flex flex-col items-center gap-3 animate-fade-in">
+                <div className="flex items-center gap-2 text-orange-400">
+                  <RotateCcw className="w-5 h-5 animate-spin" />
+                  <span className="text-sm font-medium">Taking longer than expected...</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Retry attempt {retryAttempt} of 2
+                </p>
+                <div className="w-32 h-1 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-orange-400 transition-all duration-1000"
+                    style={{ width: `${Math.min((finalizationTimer - 10) * 10, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Phase 3: Stuck (20s+) */}
+            {finalizationPhase === 'stuck' && (
+              <div className="flex flex-col items-center gap-4 animate-fade-in">
+                <div className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="w-5 h-5" />
+                  <span className="text-sm font-medium">Results delayed</span>
+                </div>
+                <p className="text-xs text-muted-foreground max-w-[250px]">
+                  The backend is taking longer than usual. You can try forcing the end or return home.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={retryEndGame}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-all"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Force End
+                  </button>
+                  <button
+                    onClick={() => navigate('/home')}
+                    className="flex items-center gap-2 px-4 py-2 bg-muted text-muted-foreground rounded-xl text-sm font-medium hover:bg-muted/80 transition-all"
+                  >
+                    <Home className="w-4 h-4" />
+                    Return Home
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Game ID: {game?.id?.slice(0, 8)}...
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-primary animate-fade-in">
+            <Trophy className="w-5 h-5" />
+            <span className="text-sm font-medium">Redirecting to results...</span>
+          </div>
+        )}
       </div>
     );
   }
