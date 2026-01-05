@@ -88,8 +88,8 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
     if ((e.target as HTMLElement).closest('[data-pool-sheet]')) return;
     play('click');
     buttonClick();
-    // Navigate to finger main to select/join the game properly
-    navigate('/finger');
+    // Route to lobby with game ID - for all game statuses
+    navigate('/finger/lobby', { state: { gameId: game.id } });
   };
 
   const formatMoney = (amount: number) => {

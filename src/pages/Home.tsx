@@ -4,9 +4,10 @@ import { BottomNav } from '@/components/BottomNav';
 import { TestModeToggle } from '@/components/TestControls';
 import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutorial';
 import { GameStatusCard } from '@/components/GameStatusCard';
+import { WinnerStories } from '@/components/WinnerStories';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
-import { Zap, Trophy, ChevronRight, Flame, Bell, TrendingUp, Calendar, Sparkles, Crown, Radio, Play } from 'lucide-react';
+import { Zap, Trophy, ChevronRight, Flame, Bell, TrendingUp, Calendar, Sparkles, Crown, Radio, Play, Swords } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
@@ -268,41 +269,8 @@ export const Home = () => {
           </div>
         </div>
 
-        {/* Recent Winners */}
-        {displayActivity.length > 0 && (
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <Flame className="w-4 h-4 text-orange-400" />
-                Recent Winners
-              </h3>
-            </div>
-            
-            <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-              {displayActivity.slice(0, 5).map((activity, index) => (
-                <div key={activity.id} className="flex-shrink-0 flex flex-col items-center gap-2 w-[72px]">
-                  <div className="relative">
-                    <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br flex items-center justify-center text-2xl border-2 ${
-                      index === 0 ? 'from-gold/30 to-gold/10 border-gold/50' :
-                      index === 1 ? 'from-silver/30 to-silver/10 border-silver/50' :
-                      index === 2 ? 'from-bronze/30 to-bronze/10 border-bronze/50' :
-                      'from-card to-muted border-border'
-                    }`}>
-                      {activity.playerAvatar}
-                    </div>
-                    <span className="absolute -bottom-1 -right-1 text-base">
-                      {activity.position === 1 ? '🥇' : activity.position === 2 ? '🥈' : '🥉'}
-                    </span>
-                  </div>
-                  <div className="text-center w-full">
-                    <p className="text-xs font-medium text-foreground truncate">{activity.playerName}</p>
-                    <p className="text-xs font-bold text-gold">+{formatMoney(activity.amount || 0)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Winner Stories - Instagram style */}
+        <WinnerStories winners={displayActivity} />
 
         {/* Featured Live Game */}
         {featuredLive.length > 0 && (
