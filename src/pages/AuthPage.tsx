@@ -101,7 +101,7 @@ export const AuthPage = () => {
         <h1 className="text-3xl font-black text-foreground">
           <span className="text-primary">Fortunes</span>HQ
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">The Fastest Finger Arena</p>
+        <p className="text-sm text-muted-foreground mt-1">Share the pool or Take it all</p>
       </div>
 
       {/* Auth Form */}
@@ -209,7 +209,7 @@ export const AuthPage = () => {
         {/* Promo text */}
         <div className="mt-6 text-center">
           <p className="text-sm text-muted-foreground">
-            🎮 Entry: ₦700 | 🏆 Top 3 Win | ⚡ Live Games
+            💰 Real Money | 👥 Real Players | 🎙️ Live Show
           </p>
         </div>
       </div>
