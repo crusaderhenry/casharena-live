@@ -618,6 +618,14 @@ export type Database = {
         Args: { p_game_id: string; p_user_id: string }
         Returns: Json
       }
+      tick_game_countdowns: {
+        Args: never
+        Returns: {
+          game_ended: boolean
+          game_id: string
+          new_countdown: number
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
