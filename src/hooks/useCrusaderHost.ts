@@ -42,6 +42,13 @@ export const AVAILABLE_HOSTS: HostConfig[] = [
     emoji: '🎤',
     description: 'Smooth and confident host',
   },
+  {
+    id: 'esther',
+    name: 'Esther',
+    voiceId: 'oC2pCZZWEDRe6lmZpaaw',
+    emoji: '💃',
+    description: 'Nigerian pidgin queen, vibrant female energy',
+  },
 ];
 
 // Get host by ID
