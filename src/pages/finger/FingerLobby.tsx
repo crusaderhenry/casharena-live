@@ -396,25 +396,34 @@ export const FingerLobby = () => {
                     )}
                   </div>
                 ) : (
-                  <button
-                    onClick={handleJoinGame}
-                    disabled={!canAfford || joining}
-                    className="w-full mt-4 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
-                  >
-                    {game?.is_sponsored ? (
-                      <>
-                        <Gift className="w-5 h-5" />
-                        {joining ? 'Joining...' : 'Join FREE Game'}
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="w-5 h-5" />
-                        {joining ? 'Joining...' : 
-                         !canAfford ? `Need ₦${(entryFee - balance).toLocaleString()} more` : 
-                         `Join Game — ₦${entryFee.toLocaleString()}`}
-                      </>
-                    )}
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={handleJoinGame}
+                      disabled={!canAfford || joining}
+                      className="w-full mt-4 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                    >
+                      {game?.is_sponsored ? (
+                        <>
+                          <Gift className="w-5 h-5" />
+                          {joining ? 'Joining...' : 'Join FREE Game'}
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-5 h-5" />
+                          {joining ? 'Joining...' : 
+                           !canAfford ? `Need ₦${(entryFee - balance).toLocaleString()} more` : 
+                           `Join Game — ₦${entryFee.toLocaleString()}`}
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setIsSpectator(true)}
+                      className="w-full py-3 rounded-xl font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-orange-500/10 border border-orange-500/30 text-orange-400"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Watch as Spectator
+                    </button>
+                  </div>
                 )}
                 
                 {/* Error message */}
