@@ -16,27 +16,35 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { action, gameId, userId, entryFee, maxDuration } = await req.json();
-    console.log(`Game action: ${action}`, { gameId, userId });
+    const body = await req.json();
+    const { action, gameId, userId, config } = body;
+    console.log(`Game action: ${action}`, { gameId, userId, config });
 
     switch (action) {
-      case 'create': {
-        // Create a new scheduled game
+      case 'create_game': {
+        // Create a new scheduled game with optional custom config
+        const gameConfig = config || {};
+        
         const { data: game, error } = await supabase
           .from('fastest_finger_games')
           .insert({
             status: 'scheduled',
-            entry_fee: entryFee || 700,
-            max_duration: maxDuration || 20,
+            name: gameConfig.name || 'Fastest Finger',
+            entry_fee: gameConfig.entry_fee || 700,
+            max_duration: gameConfig.max_duration || 20,
             pool_value: 0,
             participant_count: 0,
-            countdown: 60,
+            countdown: gameConfig.countdown || 60,
+            comment_timer: gameConfig.comment_timer || 60,
+            payout_type: gameConfig.payout_type || 'top3',
+            payout_distribution: gameConfig.payout_distribution || [0.5, 0.3, 0.2],
+            min_participants: gameConfig.min_participants || 3,
           })
           .select()
           .single();
 
         if (error) throw error;
-        console.log('Game created:', game.id);
+        console.log('Game created:', game.id, game.name);
         return new Response(JSON.stringify({ success: true, game }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -96,7 +104,7 @@ serve(async (req) => {
           user_id: userId,
           type: 'entry',
           amount: -game.entry_fee,
-          description: 'Fastest Finger Entry',
+          description: `${(game as any).name || 'Fastest Finger'} Entry`,
           game_id: gameId,
         });
 
@@ -122,15 +130,23 @@ serve(async (req) => {
         });
       }
 
-      case 'start': {
+      case 'start_game': {
         if (!gameId) throw new Error('Missing gameId');
+
+        const { data: game } = await supabase
+          .from('fastest_finger_games')
+          .select('*')
+          .eq('id', gameId)
+          .single();
+
+        const commentTimer = (game as any)?.comment_timer || 60;
 
         const { error } = await supabase
           .from('fastest_finger_games')
           .update({
             status: 'live',
             start_time: new Date().toISOString(),
-            countdown: 60,
+            countdown: commentTimer,
           })
           .eq('id', gameId);
 
@@ -141,7 +157,7 @@ serve(async (req) => {
         });
       }
 
-      case 'end': {
+      case 'end_game': {
         if (!gameId) throw new Error('Missing gameId');
 
         // Get game
@@ -153,83 +169,97 @@ serve(async (req) => {
 
         if (gameError || !game) throw new Error('Game not found');
 
-        // Get last 3 commenters (winners)
+        // Get payout configuration
+        const payoutType = (game as any).payout_type || 'top3';
+        const payoutDistribution: number[] = (game as any).payout_distribution || [0.5, 0.3, 0.2];
+        const winnerCount = payoutDistribution.length;
+
+        // Get last N commenters (winners based on payout type)
         const { data: lastComments, error: commentsError } = await supabase
           .from('comments')
-          .select('user_id, created_at, profiles!inner(id, username, avatar)')
+          .select('user_id, created_at')
           .eq('game_id', gameId)
           .order('created_at', { ascending: false })
-          .limit(3);
+          .limit(winnerCount);
 
         if (commentsError) throw commentsError;
+
+        // Get unique winners (in case same person commented multiple times)
+        const uniqueWinnerIds: string[] = [];
+        for (const comment of lastComments || []) {
+          if (!uniqueWinnerIds.includes(comment.user_id)) {
+            uniqueWinnerIds.push(comment.user_id);
+          }
+          if (uniqueWinnerIds.length >= winnerCount) break;
+        }
+
+        // Fetch winner profiles
+        const { data: winnerProfiles } = await supabase
+          .from('profiles')
+          .select('id, username, avatar, wallet_balance, rank_points, total_wins')
+          .in('id', uniqueWinnerIds);
+
+        const profileMap = new Map(winnerProfiles?.map(p => [p.id, p]) || []);
 
         // Calculate payouts (90% of pool, 10% platform cut)
         const netPool = Math.floor(game.pool_value * 0.9);
         const platformCut = game.pool_value - netPool;
-        const prizes = [
-          Math.floor(netPool * 0.5), // 1st: 50%
-          Math.floor(netPool * 0.3), // 2nd: 30%
-          Math.floor(netPool * 0.2), // 3rd: 20%
-        ];
+        
+        // Calculate prizes based on distribution
+        const prizes = payoutDistribution.map(pct => Math.floor(netPool * pct));
 
         const winners: any[] = [];
 
         // Process winners
-        for (let i = 0; i < Math.min(lastComments?.length || 0, 3); i++) {
-          const comment = lastComments![i];
+        for (let i = 0; i < uniqueWinnerIds.length; i++) {
+          const winnerId = uniqueWinnerIds[i];
           const position = i + 1;
-          const prize = prizes[i];
+          const prize = prizes[i] || 0;
+          const profile = profileMap.get(winnerId);
+
+          if (!profile) continue;
 
           // Record winner
           await supabase.from('winners').insert({
             game_id: gameId,
-            user_id: comment.user_id,
+            user_id: winnerId,
             position,
             amount_won: prize,
           });
 
-          // Credit winner's wallet
-          const { data: profile } = await supabase
+          // Award rank points based on position
+          const rankPoints = position === 1 ? 100 : position === 2 ? 60 : position === 3 ? 30 : 10;
+
+          await supabase
             .from('profiles')
-            .select('wallet_balance, rank_points, total_wins')
-            .eq('id', comment.user_id)
-            .single();
+            .update({
+              wallet_balance: profile.wallet_balance + prize,
+              rank_points: profile.rank_points + rankPoints,
+              total_wins: profile.total_wins + 1,
+            })
+            .eq('id', winnerId);
 
-          if (profile) {
-            // Award rank points based on position
-            const rankPoints = position === 1 ? 100 : position === 2 ? 60 : 30;
+          // Record win transaction
+          await supabase.from('wallet_transactions').insert({
+            user_id: winnerId,
+            type: 'win',
+            amount: prize,
+            description: `${(game as any).name || 'Fastest Finger'} - Position ${position}`,
+            game_id: gameId,
+          });
 
-            await supabase
-              .from('profiles')
-              .update({
-                wallet_balance: profile.wallet_balance + prize,
-                rank_points: profile.rank_points + rankPoints,
-                total_wins: profile.total_wins + 1,
-              })
-              .eq('id', comment.user_id);
-
-            // Record win transaction
-            await supabase.from('wallet_transactions').insert({
-              user_id: comment.user_id,
-              type: 'win',
-              amount: prize,
-              description: `Fastest Finger ${position === 1 ? '1st' : position === 2 ? '2nd' : '3rd'} Place`,
-              game_id: gameId,
-            });
-
-            // Record rank points
-            await supabase.from('rank_history').insert({
-              user_id: comment.user_id,
-              points: rankPoints,
-              reason: `Top ${position} finish`,
-              game_id: gameId,
-            });
-          }
+          // Record rank points
+          await supabase.from('rank_history').insert({
+            user_id: winnerId,
+            points: rankPoints,
+            reason: `Position ${position} finish`,
+            game_id: gameId,
+          });
 
           winners.push({
-            user_id: comment.user_id,
-            username: (comment.profiles as any).username,
-            avatar: (comment.profiles as any).avatar,
+            user_id: winnerId,
+            username: profile.username,
+            avatar: profile.avatar,
             position,
             amount_won: prize,
           });
@@ -275,7 +305,7 @@ serve(async (req) => {
 
       case 'update_countdown': {
         if (!gameId) throw new Error('Missing gameId');
-        const { countdown } = await req.json();
+        const { countdown } = body;
 
         await supabase
           .from('fastest_finger_games')
@@ -298,6 +328,25 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
+      // Legacy action names for backward compatibility
+      case 'create':
+        return new Response(JSON.stringify({ error: 'Use create_game action' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      case 'start':
+        return new Response(JSON.stringify({ error: 'Use start_game action' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      case 'end':
+        return new Response(JSON.stringify({ error: 'Use end_game action' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
 
       default:
         throw new Error(`Unknown action: ${action}`);

@@ -5,14 +5,19 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface Game {
   id: string;
+  name: string;
   status: 'scheduled' | 'live' | 'ended';
   entry_fee: number;
   pool_value: number;
   participant_count: number;
   countdown: number;
+  comment_timer: number;
   start_time: string | null;
   end_time: string | null;
   max_duration: number;
+  payout_type: 'winner_takes_all' | 'top3' | 'top5' | 'top10';
+  payout_distribution: number[];
+  min_participants: number;
   created_at: string;
 }
 
@@ -74,7 +79,41 @@ export const useLiveGame = (gameId?: string) => {
       console.error('Error fetching game:', error);
       return null;
     }
-    return data as Game | null;
+    
+    if (data) {
+      return {
+        ...data,
+        name: (data as any).name || 'Fastest Finger',
+        comment_timer: (data as any).comment_timer || 60,
+        payout_type: (data as any).payout_type || 'top3',
+        payout_distribution: (data as any).payout_distribution || [0.5, 0.3, 0.2],
+        min_participants: (data as any).min_participants || 3,
+      } as Game;
+    }
+    return null;
+  }, []);
+
+  // Fetch all active games (for game selection)
+  const fetchAllActiveGames = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('fastest_finger_games')
+      .select('*')
+      .in('status', ['scheduled', 'live'])
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching games:', error);
+      return [];
+    }
+    
+    return (data || []).map(g => ({
+      ...g,
+      name: (g as any).name || 'Fastest Finger',
+      comment_timer: (g as any).comment_timer || 60,
+      payout_type: (g as any).payout_type || 'top3',
+      payout_distribution: (g as any).payout_distribution || [0.5, 0.3, 0.2],
+      min_participants: (g as any).min_participants || 3,
+    })) as Game[];
   }, []);
 
   // Fetch specific game
@@ -89,17 +128,22 @@ export const useLiveGame = (gameId?: string) => {
       console.error('Error fetching game:', error);
       return null;
     }
-    return data as Game;
+    
+    return {
+      ...data,
+      name: (data as any).name || 'Fastest Finger',
+      comment_timer: (data as any).comment_timer || 60,
+      payout_type: (data as any).payout_type || 'top3',
+      payout_distribution: (data as any).payout_distribution || [0.5, 0.3, 0.2],
+      min_participants: (data as any).min_participants || 3,
+    } as Game;
   }, []);
 
   // Fetch comments for a game
   const fetchComments = useCallback(async (id: string) => {
     const { data, error } = await supabase
       .from('comments')
-      .select(`
-        *,
-        profile:profiles!user_id(username, avatar)
-      `)
+      .select('*')
       .eq('game_id', id)
       .order('created_at', { ascending: false })
       .limit(100);
@@ -109,9 +153,18 @@ export const useLiveGame = (gameId?: string) => {
       return [];
     }
 
-    return (data || []).map((c: any) => ({
+    // Fetch profiles
+    const userIds = [...new Set((data || []).map(c => c.user_id))];
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, avatar')
+      .in('id', userIds);
+
+    const profileMap = new Map(profiles?.map(p => [p.id, { username: p.username, avatar: p.avatar }]) || []);
+
+    return (data || []).map(c => ({
       ...c,
-      profile: c.profile,
+      profile: profileMap.get(c.user_id),
     }));
   }, []);
 
@@ -127,19 +180,19 @@ export const useLiveGame = (gameId?: string) => {
       return [];
     }
 
-    // Fetch profiles separately
-    const participantsWithProfiles = await Promise.all(
-      (data || []).map(async (p: any) => {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('username, avatar')
-          .eq('id', p.user_id)
-          .single();
-        return { ...p, profile };
-      })
-    );
+    // Fetch profiles
+    const userIds = [...new Set((data || []).map(p => p.user_id))];
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, avatar')
+      .in('id', userIds);
 
-    return participantsWithProfiles;
+    const profileMap = new Map(profiles?.map(p => [p.id, { username: p.username, avatar: p.avatar }]) || []);
+
+    return (data || []).map(p => ({
+      ...p,
+      profile: profileMap.get(p.user_id),
+    }));
   }, []);
 
   // Check if user has joined
@@ -155,15 +208,16 @@ export const useLiveGame = (gameId?: string) => {
   }, []);
 
   // Join game
-  const joinGame = useCallback(async () => {
-    if (!game || !user) {
+  const joinGame = useCallback(async (targetGameId?: string) => {
+    const gameToJoin = targetGameId || game?.id;
+    if (!gameToJoin || !user) {
       setError('Not logged in or no game available');
       return false;
     }
 
     try {
       const response = await supabase.functions.invoke('game-manager', {
-        body: { action: 'join', gameId: game.id, userId: user.id },
+        body: { action: 'join', gameId: gameToJoin, userId: user.id },
       });
 
       if (response.error) throw new Error(response.error.message);
@@ -235,18 +289,18 @@ export const useLiveGame = (gameId?: string) => {
               .order('position');
 
             // Fetch profiles for winners
-            const winnersWithProfiles = await Promise.all(
-              (winnersData || []).map(async (w: any) => {
-                const { data: profile } = await supabase
-                  .from('profiles')
-                  .select('username, avatar')
-                  .eq('id', w.user_id)
-                  .single();
-                return { ...w, profile };
-              })
-            );
+            const userIds = [...new Set((winnersData || []).map(w => w.user_id))];
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('id, username, avatar')
+              .in('id', userIds);
 
-            setWinners(winnersWithProfiles);
+            const profileMap = new Map(profiles?.map(p => [p.id, { username: p.username, avatar: p.avatar }]) || []);
+
+            setWinners((winnersData || []).map(w => ({
+              ...w,
+              profile: profileMap.get(w.user_id),
+            })));
           }
         }
       } catch (err) {
@@ -279,7 +333,15 @@ export const useLiveGame = (gameId?: string) => {
         (payload) => {
           console.log('Game update:', payload);
           if (payload.new) {
-            setGame(payload.new as Game);
+            const updated = payload.new as any;
+            setGame({
+              ...updated,
+              name: updated.name || 'Fastest Finger',
+              comment_timer: updated.comment_timer || 60,
+              payout_type: updated.payout_type || 'top3',
+              payout_distribution: updated.payout_distribution || [0.5, 0.3, 0.2],
+              min_participants: updated.min_participants || 3,
+            });
           }
         }
       )
@@ -395,5 +457,6 @@ export const useLiveGame = (gameId?: string) => {
     joinGame,
     sendComment,
     refreshGame: fetchCurrentGame,
+    fetchAllActiveGames,
   };
 };
