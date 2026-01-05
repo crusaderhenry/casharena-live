@@ -12,7 +12,7 @@ const cronSecret = Deno.env.get('CRON_SECRET');
 // Game Lifecycle Manager
 // Handles automated game state transitions:
 // scheduled -> open -> live -> ending -> ended
-// Also handles recurrence and settlement
+// Also handles recurrence, auto-restart, and settlement
 
 interface GameRow {
   id: string;
@@ -38,6 +38,11 @@ interface GameRow {
   go_live_type: string;
   visibility: string;
   entry_cutoff_minutes: number;
+  // New fields
+  auto_restart: boolean;
+  fixed_daily_time: string | null;
+  entry_wait_seconds: number;
+  min_participants_action: 'cancel' | 'reset' | 'start_anyway';
 }
 
 Deno.serve(async (req) => {
@@ -85,6 +90,16 @@ Deno.serve(async (req) => {
     const now = new Date();
     console.log(`[game-lifecycle] Running at ${now.toISOString()}`);
 
+    const results = {
+      opened: 0,
+      started: 0,
+      ended: 0,
+      reset: 0,
+      cancelled: 0,
+      immediate: 0,
+      recurring: 0,
+    };
+
     // 1. Transition SCHEDULED games to OPEN when scheduled_at is reached
     const { data: scheduledGames } = await supabase
       .from('fastest_finger_games')
@@ -96,8 +111,9 @@ Deno.serve(async (req) => {
     for (const game of (scheduledGames || []) as GameRow[]) {
       console.log(`[game-lifecycle] Opening game ${game.id} (${game.name})`);
       
-      // Calculate when game should go live based on countdown
-      const liveAt = new Date(now.getTime() + (game.countdown * 1000));
+      // Use entry_wait_seconds for the lobby countdown
+      const entryWait = game.entry_wait_seconds || game.countdown || 60;
+      const liveAt = new Date(now.getTime() + (entryWait * 1000));
       
       await supabase
         .from('fastest_finger_games')
@@ -105,8 +121,11 @@ Deno.serve(async (req) => {
           status: 'open',
           lobby_opens_at: now.toISOString(),
           start_time: liveAt.toISOString(),
+          countdown: entryWait,
         })
         .eq('id', game.id);
+      
+      results.opened++;
     }
 
     // 2. Transition OPEN games to LIVE when start_time is reached
@@ -118,45 +137,76 @@ Deno.serve(async (req) => {
       .lte('start_time', now.toISOString());
 
     for (const game of (openGames || []) as GameRow[]) {
+      const minAction = game.min_participants_action || 'reset';
+      
       // Check minimum participants
       if (game.participant_count < game.min_participants) {
-        console.log(`[game-lifecycle] Game ${game.id} cancelled - insufficient participants (${game.participant_count}/${game.min_participants})`);
+        console.log(`[game-lifecycle] Game ${game.id} has ${game.participant_count}/${game.min_participants} participants`);
         
-        // Refund all participants
-        const { data: participants } = await supabase
-          .from('fastest_finger_participants')
-          .select('user_id')
-          .eq('game_id', game.id);
-        
-        for (const p of participants || []) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('wallet_balance')
-            .eq('id', p.user_id)
-            .single();
+        if (minAction === 'reset') {
+          // Reset countdown and keep waiting
+          const entryWait = game.entry_wait_seconds || game.countdown || 60;
+          const newLiveAt = new Date(now.getTime() + (entryWait * 1000));
           
-          if (profile) {
-            await supabase
+          console.log(`[game-lifecycle] Resetting countdown for game ${game.id}`);
+          
+          await supabase
+            .from('fastest_finger_games')
+            .update({
+              countdown: entryWait,
+              start_time: newLiveAt.toISOString(),
+            })
+            .eq('id', game.id);
+          
+          results.reset++;
+          continue;
+        } else if (minAction === 'cancel') {
+          // Refund all participants and cancel
+          console.log(`[game-lifecycle] Cancelling game ${game.id} - insufficient participants`);
+          
+          const { data: participants } = await supabase
+            .from('fastest_finger_participants')
+            .select('user_id')
+            .eq('game_id', game.id);
+          
+          for (const p of participants || []) {
+            const { data: profile } = await supabase
               .from('profiles')
-              .update({ wallet_balance: profile.wallet_balance + game.entry_fee })
-              .eq('id', p.user_id);
+              .select('wallet_balance')
+              .eq('id', p.user_id)
+              .single();
             
-            await supabase.from('wallet_transactions').insert({
-              user_id: p.user_id,
-              type: 'refund',
-              amount: game.entry_fee,
-              description: `${game.name} cancelled - insufficient players`,
-              game_id: game.id,
-            });
+            if (profile) {
+              await supabase
+                .from('profiles')
+                .update({ wallet_balance: profile.wallet_balance + game.entry_fee })
+                .eq('id', p.user_id);
+              
+              await supabase.from('wallet_transactions').insert({
+                user_id: p.user_id,
+                type: 'refund',
+                amount: game.entry_fee,
+                description: `${game.name} cancelled - insufficient players`,
+                game_id: game.id,
+              });
+            }
           }
+          
+          await supabase
+            .from('fastest_finger_games')
+            .update({ status: 'cancelled', end_time: now.toISOString() })
+            .eq('id', game.id);
+          
+          // Handle auto-restart or recurrence after cancellation
+          if (game.auto_restart || game.recurrence_type) {
+            await createNextGame(supabase, game, now);
+            results.recurring++;
+          }
+          
+          results.cancelled++;
+          continue;
         }
-        
-        await supabase
-          .from('fastest_finger_games')
-          .update({ status: 'cancelled', end_time: now.toISOString() })
-          .eq('id', game.id);
-        
-        continue;
+        // start_anyway - fall through to start the game
       }
       
       console.log(`[game-lifecycle] Starting game ${game.id} (${game.name}) LIVE`);
@@ -169,9 +219,11 @@ Deno.serve(async (req) => {
           countdown: game.comment_timer,
         })
         .eq('id', game.id);
+      
+      results.started++;
     }
 
-    // 3. Check LIVE games for ending phase (last 5 minutes)
+    // 3. Check LIVE games for ending
     const { data: liveGames } = await supabase
       .from('fastest_finger_games')
       .select('*')
@@ -184,19 +236,12 @@ Deno.serve(async (req) => {
       const elapsedMs = now.getTime() - startTime;
       const maxDurationMs = game.max_duration * 60 * 1000;
       const remainingMs = maxDurationMs - elapsedMs;
-      const fiveMinutesMs = 5 * 60 * 1000;
       
       // Check if game should end (countdown reached 0 OR max duration exceeded)
       if (game.countdown <= 0 || remainingMs <= 0) {
         console.log(`[game-lifecycle] Ending game ${game.id} - ${game.countdown <= 0 ? 'countdown reached 0' : 'max duration exceeded'}`);
-        await endGame(supabase, game);
-        continue;
-      }
-      
-      // Check if entering "ending soon" phase
-      if (remainingMs <= fiveMinutesMs && game.status !== 'ending') {
-        console.log(`[game-lifecycle] Game ${game.id} entering ending phase`);
-        // We could update status to 'ending' but for now we just let frontend calculate this
+        await endGame(supabase, game, now);
+        results.ended++;
       }
     }
 
@@ -211,7 +256,8 @@ Deno.serve(async (req) => {
     for (const game of (immediateGames || []) as GameRow[]) {
       console.log(`[game-lifecycle] Immediately opening game ${game.id} (${game.name})`);
       
-      const liveAt = new Date(now.getTime() + (game.countdown * 1000));
+      const entryWait = game.entry_wait_seconds || game.countdown || 60;
+      const liveAt = new Date(now.getTime() + (entryWait * 1000));
       
       await supabase
         .from('fastest_finger_games')
@@ -219,18 +265,16 @@ Deno.serve(async (req) => {
           status: 'open',
           lobby_opens_at: now.toISOString(),
           start_time: liveAt.toISOString(),
+          countdown: entryWait,
         })
         .eq('id', game.id);
+      
+      results.immediate++;
     }
 
     return new Response(JSON.stringify({ 
       success: true,
-      processed: {
-        opened: scheduledGames?.length || 0,
-        started: openGames?.length || 0,
-        checked: liveGames?.length || 0,
-        immediate: immediateGames?.length || 0,
-      },
+      processed: results,
       timestamp: now.toISOString(),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -247,8 +291,7 @@ Deno.serve(async (req) => {
 });
 
 // End game and settle payouts
-async function endGame(supabase: any, game: GameRow) {
-  const now = new Date();
+async function endGame(supabase: any, game: GameRow, now: Date) {
   const payoutDistribution = game.payout_distribution || [0.5, 0.3, 0.2];
   const winnerCount = payoutDistribution.length;
   const platformCut = game.platform_cut_percentage || 10;
@@ -259,7 +302,7 @@ async function endGame(supabase: any, game: GameRow) {
     .select('user_id, created_at')
     .eq('game_id', game.id)
     .order('created_at', { ascending: false })
-    .limit(winnerCount * 3); // Get more to ensure we have enough unique users
+    .limit(winnerCount * 3);
 
   const uniqueWinnerIds: string[] = [];
   for (const comment of comments || []) {
@@ -282,7 +325,6 @@ async function endGame(supabase: any, game: GameRow) {
     const position = i + 1;
     const prize = Math.floor(prizePool * payoutDistribution[i]);
     
-    // Insert winner record
     await supabase.from('winners').insert({
       game_id: game.id,
       user_id: winnerId,
@@ -290,7 +332,6 @@ async function endGame(supabase: any, game: GameRow) {
       amount_won: prize,
     });
     
-    // Get current profile
     const { data: profile } = await supabase
       .from('profiles')
       .select('wallet_balance, rank_points, total_wins')
@@ -298,10 +339,8 @@ async function endGame(supabase: any, game: GameRow) {
       .single();
     
     if (profile) {
-      // Calculate rank points based on position
       const rankPoints = position === 1 ? 100 : position === 2 ? 60 : position === 3 ? 30 : 10;
       
-      // Update profile
       await supabase
         .from('profiles')
         .update({
@@ -311,7 +350,6 @@ async function endGame(supabase: any, game: GameRow) {
         })
         .eq('id', winnerId);
       
-      // Record transaction
       await supabase.from('wallet_transactions').insert({
         user_id: winnerId,
         type: 'win',
@@ -320,7 +358,6 @@ async function endGame(supabase: any, game: GameRow) {
         description: `${game.name} - Position ${position}`,
       });
       
-      // Record rank history
       await supabase.from('rank_history').insert({
         user_id: winnerId,
         points: rankPoints,
@@ -361,38 +398,58 @@ async function endGame(supabase: any, game: GameRow) {
     })
     .eq('id', game.id);
 
-  // Handle recurrence - create next game if applicable
-  if (game.recurrence_type && game.recurrence_interval) {
-    await createRecurringGame(supabase, game, now);
+  // Handle auto-restart or recurrence
+  if (game.auto_restart || game.recurrence_type) {
+    await createNextGame(supabase, game, now);
   }
 }
 
-// Create next recurring game instance
-async function createRecurringGame(supabase: any, baseGame: GameRow, now: Date) {
-  let nextScheduledAt: Date;
+// Create next game instance (for auto-restart or recurrence)
+async function createNextGame(supabase: any, baseGame: GameRow, now: Date) {
+  let nextScheduledAt: Date | null = null;
+  let goLiveType = 'scheduled';
   
-  switch (baseGame.recurrence_type) {
-    case 'minutes':
-      nextScheduledAt = new Date(now.getTime() + (baseGame.recurrence_interval! * 60 * 1000));
-      break;
-    case 'hours':
-      nextScheduledAt = new Date(now.getTime() + (baseGame.recurrence_interval! * 60 * 60 * 1000));
-      break;
-    case 'daily':
-      nextScheduledAt = new Date(now.getTime() + (24 * 60 * 60 * 1000));
-      break;
-    case 'weekly':
-      nextScheduledAt = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
-      break;
-    case 'monthly':
-      nextScheduledAt = new Date(now);
-      nextScheduledAt.setMonth(nextScheduledAt.getMonth() + 1);
-      break;
-    default:
-      return;
+  // Auto-restart: immediately open for entries (no scheduled time)
+  if (baseGame.auto_restart) {
+    console.log(`[game-lifecycle] Auto-restarting game from ${baseGame.id}`);
+    goLiveType = 'immediate';
+    nextScheduledAt = null;
+  } else if (baseGame.recurrence_type) {
+    // Calculate next scheduled time based on recurrence
+    switch (baseGame.recurrence_type) {
+      case 'minutes':
+        nextScheduledAt = new Date(now.getTime() + (baseGame.recurrence_interval! * 60 * 1000));
+        break;
+      case 'hours':
+        nextScheduledAt = new Date(now.getTime() + (baseGame.recurrence_interval! * 60 * 60 * 1000));
+        break;
+      case 'daily':
+        if (baseGame.fixed_daily_time) {
+          // Use fixed daily time
+          const [hours, minutes] = baseGame.fixed_daily_time.split(':').map(Number);
+          nextScheduledAt = new Date(now);
+          nextScheduledAt.setDate(nextScheduledAt.getDate() + 1);
+          nextScheduledAt.setHours(hours, minutes, 0, 0);
+        } else {
+          // Same time tomorrow
+          nextScheduledAt = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+        }
+        break;
+      case 'weekly':
+        nextScheduledAt = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+        break;
+      case 'monthly':
+        nextScheduledAt = new Date(now);
+        nextScheduledAt.setMonth(nextScheduledAt.getMonth() + 1);
+        break;
+      default:
+        return;
+    }
+    
+    console.log(`[game-lifecycle] Creating recurring game from ${baseGame.id}, next at ${nextScheduledAt?.toISOString()}`);
+  } else {
+    return; // No auto-restart or recurrence
   }
-
-  console.log(`[game-lifecycle] Creating recurring game from ${baseGame.id}, next at ${nextScheduledAt.toISOString()}`);
 
   await supabase.from('fastest_finger_games').insert({
     name: baseGame.name,
@@ -402,16 +459,21 @@ async function createRecurringGame(supabase: any, baseGame: GameRow, now: Date) 
     payout_type: baseGame.payout_type,
     payout_distribution: baseGame.payout_distribution,
     min_participants: baseGame.min_participants,
-    countdown: baseGame.countdown,
+    countdown: baseGame.entry_wait_seconds || baseGame.countdown || 60,
     recurrence_type: baseGame.recurrence_type,
     recurrence_interval: baseGame.recurrence_interval,
     is_sponsored: baseGame.is_sponsored,
     sponsored_amount: baseGame.sponsored_amount,
     platform_cut_percentage: baseGame.platform_cut_percentage,
-    go_live_type: 'scheduled',
-    scheduled_at: nextScheduledAt.toISOString(),
+    go_live_type: goLiveType,
+    scheduled_at: nextScheduledAt?.toISOString() || null,
     visibility: baseGame.visibility,
     entry_cutoff_minutes: baseGame.entry_cutoff_minutes,
+    // New fields
+    auto_restart: baseGame.auto_restart,
+    fixed_daily_time: baseGame.fixed_daily_time,
+    entry_wait_seconds: baseGame.entry_wait_seconds,
+    min_participants_action: baseGame.min_participants_action,
     status: 'scheduled',
     pool_value: 0,
     participant_count: 0,

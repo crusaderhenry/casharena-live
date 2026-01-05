@@ -1,5 +1,5 @@
 import { useAdmin } from '@/contexts/AdminContext';
-import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame } from 'lucide-react';
+import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -32,11 +32,18 @@ const PAYOUT_PRESETS = {
 
 const RECURRENCE_OPTIONS = [
   { value: 'none', label: 'One-time (No repeat)' },
+  { value: 'auto_restart', label: 'Auto-restart after ending' },
   { value: 'minutes', label: 'Every X minutes' },
   { value: 'hours', label: 'Every X hours' },
-  { value: 'daily', label: 'Daily' },
+  { value: 'daily', label: 'Daily at fixed time' },
   { value: 'weekly', label: 'Weekly' },
   { value: 'monthly', label: 'Monthly' },
+];
+
+const MIN_PARTICIPANTS_ACTIONS = [
+  { value: 'reset', label: 'Reset countdown & wait for more players' },
+  { value: 'cancel', label: 'Cancel game & refund players' },
+  { value: 'start_anyway', label: 'Start anyway with fewer players' },
 ];
 
 interface GameFormData {
@@ -47,7 +54,7 @@ interface GameFormData {
   commentTimer: number;
   payoutType: 'winner_takes_all' | 'top3' | 'top5' | 'top10';
   minParticipants: number;
-  countdownToStart: number;
+  entryWaitSeconds: number;
   // Scheduling
   goLiveType: 'immediate' | 'scheduled';
   scheduledDate: string;
@@ -55,6 +62,9 @@ interface GameFormData {
   // Recurrence
   recurrenceType: string;
   recurrenceInterval: number;
+  fixedDailyTime: string;
+  // Min participants action
+  minParticipantsAction: 'reset' | 'cancel' | 'start_anyway';
   // Sponsored game
   isSponsored: boolean;
   sponsoredAmount: number;
@@ -94,12 +104,14 @@ export const AdminFingerControl = () => {
     commentTimer: 60,
     payoutType: 'top3',
     minParticipants: 3,
-    countdownToStart: 60,
+    entryWaitSeconds: 60,
     goLiveType: 'immediate',
     scheduledDate: getDefaultDateTime().date,
     scheduledTime: getDefaultDateTime().time,
     recurrenceType: 'none',
     recurrenceInterval: 1,
+    fixedDailyTime: '20:00',
+    minParticipantsAction: 'reset',
     isSponsored: false,
     sponsoredAmount: 0,
     platformCutPercentage: 10,
@@ -127,6 +139,10 @@ export const AdminFingerControl = () => {
       scheduledAt = new Date(`${formData.scheduledDate}T${formData.scheduledTime}`).toISOString();
     }
 
+    // Determine if auto_restart based on recurrence type selection
+    const isAutoRestart = formData.recurrenceType === 'auto_restart';
+    const actualRecurrenceType = isAutoRestart ? null : (formData.recurrenceType === 'none' ? null : formData.recurrenceType);
+
     await createGameWithConfig({
       name: formData.name,
       entry_fee: formData.isSponsored ? 0 : formData.entryFee,
@@ -135,15 +151,20 @@ export const AdminFingerControl = () => {
       payout_type: formData.payoutType,
       payout_distribution: PAYOUT_PRESETS[formData.payoutType].distribution,
       min_participants: formData.minParticipants,
-      countdown: formData.countdownToStart,
+      countdown: formData.entryWaitSeconds,
       go_live_type: formData.goLiveType,
       scheduled_at: scheduledAt,
-      recurrence_type: formData.recurrenceType === 'none' ? null : formData.recurrenceType,
-      recurrence_interval: formData.recurrenceType === 'none' ? null : formData.recurrenceInterval,
+      recurrence_type: actualRecurrenceType,
+      recurrence_interval: formData.recurrenceType === 'none' || isAutoRestart ? null : formData.recurrenceInterval,
       is_sponsored: formData.isSponsored,
       sponsored_amount: formData.isSponsored ? formData.sponsoredAmount : null,
       platform_cut_percentage: formData.platformCutPercentage,
       description: formData.description || null,
+      // New fields
+      auto_restart: isAutoRestart,
+      fixed_daily_time: formData.recurrenceType === 'daily' ? formData.fixedDailyTime : null,
+      entry_wait_seconds: formData.entryWaitSeconds,
+      min_participants_action: formData.minParticipantsAction,
     });
     setShowCreateDialog(false);
     
@@ -157,12 +178,14 @@ export const AdminFingerControl = () => {
       commentTimer: 60,
       payoutType: 'top3',
       minParticipants: 3,
-      countdownToStart: 60,
+      entryWaitSeconds: 60,
       goLiveType: 'immediate',
       scheduledDate: defaults.date,
       scheduledTime: defaults.time,
       recurrenceType: 'none',
       recurrenceInterval: 1,
+      fixedDailyTime: '20:00',
+      minParticipantsAction: 'reset',
       isSponsored: false,
       sponsoredAmount: 0,
       platformCutPercentage: 10,
@@ -170,8 +193,28 @@ export const AdminFingerControl = () => {
   };
 
   // Get active games
-  const activeGames = games.filter(g => g.status === 'live' || g.status === 'scheduled');
+  const activeGames = games.filter(g => g.status === 'live' || g.status === 'scheduled' || g.status === 'open');
   const recentEndedGames = games.filter(g => g.status === 'ended').slice(0, 5);
+
+  // Helper to format recurrence description
+  const getRecurrenceDescription = () => {
+    switch (formData.recurrenceType) {
+      case 'auto_restart':
+        return 'Game will immediately reopen for entries after each round ends';
+      case 'minutes':
+        return `New game every ${formData.recurrenceInterval} minute(s)`;
+      case 'hours':
+        return `New game every ${formData.recurrenceInterval} hour(s)`;
+      case 'daily':
+        return `Daily at ${formData.fixedDailyTime}`;
+      case 'weekly':
+        return 'Same time every week';
+      case 'monthly':
+        return 'Same day/time every month';
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -189,12 +232,12 @@ export const AdminFingerControl = () => {
               Create New Game
             </button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Game</DialogTitle>
             </DialogHeader>
             
-            <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-4 py-4">
               {/* Game Name */}
               <div className="space-y-2">
                 <Label htmlFor="name">Game Name</Label>
@@ -283,10 +326,10 @@ export const AdminFingerControl = () => {
                 </Select>
               </div>
               
-              {/* Max Duration */}
+              {/* Max Duration & Comment Timer */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="maxDuration">Max Duration (min)</Label>
+                  <Label htmlFor="maxDuration">Game Duration (min)</Label>
                   <Input
                     id="maxDuration"
                     type="number"
@@ -304,27 +347,63 @@ export const AdminFingerControl = () => {
                   />
                 </div>
               </div>
+
+              {/* Entry Wait Period */}
+              <div className="space-y-2 p-3 bg-blue-500/5 rounded-lg border border-blue-500/20">
+                <Label htmlFor="entryWaitSeconds" className="flex items-center gap-2">
+                  <Timer className="w-4 h-4 text-blue-400" />
+                  Entry/Lobby Period (seconds)
+                </Label>
+                <Input
+                  id="entryWaitSeconds"
+                  type="number"
+                  value={formData.entryWaitSeconds}
+                  onChange={(e) => setFormData(prev => ({ ...prev, entryWaitSeconds: parseInt(e.target.value) || 60 }))}
+                  min={10}
+                />
+                <p className="text-xs text-muted-foreground">
+                  How long players have to join before the game goes live
+                </p>
+              </div>
               
-              {/* Min Participants & Countdown */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="minParticipants">Min Participants</Label>
-                  <Input
-                    id="minParticipants"
-                    type="number"
-                    value={formData.minParticipants}
-                    onChange={(e) => setFormData(prev => ({ ...prev, minParticipants: parseInt(e.target.value) || 3 }))}
-                  />
+              {/* Min Participants & Action */}
+              <div className="space-y-3 p-3 bg-yellow-500/5 rounded-lg border border-yellow-500/20">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="minParticipants" className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-yellow-400" />
+                      Min Players
+                    </Label>
+                    <Input
+                      id="minParticipants"
+                      type="number"
+                      value={formData.minParticipants}
+                      onChange={(e) => setFormData(prev => ({ ...prev, minParticipants: parseInt(e.target.value) || 3 }))}
+                      min={1}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>If Not Met</Label>
+                    <Select
+                      value={formData.minParticipantsAction}
+                      onValueChange={(value: 'reset' | 'cancel' | 'start_anyway') => setFormData(prev => ({ ...prev, minParticipantsAction: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MIN_PARTICIPANTS_ACTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="countdownToStart">Lobby Timer (sec)</Label>
-                  <Input
-                    id="countdownToStart"
-                    type="number"
-                    value={formData.countdownToStart}
-                    onChange={(e) => setFormData(prev => ({ ...prev, countdownToStart: parseInt(e.target.value) || 60 }))}
-                  />
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  {formData.minParticipantsAction === 'reset' && '⏳ Countdown will reset until minimum players join'}
+                  {formData.minParticipantsAction === 'cancel' && '❌ Game will be cancelled and all players refunded'}
+                  {formData.minParticipantsAction === 'start_anyway' && '▶️ Game will start even with fewer players'}
+                </p>
               </div>
 
               {/* Go Live Type */}
@@ -332,11 +411,11 @@ export const AdminFingerControl = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Go Live</Label>
-                    <p className="text-xs text-muted-foreground">When should this game start?</p>
+                    <p className="text-xs text-muted-foreground">When should this game start accepting entries?</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-sm ${formData.goLiveType === 'immediate' ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
-                      Immediately
+                      Now
                     </span>
                     <Switch
                       checked={formData.goLiveType === 'scheduled'}
@@ -378,8 +457,8 @@ export const AdminFingerControl = () => {
               {/* Recurrence */}
               <div className="space-y-3 pt-4 border-t border-border">
                 <div className="flex items-center gap-2">
-                  <Repeat className="w-4 h-4 text-muted-foreground" />
-                  <Label>Recurrence</Label>
+                  <RefreshCw className="w-4 h-4 text-muted-foreground" />
+                  <Label>Game Recurrence / Auto-Restart</Label>
                 </div>
                 
                 <Select
@@ -410,9 +489,25 @@ export const AdminFingerControl = () => {
                   </div>
                 )}
 
-                {formData.recurrenceType !== 'none' && (
-                  <p className="text-xs text-muted-foreground bg-primary/10 p-2 rounded">
-                    ℹ️ Recurring games will automatically create new instances when the previous one ends
+                {formData.recurrenceType === 'daily' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="fixedDailyTime">Daily Time</Label>
+                    <Input
+                      id="fixedDailyTime"
+                      type="time"
+                      value={formData.fixedDailyTime}
+                      onChange={(e) => setFormData(prev => ({ ...prev, fixedDailyTime: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Game will go live at this time every day
+                    </p>
+                  </div>
+                )}
+
+                {getRecurrenceDescription() && (
+                  <p className="text-xs text-muted-foreground bg-primary/10 p-2 rounded flex items-start gap-2">
+                    <Repeat className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                    {getRecurrenceDescription()}
                   </p>
                 )}
               </div>
@@ -479,6 +574,8 @@ export const AdminFingerControl = () => {
                   <div className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
                     game.status === 'live' 
                       ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                      : game.status === 'open'
+                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                       : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                   }`}>
                     {game.status}
@@ -505,13 +602,13 @@ export const AdminFingerControl = () => {
                 </div>
                 
                 <div className="flex gap-2">
-                  {game.status === 'scheduled' && (
+                  {(game.status === 'scheduled' || game.status === 'open') && (
                     <button
                       onClick={() => startGame(game.id)}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-medium hover:bg-green-500/30 transition-colors"
                     >
                       <Play className="w-4 h-4" />
-                      Start
+                      Start Now
                     </button>
                   )}
                   {game.status === 'live' && (

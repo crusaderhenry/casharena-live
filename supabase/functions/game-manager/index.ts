@@ -141,7 +141,7 @@ serve(async (req) => {
             max_duration: gameConfig.max_duration || 20,
             pool_value: 0,
             participant_count: 0,
-            countdown: gameConfig.countdown || 60,
+            countdown: gameConfig.entry_wait_seconds || gameConfig.countdown || 60,
             comment_timer: gameConfig.comment_timer || 60,
             payout_type: gameConfig.payout_type || 'top3',
             payout_distribution: gameConfig.payout_distribution || [0.5, 0.3, 0.2],
@@ -155,6 +155,11 @@ serve(async (req) => {
             sponsored_amount: gameConfig.sponsored_amount || 0,
             platform_cut_percentage: gameConfig.platform_cut_percentage || 10,
             visibility: 'public',
+            // New automation fields
+            auto_restart: gameConfig.auto_restart || false,
+            fixed_daily_time: gameConfig.fixed_daily_time || null,
+            entry_wait_seconds: gameConfig.entry_wait_seconds || 60,
+            min_participants_action: gameConfig.min_participants_action || 'reset',
           })
           .select()
           .single();
