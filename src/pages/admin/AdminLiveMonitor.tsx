@@ -1,6 +1,7 @@
 import { useAdmin } from '@/contexts/AdminContext';
-import { Monitor, Play, Pause, Square, Users, Clock, Trophy, MessageSquare, Radio, Volume2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Monitor, Play, Pause, Square, Users, Clock, Trophy, MessageSquare, Radio, Volume2, VolumeX, Maximize, Minimize, X } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { adminAudio } from '@/utils/adminAudio';
 
 export const AdminLiveMonitor = () => {
   const { 
@@ -13,11 +14,42 @@ export const AdminLiveMonitor = () => {
   } = useAdmin();
 
   const commentsRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [newCommentFlash, setNewCommentFlash] = useState(false);
   const [countdownPulse, setCountdownPulse] = useState(false);
   const [broadcastTime, setBroadcastTime] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const lastCommentCount = useRef(0);
+  const lastCountdown = useRef(60);
+
+  // Toggle sound
+  const toggleSound = useCallback(() => {
+    const newState = !soundEnabled;
+    setSoundEnabled(newState);
+    adminAudio.setEnabled(newState);
+  }, [soundEnabled]);
+
+  // Toggle fullscreen
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   // Scroll to top on new comments
   useEffect(() => {
@@ -26,14 +58,35 @@ export const AdminLiveMonitor = () => {
     }
   }, [liveComments]);
 
-  // Flash effect on new comments
+  // Flash effect and sound on new comments
   useEffect(() => {
     if (liveComments.length > lastCommentCount.current) {
       setNewCommentFlash(true);
+      adminAudio.playNewComment();
       setTimeout(() => setNewCommentFlash(false), 300);
     }
     lastCommentCount.current = liveComments.length;
   }, [liveComments.length]);
+
+  // Countdown sound effects
+  useEffect(() => {
+    if (!currentGame?.countdown) return;
+    
+    const countdown = currentGame.countdown;
+    
+    // Only play sounds when countdown decreases
+    if (countdown < lastCountdown.current) {
+      if (countdown === 30) {
+        adminAudio.playTimerWarning();
+      } else if (countdown === 15) {
+        adminAudio.playTimerCritical();
+      } else if (countdown <= 5 && countdown > 0) {
+        adminAudio.playTimerDanger();
+      }
+    }
+    
+    lastCountdown.current = countdown;
+  }, [currentGame?.countdown]);
 
   // Simulate typing indicators
   useEffect(() => {
@@ -104,14 +157,41 @@ export const AdminLiveMonitor = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div 
+      ref={containerRef}
+      className={`${isFullscreen ? 'fixed inset-0 z-50 bg-background overflow-auto' : ''} p-6 space-y-6`}
+    >
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-foreground">Live Games Monitor</h1>
+          <h1 className={`font-black text-foreground ${isFullscreen ? 'text-3xl' : 'text-2xl'}`}>
+            Live Games Monitor
+          </h1>
           <p className="text-sm text-muted-foreground">Real-time game observation and control</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Sound Toggle */}
+          <button
+            onClick={toggleSound}
+            className={`p-2 rounded-xl transition-colors ${
+              soundEnabled 
+                ? 'bg-primary/20 text-primary hover:bg-primary/30' 
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+            title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+          >
+            {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          </button>
+
+          {/* Fullscreen Toggle */}
+          <button
+            onClick={toggleFullscreen}
+            className="p-2 rounded-xl bg-muted hover:bg-muted/80 transition-colors"
+            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          >
+            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+          </button>
+
           {currentGame?.status === 'live' && (
             <>
               <button
@@ -134,13 +214,22 @@ export const AdminLiveMonitor = () => {
               </button>
             </>
           )}
+
+          {isFullscreen && (
+            <button
+              onClick={toggleFullscreen}
+              className="p-2 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </div>
 
       {currentGame?.status === 'live' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className={`grid gap-6 ${isFullscreen ? 'grid-cols-1 lg:grid-cols-4' : 'grid-cols-1 lg:grid-cols-3'}`}>
           {/* Main Monitor */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className={`space-y-4 ${isFullscreen ? 'lg:col-span-3' : 'lg:col-span-2'}`}>
             {/* Broadcast Status Bar */}
             <div className="bg-card rounded-xl border border-red-500/50 p-4 relative overflow-hidden">
               {/* Animated background */}
@@ -152,15 +241,19 @@ export const AdminLiveMonitor = () => {
                     <div className="w-4 h-4 rounded-full bg-red-500 animate-pulse" />
                     <div className="absolute inset-0 w-4 h-4 rounded-full bg-red-500 animate-ping opacity-50" />
                   </div>
-                  <span className="text-lg font-black text-red-400 uppercase tracking-wider flex items-center gap-2">
+                  <span className={`font-black text-red-400 uppercase tracking-wider flex items-center gap-2 ${isFullscreen ? 'text-xl' : 'text-lg'}`}>
                     <Radio className="w-5 h-5" />
                     LIVE BROADCAST
                   </span>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Volume2 className="w-4 h-4" />
-                    <span className="text-xs font-mono">AUDIO OK</span>
+                    {soundEnabled ? (
+                      <Volume2 className="w-4 h-4 text-green-400" />
+                    ) : (
+                      <VolumeX className="w-4 h-4 text-red-400" />
+                    )}
+                    <span className="text-xs font-mono">{soundEnabled ? 'AUDIO ON' : 'MUTED'}</span>
                   </div>
                   <span className="text-sm font-mono text-muted-foreground bg-muted px-3 py-1 rounded-lg">
                     {formatBroadcastTime(broadcastTime)}
@@ -178,9 +271,9 @@ export const AdminLiveMonitor = () => {
                     : 'bg-muted/30 border border-border/30'
                 } ${countdownPulse ? 'scale-105' : ''}`}>
                   <Clock className={`w-6 h-6 mx-auto mb-2 ${getCountdownColor(currentGame.countdown)}`} />
-                  <p className={`text-4xl font-black font-mono ${getCountdownColor(currentGame.countdown)} ${
+                  <p className={`font-black font-mono ${getCountdownColor(currentGame.countdown)} ${
                     currentGame.countdown <= 5 ? 'animate-pulse' : ''
-                  }`}>
+                  } ${isFullscreen ? 'text-6xl' : 'text-4xl'}`}>
                     {formatCountdown(currentGame.countdown)}
                   </p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
@@ -191,7 +284,7 @@ export const AdminLiveMonitor = () => {
                 {/* Pool Value */}
                 <div className="text-center p-4 bg-muted/30 rounded-xl border border-border/30">
                   <Trophy className="w-6 h-6 text-gold mx-auto mb-2" />
-                  <p className={`text-3xl font-black text-primary transition-all ${newCommentFlash ? 'scale-110' : ''}`}>
+                  <p className={`font-black text-primary transition-all ${newCommentFlash ? 'scale-110' : ''} ${isFullscreen ? 'text-5xl' : 'text-3xl'}`}>
                     ₦{currentGame.poolValue.toLocaleString()}
                   </p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Prize Pool</p>
@@ -200,7 +293,7 @@ export const AdminLiveMonitor = () => {
                 {/* Participants */}
                 <div className="text-center p-4 bg-muted/30 rounded-xl border border-border/30">
                   <Users className="w-6 h-6 text-primary mx-auto mb-2" />
-                  <p className="text-3xl font-black text-foreground">{currentGame.participants}</p>
+                  <p className={`font-black text-foreground ${isFullscreen ? 'text-5xl' : 'text-3xl'}`}>{currentGame.participants}</p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Players</p>
                 </div>
               </div>
@@ -213,7 +306,7 @@ export const AdminLiveMonitor = () => {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <MessageSquare className={`w-5 h-5 ${newCommentFlash ? 'text-primary animate-bounce' : 'text-primary'}`} />
-                  <h3 className="font-bold text-foreground">Live Comments</h3>
+                  <h3 className={`font-bold text-foreground ${isFullscreen ? 'text-lg' : ''}`}>Live Comments</h3>
                   <span className="text-xs text-muted-foreground">({liveComments.length} total)</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -242,7 +335,7 @@ export const AdminLiveMonitor = () => {
               
               <div 
                 ref={commentsRef}
-                className="h-80 overflow-y-auto space-y-2 scrollbar-thin"
+                className={`overflow-y-auto space-y-2 scrollbar-thin ${isFullscreen ? 'h-[50vh]' : 'h-80'}`}
               >
                 {liveComments.length > 0 ? (
                   liveComments.map((comment, index) => (
@@ -258,14 +351,14 @@ export const AdminLiveMonitor = () => {
                         opacity: Math.max(0.4, 1 - index * 0.05)
                       }}
                     >
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg ${
+                      <div className={`rounded-full flex items-center justify-center ${
                         index === 0 ? 'bg-primary/20 ring-2 ring-primary/50' : 'bg-card'
-                      }`}>
+                      } ${isFullscreen ? 'w-12 h-12 text-2xl' : 'w-8 h-8 text-lg'}`}>
                         {comment.avatar}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className={`text-sm font-medium ${index === 0 ? 'text-primary' : 'text-foreground'}`}>
+                          <span className={`font-medium ${index === 0 ? 'text-primary' : 'text-foreground'} ${isFullscreen ? 'text-lg' : 'text-sm'}`}>
                             {comment.username}
                           </span>
                           {index === 0 && (
@@ -277,7 +370,7 @@ export const AdminLiveMonitor = () => {
                             {new Date(comment.timestamp).toLocaleTimeString()}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground">{comment.message}</p>
+                        <p className={`text-muted-foreground ${isFullscreen ? 'text-base' : 'text-sm'}`}>{comment.message}</p>
                       </div>
                     </div>
                   ))
@@ -301,7 +394,7 @@ export const AdminLiveMonitor = () => {
           <div className="space-y-4">
             {/* Top 3 Leaderboard */}
             <div className="bg-card rounded-xl border border-border p-4">
-              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+              <h3 className={`font-bold text-foreground mb-4 flex items-center gap-2 ${isFullscreen ? 'text-lg' : ''}`}>
                 <Trophy className="w-5 h-5 text-gold" />
                 Current Top 3
                 <span className="text-[10px] bg-gold/20 text-gold px-2 py-0.5 rounded-full ml-auto">LIVE</span>
@@ -318,13 +411,13 @@ export const AdminLiveMonitor = () => {
                         'bg-bronze/10 border border-bronze/30'
                       }`}
                     >
-                      <span className="text-xl">
+                      <span className={`${isFullscreen ? 'text-2xl' : 'text-xl'}`}>
                         {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}
                       </span>
-                      <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center">
+                      <div className={`rounded-full bg-card flex items-center justify-center ${isFullscreen ? 'w-10 h-10 text-xl' : 'w-8 h-8'}`}>
                         {player.avatar}
                       </div>
-                      <span className="font-medium text-foreground">{player.username}</span>
+                      <span className={`font-medium text-foreground ${isFullscreen ? 'text-lg' : ''}`}>{player.username}</span>
                     </div>
                   ))
                 ) : (
@@ -379,16 +472,42 @@ export const AdminLiveMonitor = () => {
               )}
             </div>
 
-            {/* Activity Stats */}
+            {/* Audio Controls Info */}
+            <div className="bg-card rounded-xl border border-border p-4">
+              <h3 className="font-bold text-foreground mb-3 text-sm flex items-center gap-2">
+                {soundEnabled ? <Volume2 className="w-4 h-4 text-primary" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
+                Audio Alerts
+              </h3>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary" />
+                  <span>New comment chirp</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-orange-400" />
+                  <span>30s warning beep</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-yellow-400" />
+                  <span>15s critical alert</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  <span>5s danger alarm</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Session Stats */}
             <div className="bg-card rounded-xl border border-border p-4">
               <h3 className="font-bold text-foreground mb-3 text-sm">Session Stats</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-2 bg-muted/30 rounded-lg text-center">
-                  <p className="text-lg font-bold text-primary">{liveComments.length}</p>
+                  <p className={`font-bold text-primary ${isFullscreen ? 'text-2xl' : 'text-lg'}`}>{liveComments.length}</p>
                   <p className="text-[10px] text-muted-foreground">Comments</p>
                 </div>
                 <div className="p-2 bg-muted/30 rounded-lg text-center">
-                  <p className="text-lg font-bold text-gold">{top3.length}</p>
+                  <p className={`font-bold text-gold ${isFullscreen ? 'text-2xl' : 'text-lg'}`}>{top3.length}</p>
                   <p className="text-[10px] text-muted-foreground">Top Players</p>
                 </div>
               </div>
