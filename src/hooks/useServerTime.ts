@@ -22,23 +22,26 @@ export const useServerTime = () => {
     try {
       const clientBefore = Date.now();
       
-      // Use Supabase to get server time
-      const { data, error } = await supabase
-        .from('platform_settings')
-        .select('updated_at')
-        .limit(1)
-        .single();
+      // Use Supabase RPC to get current server time (PostgreSQL now())
+      const { data, error } = await supabase.rpc('get_server_time');
 
       const clientAfter = Date.now();
       const roundTrip = clientAfter - clientBefore;
       
       if (error) {
-        console.error('Error syncing time:', error);
+        // Fallback: assume no offset if we can't get server time
+        console.warn('Could not sync server time, using local time:', error.message);
+        setSync({
+          serverTime: new Date(),
+          offset: 0,
+          synced: true, // Mark as synced anyway to avoid blocking
+        });
         return;
       }
 
-      // Estimate server time accounting for network latency
-      const serverTimestamp = new Date(data.updated_at).getTime();
+      // Calculate offset between server and client
+      const serverTimestamp = new Date(data).getTime();
+      // Account for network latency (assume half round trip to server)
       const estimatedServerTime = serverTimestamp + (roundTrip / 2);
       const offset = estimatedServerTime - clientAfter;
 
@@ -48,9 +51,15 @@ export const useServerTime = () => {
         synced: true,
       });
 
-      console.log('Server time synced, offset:', offset, 'ms');
+      console.log('Server time synced, offset:', Math.round(offset), 'ms');
     } catch (err) {
       console.error('Failed to sync server time:', err);
+      // Fallback to local time
+      setSync({
+        serverTime: new Date(),
+        offset: 0,
+        synced: true,
+      });
     }
   }, []);
 
