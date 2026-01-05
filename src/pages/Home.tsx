@@ -230,8 +230,21 @@ export const Home = () => {
               <span className="text-primary">Fortunes</span>HQ
             </h1>
             <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-              <span className="live-dot" />
-              {liveGames.length > 0 ? `${liveGames.length} Game${liveGames.length > 1 ? 's' : ''} Live!` : 'Live now'}
+              {liveGames.length > 0 && (
+                <>
+                  <span className="live-dot" />
+                  {liveGames.length} Game{liveGames.length > 1 ? 's' : ''} Live!
+                </>
+              )}
+              {liveGames.length === 0 && scheduledGames.length > 0 && (
+                <>{scheduledGames.length} game{scheduledGames.length > 1 ? 's' : ''} starting soon</>
+              )}
+              {liveGames.length === 0 && scheduledGames.length === 0 && !isTestMode && (
+                <>No games available</>
+              )}
+              {isTestMode && liveGames.length === 0 && (
+                <>Test mode active</>
+              )}
             </p>
           </div>
           <TestModeToggle />
