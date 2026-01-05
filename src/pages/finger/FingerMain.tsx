@@ -128,6 +128,14 @@ export const FingerMain = () => {
   const handleJoin = async () => {
     if (!profile || joining || !selectedGame) return;
     
+    // In test mode with mock games, skip backend join and go directly to lobby
+    if (isTestMode && selectedGame.id.startsWith('mock-')) {
+      play('success');
+      success();
+      navigate('/finger/lobby', { state: { gameId: selectedGame.id, isTestMode: true } });
+      return;
+    }
+    
     if (balance < entryFee) {
       play('error');
       return;
@@ -139,7 +147,6 @@ export const FingerMain = () => {
     if (success_result) {
       play('success');
       success();
-      // Always go to lobby first
       navigate('/finger/lobby', { state: { gameId: selectedGame.id } });
     } else {
       play('error');
