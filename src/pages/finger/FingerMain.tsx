@@ -330,39 +330,47 @@ export const FingerMain = () => {
         )}
 
         {/* Selected Game Action Panel */}
-        {hasGames && selectedGame && (
+        {hasGames && (
           <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
             <div className="card-panel border-primary/30 bg-card/95 backdrop-blur-sm">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h3 className="font-bold text-foreground">{(selectedGame as any).name || 'Fastest Finger'}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedGame.status === 'live' ? 'Game in progress' : 'Waiting to start'} • {getPayoutLabel((selectedGame as any).payout_type || 'top3')}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-black text-primary">{formatMoney(poolValue)}</p>
-                  <p className="text-xs text-muted-foreground">prize pool</p>
-                </div>
-              </div>
+              {selectedGame ? (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="font-bold text-foreground">{(selectedGame as any).name || 'Fastest Finger'}</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedGame.status === 'live' ? 'Game in progress' : 'Waiting to start'} • {getPayoutLabel((selectedGame as any).payout_type || 'top3')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-black text-primary">{formatMoney(poolValue)}</p>
+                      <p className="text-xs text-muted-foreground">prize pool</p>
+                    </div>
+                  </div>
 
-              {hasJoined ? (
-                <button
-                  onClick={() => navigate(selectedGame.status === 'live' ? '/finger/arena' : '/finger/lobby')}
-                  className="w-full btn-primary flex items-center justify-center gap-2"
-                >
-                  {selectedGame.status === 'live' ? 'Enter Arena' : 'Go to Lobby'}
-                  <ChevronRight className="w-5 h-5" />
-                </button>
+                  {hasJoined ? (
+                    <button
+                      onClick={() => navigate(selectedGame.status === 'live' ? '/finger/arena' : '/finger/lobby')}
+                      className="w-full btn-primary flex items-center justify-center gap-2"
+                    >
+                      {selectedGame.status === 'live' ? 'Enter Arena' : 'Go to Lobby'}
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleJoin}
+                      disabled={balance < entryFee || joining}
+                      className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Zap className="w-5 h-5" />
+                      {joining ? 'Joining...' : balance < entryFee ? `Need ₦${entryFee - balance} more` : `Join Game — ₦${entryFee}`}
+                    </button>
+                  )}
+                </>
               ) : (
-                <button
-                  onClick={handleJoin}
-                  disabled={balance < entryFee || joining || !selectedGame}
-                  className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Zap className="w-5 h-5" />
-                  {joining ? 'Joining...' : balance < entryFee ? `Need ₦${entryFee - balance} more` : `Join Game — ₦${entryFee}`}
-                </button>
+                <div className="text-center py-2">
+                  <p className="text-muted-foreground text-sm">👆 Select a game above to join</p>
+                </div>
               )}
             </div>
           </div>
