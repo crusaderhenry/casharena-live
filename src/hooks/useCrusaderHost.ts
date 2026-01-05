@@ -396,15 +396,102 @@ const getGamePhrases = (hostId: string) => {
   return DEFAULT_GAME_PHRASES;
 };
 
+// ============= CO-HOST INTERACTIVE PHRASES =============
+// These phrases show two hosts bantering and interacting like a real live show
+
+const generateCoHostWelcome = (host1: HostConfig, host2: HostConfig, participants: number, pool: number) => {
+  const formattedPool = formatPoolForSpeech(pool);
+  return [
+    `[${host1.name}] Welcome everyone to the arena! We've got ${participants} players today! [${host2.name}] That's right ${host1.name}! And they're fighting for ${formattedPool} naira!`,
+    `[${host1.name}] ${formattedPool} naira on the line! [${host2.name}] This is going to be EPIC! ${participants} players ready to battle!`,
+    `[${host2.name}] Look at this ${host1.name}! ${participants} brave souls! [${host1.name}] And ${formattedPool} naira waiting for a champion!`,
+  ];
+};
+
+const generateCoHostGameStart = (host1: HostConfig, host2: HostConfig, participants: number) => [
+  `[${host1.name}] We are LIVE! [${host2.name}] ${participants} players, let's GO!`,
+  `[${host2.name}] The game has started! [${host1.name}] All ${participants} of you, show us what you've got!`,
+  `[${host1.name}] Here we go! [${host2.name}] May the fastest finger win!`,
+];
+
+const generateCoHostLeaderChange = (host1: HostConfig, host2: HostConfig, name: string, timer: number) => [
+  `[${host1.name}] OH! ${name} takes the lead! [${host2.name}] With ${timer} seconds left! This is intense!`,
+  `[${host2.name}] Did you see that ${host1.name}? ${name} just took over! [${host1.name}] ${timer} seconds on the clock!`,
+  `[${host1.name}] New leader! ${name}! [${host2.name}] The crown has changed hands! ${timer} seconds remain!`,
+  `[${host2.name}] ${name} said 'my turn!' [${host1.name}] Love the energy! ${timer} seconds left!`,
+];
+
+const generateCoHostTimer30 = (host1: HostConfig, host2: HostConfig, leader: string | null, comments: number) => [
+  `[${host1.name}] 30 seconds! [${host2.name}] ${comments} comments so far! ${leader ? `${leader} is leading!` : 'No clear leader!'}`,
+  `[${host2.name}] Half a minute ${host1.name}! [${host1.name}] The tension is REAL! Who's going to choke?`,
+  `[${host1.name}] 30 on the clock! [${host2.name}] I can barely watch! So exciting!`,
+];
+
+const generateCoHostTimer15 = (host1: HostConfig, host2: HostConfig, leader: string | null) => [
+  `[${host1.name}] 15 SECONDS! [${host2.name}] My heart is racing ${host1.name}!${leader ? ` ${leader} is sweating!` : ''}`,
+  `[${host2.name}] Danger zone! [${host1.name}] 15 seconds! Someone DO something!`,
+  `[${host1.name}] FIFTEEN! [${host2.name}] The suspense is killing me!`,
+];
+
+const generateCoHostTimer10 = (host1: HostConfig, host2: HostConfig, leader: string | null) => [
+  `[${host1.name}] TEN SECONDS! [${host2.name}] ${leader ? `${leader} is holding on!` : 'This is IT!'}`,
+  `[${host2.name}] 10! 9! [${host1.name}] This could be the end!`,
+  `[${host1.name}] Single digits! [${host2.name}] Who wants it MORE?!`,
+];
+
+const generateCoHostTimer5 = (host1: HostConfig, host2: HostConfig) => [
+  `[${host1.name}] FIVE! [${host2.name}] FOUR! [${host1.name}] THREE!`,
+  `[${host2.name}] 5 SECONDS! [${host1.name}] TYPE SOMETHING NOW!`,
+  `[${host1.name}] FIVE! [${host2.name}] THE TENSION IS UNBEARABLE!`,
+];
+
+const generateCoHostGameOver = (host1: HostConfig, host2: HostConfig, winner: string, prize: number) => {
+  const formattedPrize = formatPoolForSpeech(prize);
+  return [
+    `[${host1.name}] GAME OVER! [${host2.name}] ${winner} takes home ${formattedPrize} naira! What a battle!`,
+    `[${host2.name}] We have a champion! [${host1.name}] Congratulations ${winner}! ${formattedPrize} naira is yours!`,
+    `[${host1.name}] And that's a wrap! [${host2.name}] ${winner} with the victory! ${formattedPrize} naira! Amazing!`,
+  ];
+};
+
+const generateCoHostHype = (host1: HostConfig, host2: HostConfig, participants: number, comments: number) => [
+  `[${host1.name}] ${participants} players! [${host2.name}] ${comments} comments! [${host1.name}] This is CHAOS and I LOVE it!`,
+  `[${host2.name}] The energy is ELECTRIC! [${host1.name}] I've never seen anything like this!`,
+  `[${host1.name}] Shoutout to everyone competing! [${host2.name}] You're all legends!`,
+];
+
+const generateCoHostQuiet = (host1: HostConfig, host2: HostConfig) => [
+  `[${host1.name}] It's a bit quiet... [${host2.name}] Come on people! Show us something!`,
+  `[${host2.name}] Hello? Anyone there? [${host1.name}] Let's see some action!`,
+  `[${host1.name}] Who wants to win? [${host2.name}] Show us that hunger!`,
+];
+
+const generateCoHostCloseCall = (host1: HostConfig, host2: HostConfig, name: string) => [
+  `[${host1.name}] OH! [${host2.name}] ${name} with the CLUTCH save!`,
+  `[${host2.name}] That was SO close! [${host1.name}] ${name} just in time!`,
+  `[${host1.name}] By the skin of their teeth! [${host2.name}] ${name} survives!`,
+];
+
+const generateCoHostPrizeCallout = (host1: HostConfig, host2: HostConfig, pool: number, isSponsored: boolean) => {
+  const formattedPool = formatPoolForSpeech(pool);
+  const sponsorNote = isSponsored ? ' And it\'s sponsored!' : '';
+  return [
+    `[${host1.name}] ${formattedPool} naira on the line!${sponsorNote} [${host2.name}] That's serious money!`,
+    `[${host2.name}] Don't forget the prize ${host1.name}! [${host1.name}] ${formattedPool} naira waiting for someone!`,
+    `[${host1.name}] Real money right here! [${host2.name}] ${formattedPool} naira! Who will claim it?`,
+  ];
+};
+
 export const useCrusaderHost = () => {
   const { settings } = useAudio();
-  const { selectedHost } = usePlatformSettings();
+  const { selectedHost, secondaryHost, isCoHostMode } = usePlatformSettings();
   const [isEnabled, setIsEnabled] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [lastPhrase, setLastPhrase] = useState('');
   
-  // Get the current host configuration
+  // Get the current host configuration(s)
   const currentHost = getHostById(selectedHost);
+  const coHost = secondaryHost ? getHostById(secondaryHost) : null;
   const enabledRef = useRef(true);
   const lastAnnouncementRef = useRef<number>(0);
   const minIntervalRef = useRef(3000); // Minimum 3 seconds between announcements
@@ -691,19 +778,31 @@ export const useCrusaderHost = () => {
     }
   }, [calloutPrize]);
 
-  // Game-aware announcements
+  // Game-aware announcements with co-host support
   const welcomeToArena = useCallback(() => {
     const { participantCount, poolValue } = gameStateRef.current;
-    const PHRASES = getGamePhrases(currentHost.id);
-    const phrases = PHRASES.welcome(participantCount, poolValue);
-    speak(getRandomPhrase(phrases));
-  }, [speak, currentHost.id]);
+    
+    if (isCoHostMode && coHost) {
+      const phrases = generateCoHostWelcome(currentHost, coHost, participantCount, poolValue);
+      speak(getRandomPhrase(phrases));
+    } else {
+      const PHRASES = getGamePhrases(currentHost.id);
+      const phrases = PHRASES.welcome(participantCount, poolValue);
+      speak(getRandomPhrase(phrases));
+    }
+  }, [speak, currentHost, coHost, isCoHostMode]);
 
   const announceGameStart = useCallback(() => {
     const { participantCount, isSponsored } = gameStateRef.current;
-    const PHRASES = getGamePhrases(currentHost.id);
-    const phrases = PHRASES.game_start(participantCount);
-    speak(getRandomPhrase(phrases));
+    
+    if (isCoHostMode && coHost) {
+      const phrases = generateCoHostGameStart(currentHost, coHost, participantCount);
+      speak(getRandomPhrase(phrases));
+    } else {
+      const PHRASES = getGamePhrases(currentHost.id);
+      const phrases = PHRASES.game_start(participantCount);
+      speak(getRandomPhrase(phrases));
+    }
     
     // Reset prize callout tracking for new game
     prizeCalloutCountRef.current = 0;
@@ -715,13 +814,19 @@ export const useCrusaderHost = () => {
     if (isSponsored) {
       setTimeout(() => calloutPrize('sponsored'), 5000);
     }
-  }, [speak, calloutPrize, currentHost.id]);
+  }, [speak, calloutPrize, currentHost, coHost, isCoHostMode]);
 
   const announceLeaderChange = useCallback((leaderName: string) => {
     const { timer, poolValue, participantCount } = gameStateRef.current;
-    const PHRASES = getGamePhrases(currentHost.id);
-    const phrases = PHRASES.leader_change(leaderName, timer);
-    speak(getRandomPhrase(phrases));
+    
+    if (isCoHostMode && coHost) {
+      const phrases = generateCoHostLeaderChange(currentHost, coHost, leaderName, timer);
+      speak(getRandomPhrase(phrases));
+    } else {
+      const PHRASES = getGamePhrases(currentHost.id);
+      const phrases = PHRASES.leader_change(leaderName, timer);
+      speak(getRandomPhrase(phrases));
+    }
     
     // Occasionally add prize context to leader changes (20% chance for large pools)
     const isLargePool = poolValue >= 20000;
@@ -730,78 +835,114 @@ export const useCrusaderHost = () => {
     if (isLargePool && isLateGame && Math.random() < 0.3 && participantCount >= 10) {
       setTimeout(() => calloutPrize('leader_change'), 3000);
     }
-  }, [speak, calloutPrize, currentHost.id]);
+  }, [speak, calloutPrize, currentHost, coHost, isCoHostMode]);
 
   const announceTimerLow = useCallback((seconds: number) => {
     const { leader, commentCount, gameTimeRemaining } = gameStateRef.current;
-    const PHRASES = getGamePhrases(currentHost.id);
     
     // Check danger mode when timer warnings happen
     checkDangerMode(gameTimeRemaining);
     
     let phrases: string[] = [];
     
-    if (seconds === 60) {
-      phrases = PHRASES.timer_60(leader);
-    } else if (seconds === 30) {
-      phrases = PHRASES.timer_30(leader, commentCount);
-    } else if (seconds === 15) {
-      phrases = PHRASES.timer_15(leader);
-    } else if (seconds === 10) {
-      phrases = PHRASES.timer_10(leader);
-      // Late game pressure callout
-      if (Math.random() < 0.4) {
-        setTimeout(() => calloutPrize('late_game'), 2000);
+    if (isCoHostMode && coHost) {
+      if (seconds === 30) {
+        phrases = generateCoHostTimer30(currentHost, coHost, leader, commentCount);
+      } else if (seconds === 15) {
+        phrases = generateCoHostTimer15(currentHost, coHost, leader);
+      } else if (seconds === 10) {
+        phrases = generateCoHostTimer10(currentHost, coHost, leader);
+        if (Math.random() < 0.4) {
+          setTimeout(() => calloutPrize('late_game'), 2000);
+        }
+      } else if (seconds === 5) {
+        phrases = generateCoHostTimer5(currentHost, coHost);
       }
-    } else if (seconds === 5) {
-      phrases = PHRASES.timer_5();
+    } else {
+      const PHRASES = getGamePhrases(currentHost.id);
+      if (seconds === 60) {
+        phrases = PHRASES.timer_60(leader);
+      } else if (seconds === 30) {
+        phrases = PHRASES.timer_30(leader, commentCount);
+      } else if (seconds === 15) {
+        phrases = PHRASES.timer_15(leader);
+      } else if (seconds === 10) {
+        phrases = PHRASES.timer_10(leader);
+        if (Math.random() < 0.4) {
+          setTimeout(() => calloutPrize('late_game'), 2000);
+        }
+      } else if (seconds === 5) {
+        phrases = PHRASES.timer_5();
+      }
     }
     
     if (phrases.length > 0) {
       speak(getRandomPhrase(phrases));
     }
-  }, [speak, checkDangerMode, calloutPrize, currentHost.id]);
+  }, [speak, checkDangerMode, calloutPrize, currentHost, coHost, isCoHostMode]);
 
   const announceCloseCall = useCallback((playerName?: string) => {
     const { leader } = gameStateRef.current;
-    const PHRASES = getGamePhrases(currentHost.id);
     const name = playerName || leader || 'Someone';
-    const phrases = PHRASES.close_call(name);
-    speak(getRandomPhrase(phrases));
-  }, [speak, currentHost.id]);
+    
+    if (isCoHostMode && coHost) {
+      const phrases = generateCoHostCloseCall(currentHost, coHost, name);
+      speak(getRandomPhrase(phrases));
+    } else {
+      const PHRASES = getGamePhrases(currentHost.id);
+      const phrases = PHRASES.close_call(name);
+      speak(getRandomPhrase(phrases));
+    }
+  }, [speak, currentHost, coHost, isCoHostMode]);
 
   const announceGameOver = useCallback((winnerName?: string, prize?: number) => {
     const { leader, poolValue } = gameStateRef.current;
-    const PHRASES = getGamePhrases(currentHost.id);
     const winner = winnerName || leader || 'The champion';
     const prizeAmount = prize || Math.floor(poolValue * 0.5);
-    const phrases = PHRASES.game_over(winner, prizeAmount);
-    speak(getRandomPhrase(phrases));
-  }, [speak, currentHost.id]);
+    
+    if (isCoHostMode && coHost) {
+      const phrases = generateCoHostGameOver(currentHost, coHost, winner, prizeAmount);
+      speak(getRandomPhrase(phrases));
+    } else {
+      const PHRASES = getGamePhrases(currentHost.id);
+      const phrases = PHRASES.game_over(winner, prizeAmount);
+      speak(getRandomPhrase(phrases));
+    }
+  }, [speak, currentHost, coHost, isCoHostMode]);
 
   const randomHype = useCallback(() => {
     const { participantCount, commentCount, chatIntensity, poolValue } = gameStateRef.current;
-    const PHRASES = getGamePhrases(currentHost.id);
     
-    // If game is quiet, sometimes use silence breaker with prize mention
+    // If game is quiet
     if (commentCount < 5 && gameStateRef.current.isLive) {
-      // 30% chance to use prize-focused silence breaker
       if (Math.random() < 0.3 && poolValue > 0) {
         calloutPrize('silence_breaker');
       } else {
-        const phrases = PHRASES.quiet_game();
-        speak(getRandomPhrase(phrases));
+        if (isCoHostMode && coHost) {
+          const phrases = generateCoHostQuiet(currentHost, coHost);
+          speak(getRandomPhrase(phrases));
+        } else {
+          const PHRASES = getGamePhrases(currentHost.id);
+          const phrases = PHRASES.quiet_game();
+          speak(getRandomPhrase(phrases));
+        }
       }
     } else {
-      // Regular hype, occasionally with prize reminder
+      // Regular hype
       if (chatIntensity !== 'high' && Math.random() < 0.15 && poolValue >= 10000) {
         calloutPrize('reminder');
       } else {
-        const phrases = PHRASES.hype(participantCount, commentCount);
-        speak(getRandomPhrase(phrases));
+        if (isCoHostMode && coHost) {
+          const phrases = generateCoHostHype(currentHost, coHost, participantCount, commentCount);
+          speak(getRandomPhrase(phrases));
+        } else {
+          const PHRASES = getGamePhrases(currentHost.id);
+          const phrases = PHRASES.hype(participantCount, commentCount);
+          speak(getRandomPhrase(phrases));
+        }
       }
     }
-  }, [speak, calloutPrize, currentHost.id]);
+  }, [speak, calloutPrize, currentHost, coHost, isCoHostMode]);
 
   const announceWinners = useCallback((winners: Array<{ name: string; position: number; prize: number }>) => {
     if (winners.length === 0) return;
@@ -840,6 +981,8 @@ export const useCrusaderHost = () => {
     isEnabled,
     lastPhrase,
     currentHost,
+    coHost,
+    isCoHostMode,
     setEnabled,
     updateGameState,
     welcomeToArena,
