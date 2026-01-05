@@ -3,6 +3,7 @@ import { WalletCard } from '@/components/WalletCard';
 import { BottomNav } from '@/components/BottomNav';
 import { TestModeToggle } from '@/components/TestControls';
 import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutorial';
+import { GameListCard, NoGamesCard } from '@/components/GameListCard';
 import { Zap, Trophy, Users, Clock, ChevronRight, Flame, Bell } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -268,94 +269,47 @@ export const Home = () => {
         {/* Wallet */}
         <WalletCard compact />
 
-        {/* Hero - Fastest Finger */}
-        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-card via-card to-primary/10">
-          {/* Background glow */}
-          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/20 rounded-full blur-3xl -z-0" />
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl -z-0" />
-          
-          <div className="relative z-10 p-5">
-            {/* Live badge */}
-            <div className="flex items-center justify-between mb-4">
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
-                primaryGame?.status === 'live' 
-                  ? 'bg-green-500/20 border-green-500/30' 
-                  : 'bg-yellow-500/20 border-yellow-500/30'
-              }`}>
-                <span className="live-dot" />
-                <span className={`text-xs font-bold uppercase tracking-wider ${
-                  primaryGame?.status === 'live' ? 'text-green-400' : 'text-yellow-400'
-                }`}>
-                  {primaryGame?.status === 'live' ? 'Live Now' : primaryGame?.status === 'scheduled' ? 'Starting Soon' : 'No Games'}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Users className="w-4 h-4" />
-                <span className="text-sm font-medium">{playerCount} players</span>
-              </div>
-            </div>
+        {/* Games Section */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <Zap className="w-4 h-4 text-primary" />
+            {liveGames.length > 0 ? 'Live Games' : scheduledGames.length > 0 ? 'Coming Soon' : 'Games'}
+          </h3>
 
-            {/* Title */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center glow-primary">
-                <Zap className="w-8 h-8 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-xl font-black text-foreground">
-                  {isTestMode ? 'Fastest Finger' : (primaryGame as any)?.name || 'Fastest Finger'}
-                </h2>
-                <p className="text-sm text-muted-foreground">Last comment standing wins</p>
-              </div>
-            </div>
+          {/* No games state */}
+          {displayGames.length === 0 && <NoGamesCard />}
 
-            {/* Pool & Countdown */}
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              <div className="bg-background/50 backdrop-blur-sm rounded-xl p-4 border border-border/30">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Prize Pool</p>
-                <p className="text-2xl font-black text-primary">{formatMoney(poolValue)}</p>
-              </div>
-              <div className="bg-background/50 backdrop-blur-sm rounded-xl p-4 border border-border/30">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-                  {primaryGame?.status === 'live' ? 'Countdown' : 'Next Game'}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-primary" />
-                  <p className="text-2xl font-black text-foreground">
-                    {primaryGame?.status === 'live' ? `${primaryGame.countdown}s` : formatTime(nextGameCountdown)}
-                  </p>
-                </div>
-              </div>
+          {/* Live Games */}
+          {liveGames.length > 0 && (
+            <div className="space-y-3">
+              {liveGames.slice(0, 2).map((game) => (
+                <GameListCard key={game.id} game={game} />
+              ))}
             </div>
+          )}
 
-            {/* CTA */}
-            <button
-              onClick={handleJoinGame}
-              className="w-full btn-primary flex items-center justify-center gap-2 text-lg"
-            >
-              <Zap className="w-5 h-5" />
-              {primaryGame?.status === 'live' ? 'Join Live Game' : 'Enter Lobby'}
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Active Games Count (when multiple games) */}
-        {displayGames.length > 1 && (
-          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-card border border-border/30">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-foreground">
-                {liveGames.length} live, {scheduledGames.length} upcoming
-              </span>
+          {/* Scheduled Games */}
+          {scheduledGames.length > 0 && (
+            <div className="space-y-2">
+              {liveGames.length > 0 && (
+                <h4 className="text-xs text-muted-foreground uppercase tracking-wider mt-4">Coming Soon</h4>
+              )}
+              {scheduledGames.slice(0, 2).map((game) => (
+                <GameListCard key={game.id} game={game} variant="compact" />
+              ))}
             </div>
+          )}
+
+          {/* View all link */}
+          {displayGames.length > 2 && (
             <button 
               onClick={handleJoinGame}
-              className="text-xs text-primary font-medium"
+              className="w-full py-2 text-center text-sm text-primary font-medium"
             >
-              View All →
+              View All {displayGames.length} Games →
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Your Rank */}
         <button

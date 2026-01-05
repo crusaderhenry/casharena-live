@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { WalletCard } from '@/components/WalletCard';
 import { TestControls } from '@/components/TestControls';
+import { GameListCard, NoGamesCard } from '@/components/GameListCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGame } from '@/contexts/GameContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
@@ -195,142 +196,82 @@ export const FingerMain = () => {
         )}
 
         {/* No Games Available */}
-        {!hasGames && !isTestMode && (
-          <div className="card-panel text-center py-8">
-            <Zap className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-            <h3 className="font-bold text-foreground mb-2">No Games Available</h3>
-            <p className="text-sm text-muted-foreground">Check back soon for upcoming games!</p>
-          </div>
-        )}
+        {!hasGames && <NoGamesCard />}
 
-        {/* Game Selector (when multiple games available) */}
-        {hasGames && allGames.length > 1 && (
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Available Games ({liveGames.length} live, {scheduledGames.length} upcoming)
-            </h3>
-            <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
-              {allGames.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => setSelectedGameId(g.id)}
-                  className={`flex-shrink-0 px-4 py-3 rounded-xl border transition-all ${
-                    selectedGame?.id === g.id
-                      ? 'bg-primary/20 border-primary text-foreground'
-                      : 'bg-card border-border/50 text-muted-foreground hover:border-primary/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${g.status === 'live' ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                    <span className="font-medium text-sm">{(g as any).name || 'Game'}</span>
+        {/* All Games List */}
+        {hasGames && (
+          <div className="space-y-3">
+            {/* Live Games */}
+            {liveGames.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  Live Games ({liveGames.length})
+                </h3>
+                {liveGames.map((g) => (
+                  <div key={g.id} onClick={() => setSelectedGameId(g.id)}>
+                    <GameListCard game={g} />
                   </div>
-                  <p className="text-xs mt-1">₦{g.pool_value?.toLocaleString() || 0}</p>
-                </button>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
+
+            {/* Scheduled Games */}
+            {scheduledGames.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mt-4">
+                  <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                  Coming Soon ({scheduledGames.length})
+                </h3>
+                {scheduledGames.map((g) => (
+                  <div key={g.id} onClick={() => setSelectedGameId(g.id)}>
+                    <GameListCard game={g} variant="compact" />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Hero Card */}
+        {/* Selected Game Join Section */}
         {hasGames && selectedGame && (
-          <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-card via-card to-primary/10">
-            {/* Background effects */}
-            <div className="absolute top-0 right-0 w-40 h-40 bg-primary/20 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl" />
-            
-            <div className="relative z-10 p-5">
-              {/* Live badge */}
-              <div className="flex items-center justify-between mb-4">
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
-                  selectedGame.status === 'live'
-                    ? 'bg-green-500/20 border-green-500/30'
-                    : 'bg-yellow-500/20 border-yellow-500/30'
-                }`}>
-                  <span className={`w-2 h-2 rounded-full ${selectedGame.status === 'live' ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
-                  <span className={`text-xs font-bold uppercase tracking-wider ${
-                    selectedGame.status === 'live' ? 'text-green-400' : 'text-yellow-400'
-                  }`}>
-                    {selectedGame.status === 'live' ? 'Live Now' : 'Upcoming'}
+          <div className="card-panel border-primary/30">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-bold text-foreground">{(selectedGame as any).name || 'Fastest Finger'}</h3>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                  <span className="flex items-center gap-1">
+                    <Trophy className="w-4 h-4 text-gold" /> Top 3 win
                   </span>
-                </div>
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Users className="w-4 h-4" />
-                  <span className="text-sm font-medium">{playerCount} {selectedGame.status === 'live' ? 'playing' : 'waiting'}</span>
+                  <span>•</span>
+                  <span>{selectedGame.max_duration || 20} min max</span>
                 </div>
               </div>
-
-              {/* Title */}
-              <div className="flex items-center gap-4 mb-5">
-                <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center glow-primary">
-                  <Zap className="w-9 h-9 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-foreground">
-                    {(selectedGame as any).name || 'Live Comment Battle'}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">Be the last commenter standing!</p>
-                </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Entry Fee</p>
+                <p className="font-bold text-primary">₦{entryFee}</p>
               </div>
-
-              {/* Pool & Countdown */}
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                <div className="bg-background/60 backdrop-blur-sm rounded-xl p-4 border border-border/30">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Prize Pool</p>
-                  <p className="text-2xl font-black text-primary">₦{poolValue.toLocaleString()}</p>
-                </div>
-                <div className="bg-background/60 backdrop-blur-sm rounded-xl p-4 border border-border/30">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-                    {selectedGame.status === 'live' ? 'Game Timer' : 'Starts In'}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-primary" />
-                    <p className="text-2xl font-black text-foreground">
-                      {selectedGame.status === 'live' ? `${selectedGame.countdown}s` : formatTime(countdown)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Entry & Winners */}
-              <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-xl border border-border/30 mb-5">
-                <div className="text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase">Entry</p>
-                  <p className="font-bold text-primary">₦{entryFee}</p>
-                </div>
-                <div className="w-px h-8 bg-border/50" />
-                <div className="text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase">Winners</p>
-                  <p className="font-bold text-foreground flex items-center gap-1">
-                    <Trophy className="w-4 h-4 text-gold" /> Top 3
-                  </p>
-                </div>
-                <div className="w-px h-8 bg-border/50" />
-                <div className="text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase">Game Time</p>
-                  <p className="font-bold text-foreground">{selectedGame.max_duration || 20} min</p>
-                </div>
-              </div>
-
-              {/* CTA */}
-              {hasJoined ? (
-                <button
-                  onClick={() => navigate(selectedGame.status === 'live' ? '/finger/arena' : '/finger/lobby')}
-                  className="w-full btn-primary flex items-center justify-center gap-2 text-lg"
-                >
-                  {selectedGame.status === 'live' ? 'Enter Arena' : 'Go to Lobby'}
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              ) : (
-                <button
-                  onClick={handleJoin}
-                  disabled={balance < entryFee || joining || !selectedGame}
-                  className="w-full btn-primary flex items-center justify-center gap-2 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Zap className="w-5 h-5" />
-                  {joining ? 'Joining...' : balance < entryFee ? 'Insufficient Balance' : `Join Lobby — ₦${entryFee}`}
-                </button>
-              )}
             </div>
+
+            {/* CTA */}
+            {hasJoined ? (
+              <button
+                onClick={() => navigate(selectedGame.status === 'live' ? '/finger/arena' : '/finger/lobby')}
+                className="w-full btn-primary flex items-center justify-center gap-2"
+              >
+                {selectedGame.status === 'live' ? 'Enter Arena' : 'Go to Lobby'}
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            ) : (
+              <button
+                onClick={handleJoin}
+                disabled={balance < entryFee || joining || !selectedGame}
+                className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Zap className="w-5 h-5" />
+                {joining ? 'Joining...' : balance < entryFee ? 'Insufficient Balance' : `Join Game — ₦${entryFee}`}
+              </button>
+            )}
           </div>
         )}
 
