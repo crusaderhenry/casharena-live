@@ -526,7 +526,19 @@ serve(async (req) => {
         await supabase.from('winners').delete().eq('game_id', gameId);
         await supabase.from('fastest_finger_participants').delete().eq('game_id', gameId);
         await supabase.from('voice_room_participants').delete().eq('game_id', gameId);
-        // Note: wallet_transactions and rank_history have game_id but we keep them for audit
+
+        // Detach ledger rows that reference game_id (FKs are not cascading)
+        const { error: txDetachError } = await supabase
+          .from('wallet_transactions')
+          .update({ game_id: null })
+          .eq('game_id', gameId);
+        if (txDetachError) throw txDetachError;
+
+        const { error: rankDetachError } = await supabase
+          .from('rank_history')
+          .update({ game_id: null })
+          .eq('game_id', gameId);
+        if (rankDetachError) throw rankDetachError;
         
         // Delete the game
         const { error: deleteError } = await supabase

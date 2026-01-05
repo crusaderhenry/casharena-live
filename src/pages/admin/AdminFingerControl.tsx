@@ -212,6 +212,7 @@ export const AdminFingerControl = () => {
 
   // Get active games
   const activeGames = games.filter(g => g.status === 'live' || g.status === 'scheduled' || g.status === 'open');
+  const cancelledGames = games.filter(g => g.status === 'cancelled');
   const recentEndedGames = games.filter(g => g.status === 'ended' || g.status === 'cancelled').slice(0, 5);
 
   // Handle cancel game
@@ -779,7 +780,7 @@ export const AdminFingerControl = () => {
                         className="flex items-center justify-center gap-2 px-3 py-2 bg-destructive/20 text-destructive rounded-lg font-medium hover:bg-destructive/30 transition-colors"
                         title="Cancel Game"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <XCircle className="w-4 h-4" />
                       </button>
                     </>
                   )}
@@ -797,7 +798,7 @@ export const AdminFingerControl = () => {
                         className="flex items-center justify-center gap-2 px-3 py-2 bg-muted text-muted-foreground rounded-lg font-medium cursor-not-allowed opacity-50"
                         title="Cannot cancel live game"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <XCircle className="w-4 h-4" />
                       </button>
                     </>
                   )}
@@ -807,6 +808,59 @@ export const AdminFingerControl = () => {
           </div>
         )}
       </div>
+
+      {/* Cancelled Games (Delete) */}
+      {cancelledGames.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <XCircle className="w-5 h-5 text-destructive" />
+            Cancelled Games ({cancelledGames.length})
+          </h2>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {cancelledGames.map((game) => (
+              <div key={game.id} className="bg-card rounded-xl border border-destructive/20 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-bold text-foreground">{game.name || 'Fastest Finger'}</h3>
+                    <p className="text-xs text-muted-foreground">ID: {game.id.slice(0, 8)}...</p>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-destructive/20 text-destructive border border-destructive/30">
+                    cancelled
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  <div className="p-3 bg-muted/30 rounded-lg text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase">Entry</p>
+                    <p className="font-bold text-primary">₦{game.entryFee}</p>
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-lg text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase">Pool</p>
+                    <p className="font-bold text-foreground">₦{game.poolValue.toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-lg text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase">Players</p>
+                    <p className="font-bold text-foreground">{game.participants}</p>
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-lg text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase">Timer</p>
+                    <p className="font-bold text-foreground">{game.countdown}s</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleOpenDeleteDialog(game.id)}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-destructive text-destructive-foreground rounded-lg font-medium hover:bg-destructive/90 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Permanently
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent Ended Games */}
       {recentEndedGames.length > 0 && (
