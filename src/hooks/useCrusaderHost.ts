@@ -397,163 +397,152 @@ const getGamePhrases = (hostId: string) => {
 };
 
 // ============= CO-HOST INTERACTIVE PHRASES =============
-// These phrases show two hosts bantering and interacting like a real live show
+// These phrases show two hosts having natural, overlapping conversations
+// Sometimes one host dominates, sometimes they interrupt, sometimes they agree
 
 const generateCoHostWelcome = (host1: HostConfig, host2: HostConfig, participants: number, pool: number) => {
   const formattedPool = formatPoolForSpeech(pool);
   return [
-    `[${host1.name}] Welcome everyone to the arena! We have got ${participants} players today! [${host2.name}] That is right ${host1.name}! And they are fighting for ${formattedPool} naira!`,
-    `[${host1.name}] ${formattedPool} naira on the line! [${host2.name}] This is going to be EPIC! ${participants} players ready to battle!`,
-    `[${host2.name}] Look at this ${host1.name}! ${participants} brave souls! [${host1.name}] And ${formattedPool} naira waiting for a champion!`,
-    `[${host1.name}] Good evening everyone! [${host2.name}] Welcome to the fastest finger arena! [${host1.name}] ${participants} players, ${formattedPool} naira! Let us GO!`,
-    `[${host2.name}] ${host1.name}, can you feel that energy? [${host1.name}] Oh I feel it! ${participants} players ready to rumble for ${formattedPool} naira!`,
-    `[${host1.name}] Another beautiful day in the arena! [${host2.name}] ${participants} competitors, ${formattedPool} naira prize! [${host1.name}] This is why we do this!`,
+    // Natural back-and-forth
+    `[${host1.name}] Welcome everyone to the arena! [${host2.name}] Yes! ${participants} players fighting for ${formattedPool} naira! [${host1.name}] Let us get it!`,
+    `[${host2.name}] ${host1.name}, look at this crowd! [${host1.name}] ${participants} players! [${host2.name}] And ${formattedPool} naira waiting! This is going to be amazing!`,
+    // Host 1 leads with interruption
+    `[${host1.name}] Good evening everyone! We have got... [${host2.name}] ${participants} warriors ${host1.name}! [${host1.name}] That is right! And ${formattedPool} naira on the line!`,
+    // Host 2 leads
+    `[${host2.name}] ${formattedPool} naira prize pool tonight! [${host1.name}] With ${participants} players ready to battle! [${host2.name}] I love this energy already!`,
+    // Quick exchanges
+    `[${host1.name}] Arena time! [${host2.name}] ${participants} players! [${host1.name}] ${formattedPool} naira! [${host2.name}] What more could we ask for!`,
+    // Agreement style
+    `[${host1.name}] Can you feel that energy ${host2.name}? [${host2.name}] Absolutely! ${participants} players, ${formattedPool} naira... [${host1.name}] This is why we do what we do!`,
+    // Excitement building
+    `[${host2.name}] Welcome welcome welcome! [${host1.name}] ${host2.name} is excited tonight! [${host2.name}] How can I not be? ${participants} players for ${formattedPool} naira!`,
   ];
 };
 
 const generateCoHostGameStart = (host1: HostConfig, host2: HostConfig, participants: number) => [
-  `[${host1.name}] We are LIVE! [${host2.name}] ${participants} players, let us GO!`,
-  `[${host2.name}] The game has started! [${host1.name}] All ${participants} of you, show us what you have got!`,
-  `[${host1.name}] Here we go! [${host2.name}] May the fastest finger win!`,
-  `[${host2.name}] And we are off! [${host1.name}] ${participants} fingers ready! [${host2.name}] Let the battle begin!`,
-  `[${host1.name}] Game time! [${host2.name}] I am so excited ${host1.name}! [${host1.name}] Me too! ${participants} players, FIGHT!`,
-  `[${host2.name}] The countdown is over! [${host1.name}] Now the real fun begins! [${host2.name}] Show us those fast fingers!`,
+  `[${host1.name}] We are LIVE! [${host2.name}] Go go go! ${participants} players, show us what you got!`,
+  `[${host2.name}] The game has started ${host1.name}! [${host1.name}] I can feel the tension! May the best finger win!`,
+  `[${host1.name}] Here we go! ${participants} players... [${host2.name}] Let the battle BEGIN!`,
+  `[${host2.name}] And we are off! [${host1.name}] This is it everyone! [${host2.name}] Fight for that crown!`,
+  `[${host1.name}] Game time ${host2.name}! [${host2.name}] My heart is already racing! [${host1.name}] ${participants} players, give us a show!`,
+  `[${host2.name}] It is happening! [${host1.name}] The countdown is done! [${host2.name}] Now we see who really has the fastest finger!`,
 ];
 
 const generateCoHostLeaderChange = (host1: HostConfig, host2: HostConfig, name: string, timer: number) => [
-  `[${host1.name}] OH! ${name} takes the lead! [${host2.name}] With ${timer} seconds left! This is intense!`,
-  `[${host2.name}] Did you see that ${host1.name}? ${name} just took over! [${host1.name}] ${timer} seconds on the clock!`,
-  `[${host1.name}] New leader! ${name}! [${host2.name}] The crown has changed hands! ${timer} seconds remain!`,
-  `[${host2.name}] ${name} said my turn! [${host1.name}] Love the energy! ${timer} seconds left!`,
-  `[${host1.name}] Wait wait wait! [${host2.name}] What happened? [${host1.name}] ${name} just stole the throne! ${timer} seconds!`,
-  `[${host2.name}] ${host1.name} look! [${host1.name}] I see it! ${name} is on top now! [${host2.name}] Only ${timer} seconds remaining!`,
-  `[${host1.name}] The leaderboard just changed! [${host2.name}] ${name} with the takeover! [${host1.name}] ${timer} seconds to defend it!`,
-  `[${host2.name}] Oh my! ${name} came out of nowhere! [${host1.name}] That is what I am talking about! ${timer} seconds left!`,
+  // Excited reactions
+  `[${host1.name}] OH! ${name} takes the lead! [${host2.name}] What a move! ${timer} seconds left!`,
+  `[${host2.name}] Wait wait wait! [${host1.name}] What? [${host2.name}] ${name} just took over! [${host1.name}] With ${timer} seconds to go!`,
+  // Natural amazement
+  `[${host1.name}] New leader! ${name}! [${host2.name}] I did not see that coming! ${timer} seconds remain!`,
+  `[${host2.name}] ${host1.name}, did you see that? [${host1.name}] ${name} said move over! [${host2.name}] ${timer} seconds on the clock!`,
+  // Quick back and forth
+  `[${host1.name}] Crown change! [${host2.name}] ${name} is on top! [${host1.name}] ${timer} seconds to defend it!`,
+  `[${host2.name}] ${name} coming in hot! [${host1.name}] The throne has a new owner! [${host2.name}] Only ${timer} seconds remain!`,
+  // Agreement excitement
+  `[${host1.name}] Look at ${name}! [${host2.name}] Taking charge! [${host1.name}] That is what we want to see! ${timer} seconds!`,
+  `[${host2.name}] New leader alert! [${host1.name}] ${name} with the takeover! [${host2.name}] Can they hold for ${timer} seconds?`,
 ];
 
 const generateCoHostTimer60 = (host1: HostConfig, host2: HostConfig, leader: string | null) => [
-  `[${host1.name}] One minute left! [${host2.name}] ${leader ? `${leader} is leading but` : 'No clear leader and'} anything can happen!`,
-  `[${host2.name}] 60 seconds ${host1.name}! [${host1.name}] The pressure is building! [${host2.name}] Who is going to crack?`,
-  `[${host1.name}] We are in the final minute! [${host2.name}] This is where champions are made!`,
-  `[${host2.name}] One minute on the clock! [${host1.name}] ${leader ? `${leader} better watch their back!` : 'Everyone is still in this!'}`,
+  `[${host1.name}] One minute left! [${host2.name}] ${leader ? `${leader} is leading but` : 'Anyone can'} still win this!`,
+  `[${host2.name}] 60 seconds ${host1.name}! [${host1.name}] The pressure is on! ${leader ? `${leader} better watch out!` : ''}`,
+  `[${host1.name}] Final minute! [${host2.name}] This is where it gets interesting ${host1.name}!`,
+  `[${host2.name}] One minute everyone! [${host1.name}] Anything can happen! [${host2.name}] Stay focused!`,
 ];
 
 const generateCoHostTimer30 = (host1: HostConfig, host2: HostConfig, leader: string | null, comments: number) => [
-  `[${host1.name}] 30 seconds! [${host2.name}] ${comments} comments so far! ${leader ? `${leader} is leading!` : 'No clear leader!'}`,
-  `[${host2.name}] Half a minute ${host1.name}! [${host1.name}] The tension is REAL! Who is going to choke?`,
-  `[${host1.name}] 30 on the clock! [${host2.name}] I can barely watch! So exciting!`,
-  `[${host2.name}] ${host1.name}, 30 seconds! [${host1.name}] I know! My hands are sweating! [${host2.name}] ${leader ? `${leader} is holding on!` : 'Anyone can win this!'}`,
-  `[${host1.name}] Half a minute remains! [${host2.name}] The chat has ${comments} comments! [${host1.name}] Keep them coming!`,
+  `[${host1.name}] 30 seconds! [${host2.name}] ${comments} comments so far! ${leader ? `${leader} is holding on!` : 'No clear leader!'}`,
+  `[${host2.name}] Half a minute ${host1.name}! [${host1.name}] My heart cannot take this! [${host2.name}] Neither can theirs!`,
+  `[${host1.name}] 30 on the clock! [${host2.name}] This is intense! [${host1.name}] Who wants it more?`,
+  `[${host2.name}] ${host1.name}, 30 seconds! [${host1.name}] I am sweating for them! [${host2.name}] ${leader ? `${leader} needs to hold!` : 'Someone take the lead!'}`,
 ];
 
 const generateCoHostTimer15 = (host1: HostConfig, host2: HostConfig, leader: string | null) => [
-  `[${host1.name}] 15 SECONDS! [${host2.name}] My heart is racing ${host1.name}!${leader ? ` ${leader} is sweating!` : ''}`,
-  `[${host2.name}] Danger zone! [${host1.name}] 15 seconds! Someone DO something!`,
-  `[${host1.name}] FIFTEEN! [${host2.name}] The suspense is killing me!`,
-  `[${host2.name}] ${host1.name}! 15 seconds! [${host1.name}] I cannot breathe! [${host2.name}] Neither can the players!`,
-  `[${host1.name}] We are in the red zone! [${host2.name}] 15 seconds! [${host1.name}] This is it people!`,
-  `[${host2.name}] Final stretch! [${host1.name}] 15 seconds on the clock! [${host2.name}] ${leader ? `Can ${leader} hold on?` : 'Who wants it more?'}`,
+  `[${host1.name}] 15 SECONDS! [${host2.name}] This is it!${leader ? ` ${leader} is sweating!` : ''}`,
+  `[${host2.name}] Danger zone ${host1.name}! [${host1.name}] 15 seconds! Someone make a move!`,
+  `[${host1.name}] FIFTEEN! [${host2.name}] I cannot watch! [${host1.name}] But you have to!`,
+  `[${host2.name}] 15 seconds! [${host1.name}] The pressure! [${host2.name}] ${leader ? `Can ${leader} survive?` : 'Who will take it?'}`,
 ];
 
 const generateCoHostTimer10 = (host1: HostConfig, host2: HostConfig, leader: string | null) => [
-  `[${host1.name}] TEN SECONDS! [${host2.name}] ${leader ? `${leader} is holding on!` : 'This is IT!'}`,
-  `[${host2.name}] 10! 9! [${host1.name}] This could be the end!`,
-  `[${host1.name}] Single digits! [${host2.name}] Who wants it MORE?!`,
-  `[${host2.name}] TEN! [${host1.name}] NINE! [${host2.name}] EIGHT! [${host1.name}] Keep going!`,
-  `[${host1.name}] 10 seconds ${host2.name}! [${host2.name}] I am on the edge of my seat! [${host1.name}] So am I!`,
-  `[${host2.name}] Final countdown! [${host1.name}] 10 seconds! [${host2.name}] ${leader ? `${leader} is THIS close!` : 'No one is safe!'}`,
+  `[${host1.name}] TEN SECONDS! [${host2.name}] ${leader ? `${leader} is holding!` : 'This is it!'}`,
+  `[${host2.name}] 10! [${host1.name}] 9! [${host2.name}] Final countdown!`,
+  `[${host1.name}] Single digits ${host2.name}! [${host2.name}] Who wants it MORE?!`,
+  `[${host2.name}] TEN! [${host1.name}] This could be it! [${host2.name}] ${leader ? `${leader} is so close!` : 'Anyone can win!'}`,
 ];
 
 const generateCoHostTimer5 = (host1: HostConfig, host2: HostConfig) => [
   `[${host1.name}] FIVE! [${host2.name}] FOUR! [${host1.name}] THREE!`,
-  `[${host2.name}] 5 SECONDS! [${host1.name}] TYPE SOMETHING NOW!`,
-  `[${host1.name}] FIVE! [${host2.name}] THE TENSION IS UNBEARABLE!`,
-  `[${host2.name}] FIVE! [${host1.name}] FOUR! [${host2.name}] THREE! [${host1.name}] TWO! [${host2.name}] ONE!`,
-  `[${host1.name}] Last 5 seconds! [${host2.name}] My heart is going to explode! [${host1.name}] COME ON!`,
-  `[${host2.name}] 5! 4! 3! [${host1.name}] Oh my goodness! [${host2.name}] 2! 1!`,
+  `[${host2.name}] 5 SECONDS! [${host1.name}] TYPE NOW!`,
+  `[${host1.name}] FIVE! [${host2.name}] The tension! [${host1.name}] FOUR!`,
+  `[${host2.name}] Last chance! [${host1.name}] FIVE! FOUR! THREE!`,
 ];
 
 const generateCoHostGameOver = (host1: HostConfig, host2: HostConfig, winner: string, prize: number) => {
   const formattedPrize = formatPoolForSpeech(prize);
   return [
-    `[${host1.name}] GAME OVER! [${host2.name}] ${winner} takes home ${formattedPrize} naira! What a battle!`,
-    `[${host2.name}] We have a champion! [${host1.name}] Congratulations ${winner}! ${formattedPrize} naira is yours!`,
-    `[${host1.name}] And that is a wrap! [${host2.name}] ${winner} with the victory! ${formattedPrize} naira! Amazing!`,
-    `[${host2.name}] IT IS OVER! [${host1.name}] ${winner} did it! [${host2.name}] ${formattedPrize} naira richer! [${host1.name}] Incredible!`,
-    `[${host1.name}] The dust has settled! [${host2.name}] And ${winner} stands victorious! [${host1.name}] ${formattedPrize} naira well earned!`,
-    `[${host2.name}] What a game ${host1.name}! [${host1.name}] Unbelievable! ${winner} wins ${formattedPrize} naira! [${host2.name}] Champions are made here!`,
-    `[${host1.name}] History is made! [${host2.name}] ${winner} claims the crown and ${formattedPrize} naira! [${host1.name}] See you next game everyone!`,
+    `[${host1.name}] GAME OVER! [${host2.name}] ${winner} wins ${formattedPrize} naira! [${host1.name}] What a battle!`,
+    `[${host2.name}] We have a champion! [${host1.name}] Congratulations ${winner}! [${host2.name}] ${formattedPrize} naira well earned!`,
+    `[${host1.name}] And that is a wrap! [${host2.name}] ${winner} takes it all! [${host1.name}] ${formattedPrize} naira richer!`,
+    `[${host2.name}] IT IS OVER! [${host1.name}] ${winner} did it! [${host2.name}] What a game ${host1.name}!`,
+    `[${host1.name}] History made! [${host2.name}] ${winner} claims ${formattedPrize} naira! [${host1.name}] See you all next game!`,
   ];
 };
 
 const generateCoHostHype = (host1: HostConfig, host2: HostConfig, participants: number, comments: number) => [
-  `[${host1.name}] ${participants} players! [${host2.name}] ${comments} comments! [${host1.name}] This is CHAOS and I LOVE it!`,
-  `[${host2.name}] The energy is ELECTRIC! [${host1.name}] I have never seen anything like this!`,
-  `[${host1.name}] Shoutout to everyone competing! [${host2.name}] You are all legends!`,
-  `[${host2.name}] Look at that chat flying ${host1.name}! [${host1.name}] ${comments} comments and counting! [${host2.name}] Beautiful!`,
-  `[${host1.name}] The community is alive! [${host2.name}] This is what gaming is all about! [${host1.name}] Pure entertainment!`,
-  `[${host2.name}] ${host1.name}, are you seeing this? [${host1.name}] ${participants} warriors battling it out! [${host2.name}] Magnificent!`,
-  `[${host1.name}] I love this job! [${host2.name}] Me too ${host1.name}! [${host1.name}] ${participants} players giving us a show!`,
-  `[${host2.name}] Keep those comments coming! [${host1.name}] ${comments} already! [${host2.name}] Let us break records today!`,
+  `[${host1.name}] ${participants} players! [${host2.name}] ${comments} comments! [${host1.name}] This is incredible!`,
+  `[${host2.name}] The energy ${host1.name}! [${host1.name}] I feel it too! This is what we live for!`,
+  `[${host1.name}] Shoutout to everyone! [${host2.name}] You are all making this amazing!`,
+  `[${host2.name}] Look at that chat ${host1.name}! [${host1.name}] ${comments} comments and counting!`,
+  `[${host1.name}] This community is the best! [${host2.name}] No doubt about it! [${host1.name}] Keep going everyone!`,
+  `[${host2.name}] Are you seeing this? [${host1.name}] ${participants} warriors battling it out! [${host2.name}] Pure entertainment!`,
 ];
 
 const generateCoHostQuiet = (host1: HostConfig, host2: HostConfig) => [
-  `[${host1.name}] It is a bit quiet... [${host2.name}] Come on people! Show us something!`,
-  `[${host2.name}] Hello? Anyone there? [${host1.name}] Let us see some action!`,
-  `[${host1.name}] Who wants to win? [${host2.name}] Show us that hunger!`,
-  `[${host2.name}] ${host1.name}, where did everyone go? [${host1.name}] I do not know! [${host2.name}] Wake up people!`,
-  `[${host1.name}] The arena is too silent! [${host2.name}] We need some energy! [${host1.name}] TYPE SOMETHING!`,
-  `[${host2.name}] Did everyone fall asleep? [${host1.name}] There is money on the line! [${host2.name}] Get those fingers moving!`,
-  `[${host1.name}] Real money is waiting! [${host2.name}] And no one is fighting for it? [${host1.name}] Come on now!`,
+  `[${host1.name}] It is quiet... [${host2.name}] Too quiet! Come on people!`,
+  `[${host2.name}] Hello? [${host1.name}] Anyone there? [${host2.name}] Show us some action!`,
+  `[${host1.name}] Who wants to win? [${host2.name}] Real money is waiting! [${host1.name}] Wake up everyone!`,
+  `[${host2.name}] ${host1.name}, where did they go? [${host1.name}] I do not know! Type something people!`,
 ];
 
 const generateCoHostCloseCall = (host1: HostConfig, host2: HostConfig, name: string) => [
-  `[${host1.name}] OH! [${host2.name}] ${name} with the CLUTCH save!`,
-  `[${host2.name}] That was SO close! [${host1.name}] ${name} just in time!`,
-  `[${host1.name}] By the skin of their teeth! [${host2.name}] ${name} survives!`,
-  `[${host2.name}] DID YOU SEE THAT?! [${host1.name}] ${name} at the last second! [${host2.name}] My heart!`,
-  `[${host1.name}] INCREDIBLE! [${host2.name}] ${name} nearly lost it! [${host1.name}] But they held on!`,
-  `[${host2.name}] ${host1.name}! [${host1.name}] I SAW IT! ${name} with the save! [${host2.name}] Unbelievable reflexes!`,
-  `[${host1.name}] That was too close for comfort! [${host2.name}] ${name} lives to fight another round!`,
+  `[${host1.name}] OH! [${host2.name}] ${name} with the save! [${host1.name}] That was close!`,
+  `[${host2.name}] Did you see that?! [${host1.name}] ${name} at the last second!`,
+  `[${host1.name}] Incredible! [${host2.name}] ${name} survives! [${host1.name}] My heart!`,
+  `[${host2.name}] ${host1.name}! [${host1.name}] I saw it! ${name} lives on!`,
 ];
 
 const generateCoHostPrizeCallout = (host1: HostConfig, host2: HostConfig, pool: number, isSponsored: boolean) => {
   const formattedPool = formatPoolForSpeech(pool);
-  const sponsorNote = isSponsored ? ' And it is sponsored!' : '';
+  const sponsorNote = isSponsored ? ' [${host2.name}] And it is sponsored!' : '';
   return [
-    `[${host1.name}] ${formattedPool} naira on the line!${sponsorNote} [${host2.name}] That is serious money!`,
-    `[${host2.name}] Do not forget the prize ${host1.name}! [${host1.name}] ${formattedPool} naira waiting for someone!`,
-    `[${host1.name}] Real money right here! [${host2.name}] ${formattedPool} naira! Who will claim it?`,
-    `[${host2.name}] ${host1.name}, remind them what they are playing for! [${host1.name}] ${formattedPool} naira! [${host2.name}] Life-changing money!`,
-    `[${host1.name}] The prize pool is ${formattedPool} naira! [${host2.name}] Someone is going home happy today!`,
-    `[${host2.name}] Look at that prize! [${host1.name}] ${formattedPool} naira! [${host2.name}] I wish I could play!`,
+    `[${host1.name}] ${formattedPool} naira on the line!${sponsorNote} [${host2.name}] Serious money!`,
+    `[${host2.name}] Reminder ${host1.name}! [${host1.name}] ${formattedPool} naira prize! [${host2.name}] Life changing!`,
+    `[${host1.name}] Real money everyone! [${host2.name}] ${formattedPool} naira! Who will claim it?`,
   ];
 };
 
 const generateCoHostMilestone = (host1: HostConfig, host2: HostConfig, pool: number) => {
   const formattedPool = formatPoolForSpeech(pool);
   return [
-    `[${host1.name}] WAIT! [${host2.name}] What? [${host1.name}] The pool just hit ${formattedPool} naira! [${host2.name}] WOW!`,
-    `[${host2.name}] ${host1.name}! The prize pool! [${host1.name}] I see it! ${formattedPool} naira! [${host2.name}] This is huge!`,
-    `[${host1.name}] Milestone reached! [${host2.name}] ${formattedPool} naira! [${host1.name}] The stakes keep rising!`,
+    `[${host1.name}] WAIT! [${host2.name}] What? [${host1.name}] Pool hit ${formattedPool} naira! [${host2.name}] WOW!`,
+    `[${host2.name}] ${host1.name} look! [${host1.name}] ${formattedPool} naira! [${host2.name}] This is huge!`,
   ];
 };
 
 const generateCoHostDangerMode = (host1: HostConfig, host2: HostConfig, pool: number) => {
   const formattedPool = formatPoolForSpeech(pool);
   return [
-    `[${host1.name}] We are in the danger zone! [${host2.name}] ${formattedPool} naira and time is running out!`,
-    `[${host2.name}] ${host1.name}, the clock is ticking! [${host1.name}] And ${formattedPool} naira is still up for grabs!`,
-    `[${host1.name}] Final stretch! [${host2.name}] Someone is about to win ${formattedPool} naira! [${host1.name}] Who will it be?`,
+    `[${host1.name}] Danger zone! [${host2.name}] ${formattedPool} naira still unclaimed!`,
+    `[${host2.name}] Time is running out ${host1.name}! [${host1.name}] ${formattedPool} naira waiting!`,
   ];
 };
 
 const generateCoHostSponsored = (host1: HostConfig, host2: HostConfig, sponsoredAmount: number) => {
   const formattedAmount = formatPoolForSpeech(sponsoredAmount);
   return [
-    `[${host1.name}] This game is SPONSORED! [${host2.name}] ${formattedAmount} naira and FREE entry! [${host1.name}] Thank you sponsors!`,
-    `[${host2.name}] Free game alert ${host1.name}! [${host1.name}] ${formattedAmount} naira prize! [${host2.name}] No entry fee! Amazing!`,
-    `[${host1.name}] Shoutout to our sponsors! [${host2.name}] ${formattedAmount} naira up for grabs! [${host1.name}] And it is completely FREE!`,
+    `[${host1.name}] Sponsored game! [${host2.name}] ${formattedAmount} naira FREE entry! [${host1.name}] Thank you sponsors!`,
+    `[${host2.name}] Free game ${host1.name}! [${host1.name}] ${formattedAmount} naira prize! [${host2.name}] Amazing!`,
   ];
 };
 
