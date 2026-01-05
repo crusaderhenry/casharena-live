@@ -98,50 +98,43 @@ export const FingerArena = () => {
   const isGameTimeDanger = isEndingSoon || gameTime <= 5 * 60;
   const isTimerUrgent = timer <= 15;
 
-  // Active comment timer countdown
-  // In live mode: syncs from server's game.countdown (updated via realtime)
-  // In test mode: runs locally
+  // Track last server countdown to detect resets
+  const lastServerCountdownRef = useRef<number>(game?.countdown || 60);
+  
+  // Active comment timer countdown - runs locally but syncs with server updates
   useEffect(() => {
     if (isGameOver) return;
     
-    // In test mode, run a local countdown timer
-    if (isTestMode) {
-      const interval = setInterval(() => {
-        setTimer(prev => {
-          if (prev <= 1) {
-            // Auto-end game when timer reaches 0 in test mode
-            setIsGameOver(true);
-            setShowFreezeScreen(true);
-            stopBackgroundMusic();
-            play('gameOver');
-            vibrate('success');
-            crusader.announceGameOver();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-    
-    // In live mode, sync with server's countdown (real-time updates come through useLiveGame)
-    // The countdown is managed by the backend and pushed via realtime
-    if (game?.countdown !== undefined) {
+    // Update from server when countdown changes (e.g., someone commented and reset it)
+    if (game?.countdown !== undefined && game.countdown !== lastServerCountdownRef.current) {
+      lastServerCountdownRef.current = game.countdown;
       setTimer(game.countdown);
-      
-      // Check for game end condition
-      if (game.countdown <= 0 && game.status === 'live') {
-        setIsGameOver(true);
-        setShowFreezeScreen(true);
-        stopBackgroundMusic();
-        play('gameOver');
-        vibrate('success');
-        crusader.announceGameOver();
-      }
     }
-  }, [isTestMode, game?.countdown, game?.status, isGameOver, stopBackgroundMusic, play, vibrate, crusader]);
+  }, [game?.countdown, isGameOver]);
 
-  // Active game time countdown (local for test, server-synced for live)
+  // Local countdown tick (runs every second in both test and live mode)
+  useEffect(() => {
+    if (isGameOver) return;
+    
+    const interval = setInterval(() => {
+      setTimer(prev => {
+        if (prev <= 1) {
+          // Auto-end game when timer reaches 0
+          setIsGameOver(true);
+          setShowFreezeScreen(true);
+          stopBackgroundMusic();
+          play('gameOver');
+          vibrate('success');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isGameOver, stopBackgroundMusic, play, vibrate]);
+
+  // Active game time countdown (server-synced in live mode, local in test mode)
   useEffect(() => {
     if (isGameOver) return;
     
@@ -164,7 +157,7 @@ export const FingerArena = () => {
       return () => clearInterval(interval);
     }
     
-    // In live mode, use server time
+    // In live mode, use server time calculation
     if (!game?.start_time) return;
     
     const updateGameTime = () => {
@@ -174,20 +167,19 @@ export const FingerArena = () => {
       setIsEndingSoon(inDangerZone);
       
       // Auto-end when game time runs out
-      if (remaining <= 0 && !isGameOver) {
+      if (remaining <= 0) {
         setIsGameOver(true);
         setShowFreezeScreen(true);
         stopBackgroundMusic();
         play('gameOver');
         vibrate('success');
-        crusader.announceGameOver();
       }
     };
     
     updateGameTime();
     const interval = setInterval(updateGameTime, 1000);
     return () => clearInterval(interval);
-  }, [isTestMode, game?.start_time, game?.max_duration, isGameOver, synced, gameTimeRemaining, stopBackgroundMusic, play, vibrate, crusader]);
+  }, [isTestMode, game?.start_time, game?.max_duration, isGameOver, gameTimeRemaining, stopBackgroundMusic, play, vibrate]);
 
   // Update Crusader with game state
   useEffect(() => {
