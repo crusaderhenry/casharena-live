@@ -45,39 +45,44 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
   const prizePool = game.effective_prize_pool || game.pool_value;
 
   // Calculate dynamic countdown using server-synced time
+  // Use a ticker state to force re-render every second
+  const [tick, setTick] = useState(0);
+  
   useEffect(() => {
-    const calculateTime = () => {
-      if (isLive) {
-        const remaining = gameTimeRemaining(game.start_time, game.max_duration || 20);
-        const isEndingSoon = remaining <= 300;
-        setTimeDisplay({ 
-          label: isEndingSoon ? 'ENDING' : 'Ends In', 
-          value: formatGameTime(remaining),
-          isUrgent: isEndingSoon,
-        });
-      } else if (isOpen) {
-        // For open games, calculate time until start_time (goes live)
-        const remaining = secondsUntil(game.start_time);
-        setTimeDisplay({ 
-          label: 'Goes Live', 
-          value: formatCountdown(remaining),
-          isUrgent: remaining <= 60,
-        });
-      } else if (isScheduled) {
-        // For scheduled games, calculate time until scheduled_at (when it opens)
-        const remaining = secondsUntil(game.scheduled_at);
-        setTimeDisplay({ 
-          label: 'Opens In', 
-          value: formatCountdown(remaining),
-          isUrgent: remaining <= 300,
-        });
-      }
-    };
-
-    calculateTime();
-    const interval = setInterval(calculateTime, 1000);
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [game.id, game.start_time, game.scheduled_at, game.max_duration, isLive, isOpen, isScheduled, gameTimeRemaining, secondsUntil]);
+  }, []);
+
+  // Calculate time display on every tick
+  useEffect(() => {
+    if (isLive) {
+      const remaining = gameTimeRemaining(game.start_time, game.max_duration || 20);
+      const isEndingSoon = remaining <= 300;
+      setTimeDisplay({ 
+        label: isEndingSoon ? 'ENDING' : 'Ends In', 
+        value: formatGameTime(remaining),
+        isUrgent: isEndingSoon,
+      });
+    } else if (isOpen) {
+      // For open games, calculate time until start_time (goes live)
+      const remaining = secondsUntil(game.start_time);
+      setTimeDisplay({ 
+        label: 'Goes Live', 
+        value: formatCountdown(remaining),
+        isUrgent: remaining <= 60,
+      });
+    } else if (isScheduled) {
+      // For scheduled games, calculate time until scheduled_at (when it opens)
+      const remaining = secondsUntil(game.scheduled_at);
+      setTimeDisplay({ 
+        label: 'Opens In', 
+        value: formatCountdown(remaining),
+        isUrgent: remaining <= 300,
+      });
+    }
+  }, [tick, game.id, game.start_time, game.scheduled_at, game.max_duration, isLive, isOpen, isScheduled, gameTimeRemaining, secondsUntil]);
 
   const formatGameTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
