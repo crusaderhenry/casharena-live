@@ -4,6 +4,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { WalletCard } from '@/components/WalletCard';
 import { TestControls } from '@/components/TestControls';
 import { GameListCard, NoGamesCard } from '@/components/GameListCard';
+import { PrizeDistribution, getPayoutLabel } from '@/components/PrizeDistribution';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGame } from '@/contexts/GameContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
@@ -14,9 +15,9 @@ import { ArrowLeft, Zap, Users, Clock, Trophy, MessageSquare, ChevronRight } fro
 
 // Mock games for test mode
 const mockGamesForTest = [
-  { id: 'mock-1', name: 'Fastest Finger', status: 'live', pool_value: 35000, participant_count: 23, countdown: 45, entry_fee: 700, max_duration: 20 },
-  { id: 'mock-2', name: 'Speed Rush', status: 'live', pool_value: 18500, participant_count: 15, countdown: 32, entry_fee: 500, max_duration: 15 },
-  { id: 'mock-3', name: 'Quick Draw', status: 'scheduled', pool_value: 12000, participant_count: 8, countdown: 60, entry_fee: 300, max_duration: 10 },
+  { id: 'mock-1', name: 'Fastest Finger', status: 'live', pool_value: 35000, participant_count: 23, countdown: 45, entry_fee: 700, max_duration: 20, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2] },
+  { id: 'mock-2', name: 'Speed Rush', status: 'live', pool_value: 18500, participant_count: 15, countdown: 32, entry_fee: 500, max_duration: 15, payout_type: 'winner_takes_all', payout_distribution: [1.0] },
+  { id: 'mock-3', name: 'Quick Draw', status: 'scheduled', pool_value: 12000, participant_count: 8, countdown: 60, entry_fee: 300, max_duration: 10, payout_type: 'top5', payout_distribution: [0.4, 0.25, 0.15, 0.12, 0.08] },
 ];
 
 export const FingerMain = () => {
@@ -241,7 +242,8 @@ export const FingerMain = () => {
                 <h3 className="font-bold text-foreground">{(selectedGame as any).name || 'Fastest Finger'}</h3>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                   <span className="flex items-center gap-1">
-                    <Trophy className="w-4 h-4 text-gold" /> Top 3 win
+                    <Trophy className="w-4 h-4 text-gold" /> 
+                    {getPayoutLabel((selectedGame as any).payout_type || 'top3')}
                   </span>
                   <span>•</span>
                   <span>{selectedGame.max_duration || 20} min max</span>
@@ -292,7 +294,7 @@ export const FingerMain = () => {
             </li>
             <li className="flex items-start gap-3">
               <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">3</span>
-              <span>If no one comments for 60 seconds, last 3 commenters win!</span>
+              <span>If no one comments for 60 seconds, {getPayoutLabel((selectedGame as any)?.payout_type || 'top3').toLowerCase()}!</span>
             </li>
             <li className="flex items-start gap-3">
               <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">4</span>
@@ -301,36 +303,12 @@ export const FingerMain = () => {
           </ul>
         </div>
 
-        {/* Prize Distribution */}
-        <div className="card-panel">
-          <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-gold" />
-            Prize Distribution
-          </h3>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between p-3 rounded-xl podium-1">
-              <span className="flex items-center gap-2 font-medium">
-                <span className="text-lg">🥇</span> 1st Place
-              </span>
-              <span className="font-bold text-gold">50% of pool</span>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-xl podium-2">
-              <span className="flex items-center gap-2 font-medium">
-                <span className="text-lg">🥈</span> 2nd Place
-              </span>
-              <span className="font-bold text-silver">30% of pool</span>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-xl podium-3">
-              <span className="flex items-center gap-2 font-medium">
-                <span className="text-lg">🥉</span> 3rd Place
-              </span>
-              <span className="font-bold text-bronze">20% of pool</span>
-            </div>
-            <p className="text-xs text-muted-foreground text-center mt-3">
-              * 10% platform fee deducted from winnings
-            </p>
-          </div>
-        </div>
+        {/* Prize Distribution - Dynamic based on game settings */}
+        <PrizeDistribution
+          payoutType={(selectedGame as any)?.payout_type || 'top3'}
+          payoutDistribution={(selectedGame as any)?.payout_distribution || [0.5, 0.3, 0.2]}
+          poolValue={selectedGame?.pool_value}
+        />
       </div>
       
       <BottomNav />
