@@ -20,6 +20,13 @@ const CRUSADER_LOBBY_MESSAGES = [
   "Fingers ready, minds sharp - this is gonna be WILD!",
 ];
 
+const CRUSADER_HYPE_MESSAGES = [
+  "ONE MINUTE TO GO! This is about to be CRAZY! 🔥🔥🔥",
+  "GET READY! 60 seconds till we go LIVE!",
+  "FINAL COUNTDOWN! May the fastest finger WIN!",
+  "HERE WE GO! It's almost TIME!",
+];
+
 export const FingerLobby = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,9 +41,10 @@ export const FingerLobby = () => {
   const { buttonClick } = useHaptics();
   
   const [entryClosed, setEntryClosed] = useState(false);
-  const [crusaderMessage, setCrusaderMessage] = useState(CRUSADER_LOBBY_MESSAGES[0]);
+  const [crusaderMessage, setCrusaderMessage] = useState('');
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [micCheckComplete, setMicCheckComplete] = useState(false);
+  const [hostActive, setHostActive] = useState(false);
 
   // Use server-synced countdown
   const countdown = lobbyCountdown;
@@ -53,6 +61,15 @@ export const FingerLobby = () => {
       setEntryClosed(false);
     }
   }, [countdown, entryClosed, play]);
+
+  // Activate host only in last 1 minute (60 seconds)
+  useEffect(() => {
+    if (countdown <= 60 && countdown > 0 && !hostActive) {
+      setHostActive(true);
+      crusader.welcomeLobby();
+      setCrusaderMessage(CRUSADER_HYPE_MESSAGES[Math.floor(Math.random() * CRUSADER_HYPE_MESSAGES.length)]);
+    }
+  }, [countdown, hostActive, crusader]);
 
   // Handle navigation when countdown ends
   useEffect(() => {
@@ -79,10 +96,9 @@ export const FingerLobby = () => {
     }
   }, [game?.status, preferLobby, navigate]);
 
-  // Start lobby music and Crusader welcome
+  // Start lobby music
   useEffect(() => {
     playBackgroundMusic('lobby');
-    crusader.welcomeLobby();
     
     // Show mic check if not done before
     const micCheckDone = sessionStorage.getItem('micCheckComplete');
@@ -92,16 +108,18 @@ export const FingerLobby = () => {
       setMicCheckComplete(true);
     }
     
-    // Rotate Crusader messages
+    // Rotate Crusader messages only when host is active
     const messageInterval = setInterval(() => {
-      setCrusaderMessage(CRUSADER_LOBBY_MESSAGES[Math.floor(Math.random() * CRUSADER_LOBBY_MESSAGES.length)]);
+      if (hostActive) {
+        setCrusaderMessage(CRUSADER_HYPE_MESSAGES[Math.floor(Math.random() * CRUSADER_HYPE_MESSAGES.length)]);
+      }
     }, 8000);
 
     return () => {
       stopBackgroundMusic();
       clearInterval(messageInterval);
     };
-  }, []);
+  }, [hostActive, playBackgroundMusic, stopBackgroundMusic]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -174,8 +192,19 @@ export const FingerLobby = () => {
           </div>
         </div>
 
-        {/* Crusader Host */}
-        <CrusaderHost isLive message={crusaderMessage} />
+        {/* Crusader Host - Only show when active (last 1 minute) */}
+        {hostActive && (
+          <CrusaderHost isLive message={crusaderMessage} />
+        )}
+
+        {/* Waiting message when host not active */}
+        {!hostActive && (
+          <div className="card-panel text-center border-primary/20 bg-primary/5">
+            <p className="text-sm text-muted-foreground">
+              🎙️ Crusader will hype you up in the <strong>last 1 minute</strong> before going live!
+            </p>
+          </div>
+        )}
 
         {/* Test Controls */}
         <TestControls
