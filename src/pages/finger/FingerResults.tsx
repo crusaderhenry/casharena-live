@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { Confetti } from '@/components/Confetti';
 import { ShareCard } from '@/components/ShareCard';
-import { useWallet } from '@/contexts/WalletContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useGame } from '@/contexts/GameContext';
 import { useEffect, useState } from 'react';
 import { useSounds } from '@/hooks/useSounds';
@@ -12,12 +12,13 @@ import { useNotifications } from '@/components/PushNotification';
 export const FingerResults = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { addWinnings } = useWallet();
-  const { setFingerPosition, resetFingerGame, addActivity, userProfile } = useGame();
+  const { profile, refreshProfile } = useAuth();
+  const { resetFingerGame, addActivity, userProfile } = useGame();
   const { play } = useSounds();
-  const { success, buttonClick } = useHaptics();
+  const { success: hapticSuccess, buttonClick } = useHaptics();
   const { announceWin } = useNotifications();
   const [showShare, setShowShare] = useState(false);
+  const [hasProcessed, setHasProcessed] = useState(false);
 
   const state = location.state as {
     winners: string[];
@@ -40,28 +41,38 @@ export const FingerResults = () => {
   ];
 
   useEffect(() => {
+    if (hasProcessed) return;
+    
     if (isWinner && position > 0) {
       const prize = prizes[position - 1];
-      setFingerPosition(position);
-      addWinnings(prize, 'finger_win', `Fastest Finger ${position === 1 ? '1st' : position === 2 ? '2nd' : '3rd'} Place`);
+      
+      // Add to activity feed
       addActivity({
         type: 'finger_win',
-        playerName: userProfile.username,
-        playerAvatar: userProfile.avatar,
+        playerName: profile?.username || userProfile.username,
+        playerAvatar: profile?.avatar || userProfile.avatar,
         amount: prize,
         position: position,
       });
       
       // Play win sound and haptics
       play('win');
-      success();
+      hapticSuccess();
       announceWin(prize, position);
+      
+      // Refresh profile to get updated wallet balance
+      refreshProfile();
     }
+    
+    setHasProcessed(true);
     
     return () => {
       resetFingerGame();
     };
   }, []);
+
+  const currentUsername = profile?.username || userProfile.username;
+  const currentAvatar = profile?.avatar || userProfile.avatar;
 
   return (
     <div className="min-h-screen bg-background pb-24 flex flex-col">
@@ -134,8 +145,8 @@ export const FingerResults = () => {
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="w-full max-w-sm">
               <ShareCard
-                username={userProfile.username}
-                avatar={userProfile.avatar}
+                username={currentUsername}
+                avatar={currentAvatar}
                 position={position}
                 amount={prizes[position - 1]}
                 gameType="finger"

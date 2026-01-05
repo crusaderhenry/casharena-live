@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { VoiceRoom } from '@/components/VoiceRoom';
 import { TestControls } from '@/components/TestControls';
-import { useGame, mockPlayers, Comment } from '@/contexts/GameContext';
+import { useGame } from '@/contexts/GameContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLiveGame } from '@/hooks/useLiveGame';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useCrusader } from '@/hooks/useCrusader';
@@ -22,31 +24,17 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-const AI_COMMENTS = [
-  'Go!', '💨', 'Mine!', 'Here!', '👀', 'Now!', 'Yes!', '🔥', 'Me!', 'Ha!',
-  'Try me', 'Too slow', 'Catch up', 'Easy', 'Next!', '😎', 'Winner', 'Last!',
-  'Nope!', 'Watch this', 'Coming through', '⚡', 'Not yet!', 'Boom!', '🚀',
-  'Lol', 'Nah', 'Mine!!!', '🏆', 'Let\'s go!', 'EZ', 'GG', 'Wait', 'Yo!',
-  'Bruh', 'Cap', 'Facts', 'W', 'No way', 'Fr fr', 'Yooo', '💀', 'Bet',
-  'Clutch!', 'Top 3 locked', 'Not today!', 'Incoming!', 'Move!', 'Quick!',
-];
-
 interface TopThree {
   name: string;
   avatar: string;
   comment: string;
 }
 
-// Game settings (would come from backend in production)
-const GAME_SETTINGS = {
-  gameDurationSeconds: 30 * 60, // 30 minutes
-  commentTimerSeconds: 60, // 60 seconds between comments
-  dangerThresholdMinutes: 5, // Last 5 minutes is danger zone
-};
-
 export const FingerArena = () => {
   const navigate = useNavigate();
-  const { isTestMode, resetFingerGame, userProfile, fingerPoolValue } = useGame();
+  const { isTestMode, resetFingerGame, userProfile } = useGame();
+  const { profile, user } = useAuth();
+  const { game, comments, participants, winners, sendComment, loading } = useLiveGame();
   const { play } = useSounds();
   const { vibrate, buttonClick } = useHaptics();
   const crusader = useCrusader();
@@ -54,59 +42,107 @@ export const FingerArena = () => {
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { toast } = useToast();
   
-  const [timer, setTimer] = useState(GAME_SETTINGS.commentTimerSeconds);
-  const [gameTime, setGameTime] = useState(GAME_SETTINGS.gameDurationSeconds);
+  const [timer, setTimer] = useState(60);
+  const [gameTime, setGameTime] = useState(20 * 60);
   const [inputValue, setInputValue] = useState('');
   const [isGameOver, setIsGameOver] = useState(false);
   const [showFreezeScreen, setShowFreezeScreen] = useState(false);
   const [systemMessage, setSystemMessage] = useState('');
-  const [localComments, setLocalComments] = useState<Comment[]>([]);
   const [topThree, setTopThree] = useState<TopThree[]>([]);
   const [lastLeader, setLastLeader] = useState('');
   const [isShaking, setIsShaking] = useState(false);
   const [isSpectator, setIsSpectator] = useState(false);
   const [hostMuted, setHostMuted] = useState(false);
   const [audienceMuted, setAudienceMuted] = useState(false);
-  const [audienceCount, setAudienceCount] = useState(() => 120 + Math.floor(Math.random() * 80));
+  const [sending, setSending] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const hasAnnouncedStart = useRef(false);
   const lastHypeRef = useRef(0);
-  const timerRef = useRef(GAME_SETTINGS.commentTimerSeconds);
 
-  // Keep timer ref in sync
+  // Sync with server game state
   useEffect(() => {
-    timerRef.current = timer;
-  }, [timer]);
+    if (game) {
+      setTimer(game.countdown || 60);
+      
+      // Calculate remaining game time
+      if (game.start_time) {
+        const startTime = new Date(game.start_time).getTime();
+        const now = Date.now();
+        const elapsed = Math.floor((now - startTime) / 1000);
+        const remaining = (game.max_duration * 60) - elapsed;
+        setGameTime(Math.max(0, remaining));
+      }
+    }
+  }, [game?.countdown, game?.start_time, game?.max_duration]);
 
-  // Simulate live audience count and occasional player leaves
+  // Check for game ended
   useEffect(() => {
-    if (isGameOver) return;
+    if (game?.status === 'ended' && !isGameOver) {
+      setIsGameOver(true);
+      setShowFreezeScreen(true);
+      stopBackgroundMusic();
+      play('gameOver');
+      vibrate('success');
+      crusader.announceGameOver();
+    }
+  }, [game?.status]);
 
-    const interval = setInterval(() => {
-      setAudienceCount((prev) => {
-        const step = Math.ceil(Math.random() * 3);
-        const delta = Math.random() > 0.55 ? step : -step;
+  // Navigate to results when winners are determined
+  useEffect(() => {
+    if (winners.length > 0 && isGameOver) {
+      const timeout = setTimeout(() => {
+        const winnerNames = winners.sort((a, b) => a.position - b.position).map(w => w.profile?.username || 'Unknown');
+        const isWinner = winners.some(w => w.user_id === user?.id);
+        const userPosition = winners.find(w => w.user_id === user?.id)?.position || 0;
         
-        // Occasionally show a player left notification
-        if (delta < 0 && Math.random() > 0.7) {
-          const leavingPlayer = mockPlayers[Math.floor(Math.random() * mockPlayers.length)];
-          toast({
-            title: `${leavingPlayer.avatar} ${leavingPlayer.name} left the arena`,
-            description: "One less competitor!",
-            duration: 3000,
-          });
-        }
-        
-        return Math.max(0, prev + delta);
-      });
-    }, 5000);
+        navigate('/finger/results', {
+          state: {
+            winners: winnerNames,
+            totalPool: game?.pool_value || 0,
+            isWinner,
+            position: userPosition,
+          }
+        });
+      }, 5000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [winners, isGameOver, navigate, user?.id, game?.pool_value]);
 
-    return () => clearInterval(interval);
-  }, [isGameOver, toast]);
+  // Update top 3 from comments
+  useEffect(() => {
+    const uniquePlayers = new Map<string, TopThree>();
+    comments.forEach(comment => {
+      const username = comment.profile?.username || 'Unknown';
+      if (!uniquePlayers.has(username)) {
+        uniquePlayers.set(username, {
+          name: username,
+          avatar: comment.profile?.avatar || '🎮',
+          comment: comment.content,
+        });
+      }
+    });
+    const top = Array.from(uniquePlayers.values()).slice(0, 3);
+    setTopThree(top);
+
+    // Announce leader changes
+    if (top[0] && top[0].name !== lastLeader && lastLeader !== '') {
+      crusader.announceLeaderChange(top[0].name);
+      play('leaderChange');
+    }
+    if (top[0]) {
+      setLastLeader(top[0].name);
+    }
+  }, [comments, lastLeader, crusader, play]);
 
   // Start background music
   useEffect(() => {
     playBackgroundMusic('arena');
+    if (!hasAnnouncedStart.current) {
+      showSystemMessage('Game started! Be the last commenter!');
+      setTimeout(() => crusader.announceGameStart(), 500);
+      hasAnnouncedStart.current = true;
+    }
     return () => stopBackgroundMusic();
   }, []);
 
@@ -124,104 +160,19 @@ export const FingerArena = () => {
     }
   }, [timer, isGameOver]);
 
-  // Check for game time danger zone
-  const isGameTimeDanger = gameTime <= GAME_SETTINGS.dangerThresholdMinutes * 60;
-
-  // Update top 3 from comments
-  useEffect(() => {
-    const uniquePlayers = new Map<string, TopThree>();
-    localComments.forEach(comment => {
-      if (!uniquePlayers.has(comment.playerName)) {
-        uniquePlayers.set(comment.playerName, {
-          name: comment.playerName,
-          avatar: comment.playerAvatar,
-          comment: comment.text,
-        });
-      }
-    });
-    const top = Array.from(uniquePlayers.values()).slice(0, 3);
-    setTopThree(top);
-
-    // Announce leader changes
-    if (top[0] && top[0].name !== lastLeader && lastLeader !== '') {
-      crusader.announceLeaderChange(top[0].name);
-      play('leaderChange');
-    }
-    if (top[0]) {
-      setLastLeader(top[0].name);
-    }
-  }, [localComments, lastLeader, crusader, play]);
-
-  // Start with some initial comments
-  useEffect(() => {
-    const initialComments: Comment[] = mockPlayers.slice(0, 5).map((player, i) => ({
-      id: `init_${i}`,
-      playerId: player.id,
-      playerName: player.name,
-      playerAvatar: player.avatar,
-      text: AI_COMMENTS[Math.floor(Math.random() * AI_COMMENTS.length)],
-      timestamp: new Date(Date.now() - (5 - i) * 1000),
-    }));
-    setLocalComments(initialComments);
-    showSystemMessage('Game started! Be the last commenter!');
-
-    if (!hasAnnouncedStart.current) {
-      setTimeout(() => crusader.announceGameStart(), 500);
-      hasAnnouncedStart.current = true;
-    }
-  }, []);
-
-  const showSystemMessage = (msg: string) => {
-    setSystemMessage(msg);
-    setTimeout(() => setSystemMessage(''), 3000);
-  };
-
-  // Reset the 60s countdown whenever a new comment arrives
+  // Timer sound effects
   useEffect(() => {
     if (isGameOver) return;
-    if (localComments.length === 0) return;
-
-    setTimer((prev) => (prev === GAME_SETTINGS.commentTimerSeconds ? prev : GAME_SETTINGS.commentTimerSeconds));
-  }, [isGameOver, localComments[0]?.id]);
-
-  // AI comments simulation (slower so the 60s timer actually counts down)
-  useEffect(() => {
-    if (isGameOver) return;
-
-    const interval = setInterval(() => {
-      const currentTimer = timerRef.current;
-
-      // Lower chance overall, and VERY low near the end so the game can finish
-      const chance = currentTimer <= 10 ? 0.06 : currentTimer <= 20 ? 0.16 : 0.26;
-
-      if (Math.random() < chance) {
-        const randomPlayer = mockPlayers[Math.floor(Math.random() * mockPlayers.length)];
-        const randomComment = AI_COMMENTS[Math.floor(Math.random() * AI_COMMENTS.length)];
-
-        const newComment: Comment = {
-          id: `ai_${Date.now()}_${Math.random()}`,
-          playerId: randomPlayer.id,
-          playerName: randomPlayer.name,
-          playerAvatar: randomPlayer.avatar,
-          text: randomComment,
-          timestamp: new Date(),
-        };
-
-        setLocalComments(prev => [newComment, ...prev].slice(0, 100));
-
-        // Simulate player voice chat occasionally (respect audience mute)
-        if (Math.random() > 0.85 && !audienceMuted) {
-          simulatePlayerVoice(randomPlayer.name);
-        }
-
-        if (Math.random() > 0.75) {
-          showSystemMessage(`⏱️ ${randomPlayer.name} reset the timer!`);
-        }
-      }
-    }, 2500 + Math.random() * 3500); // 2.5s - 6s
-
-    return () => clearInterval(interval);
-  }, [isGameOver, audienceMuted, simulatePlayerVoice]);
+    
+    if (timer <= 10) {
+      play('urgent');
+      vibrate('heavy');
+      playBackgroundMusic('tense');
+    } else if (timer <= 30) {
+      play('tick');
+    }
+    crusader.announceTimerLow(timer);
+  }, [timer]);
 
   // Random hype from Crusader
   useEffect(() => {
@@ -238,134 +189,37 @@ export const FingerArena = () => {
     return () => clearInterval(interval);
   }, [isGameOver, crusader]);
 
-  // Comment timer countdown (resets on new comment)
-  useEffect(() => {
-    if (isGameOver) return;
-
-    const interval = setInterval(() => {
-      setTimer(prev => {
-        if (prev <= 1) {
-          endGame();
-          return 0;
-        }
-        
-        // Timer sound effects and screen shake
-        if (prev <= 10) {
-          play('urgent');
-          vibrate('heavy');
-          playBackgroundMusic('tense');
-        } else if (prev <= 30) {
-          play('tick');
-        }
-        
-        // Crusader commentary for low timer
-        crusader.announceTimerLow(prev);
-        
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isGameOver, play, vibrate, crusader, playBackgroundMusic]);
-
-  // Game time countdown (30 min total)
-  useEffect(() => {
-    if (isGameOver) return;
-
-    const interval = setInterval(() => {
-      setGameTime(prev => {
-        if (prev <= 1) {
-          endGame(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isGameOver]);
-
-  const endGame = (timeout = false) => {
-    setIsGameOver(true);
-    setShowFreezeScreen(true);
-    setIsShaking(false);
-    stopBackgroundMusic();
-    play('gameOver');
-    vibrate('success');
-    
-    // Announce game over first
-    crusader.announceGameOver();
-    
-    // Announce all winners
-    if (topThree.length > 0) {
-      // Announce 1st place winner
-      setTimeout(() => {
-        if (topThree[0]) {
-          crusader.announceWinner(topThree[0].name, 1);
-        }
-      }, 2000);
-      
-      // Announce 2nd place
-      setTimeout(() => {
-        if (topThree[1]) {
-          crusader.announceWinner(topThree[1].name, 2);
-        }
-      }, 4000);
-      
-      // Announce 3rd place
-      setTimeout(() => {
-        if (topThree[2]) {
-          crusader.announceWinner(topThree[2].name, 3);
-        }
-      }, 6000);
-    }
-    
-    showSystemMessage(timeout ? '⏰ Game time ended - 30 min limit!' : '🏆 60 seconds passed - Game over!');
+  const showSystemMessage = (msg: string) => {
+    setSystemMessage(msg);
+    setTimeout(() => setSystemMessage(''), 3000);
   };
 
-  // Navigate to results after freeze screen
-  useEffect(() => {
-    if (showFreezeScreen) {
-      const timer = setTimeout(() => {
-        const lastThreeCommenters = localComments.slice(0, 3).map(c => c.playerName);
-        navigate('/finger/results', { 
-          state: { 
-            winners: lastThreeCommenters,
-            totalPool: fingerPoolValue,
-            isWinner: lastThreeCommenters.includes(userProfile.username),
-            position: lastThreeCommenters.indexOf(userProfile.username) + 1,
-          } 
-        });
-      }, 8000); // Extended to allow winner announcements
-      return () => clearTimeout(timer);
-    }
-  }, [showFreezeScreen, localComments, navigate, userProfile.username, fingerPoolValue]);
+  const isGameTimeDanger = gameTime <= 5 * 60;
+  const audienceCount = participants.length || game?.participant_count || 0;
 
-  const handleSend = () => {
-    if (!inputValue.trim() || isGameOver || isSpectator) return;
+  const formatGameTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
-    const newComment: Comment = {
-      id: `user_${Date.now()}`,
-      playerId: 'user',
-      playerName: userProfile.username,
-      playerAvatar: userProfile.avatar,
-      text: inputValue.trim(),
-      timestamp: new Date(),
-    };
+  const handleSend = async () => {
+    if (!inputValue.trim() || isGameOver || isSpectator || sending) return;
 
-    setLocalComments(prev => [newComment, ...prev].slice(0, 100));
-    // Reset timer to 60 seconds
-    setTimer(GAME_SETTINGS.commentTimerSeconds);
-    setInputValue('');
-    showSystemMessage("⏱️ Timer reset - You're leading!");
+    setSending(true);
+    const success = await sendComment(inputValue.trim());
     
-    play('send');
-    buttonClick();
-    
-    // Crusader might comment on close calls
-    if (timer < 10) {
-      crusader.announceCloseCall();
+    if (success) {
+      setInputValue('');
+      showSystemMessage("⏱️ Timer reset - You're leading!");
+      play('send');
+      buttonClick();
+      
+      if (timer < 10) {
+        crusader.announceCloseCall();
+      }
     }
+    setSending(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -376,36 +230,41 @@ export const FingerArena = () => {
   };
 
   const handleTestEnd = () => {
-    const winningComment: Comment = {
-      id: `user_win_${Date.now()}`,
-      playerId: 'user',
-      playerName: userProfile.username,
-      playerAvatar: userProfile.avatar,
-      text: '🏆 Victory!',
-      timestamp: new Date(),
-    };
-    setLocalComments(prev => [winningComment, ...prev]);
-    endGame();
+    setIsGameOver(true);
+    setShowFreezeScreen(true);
+    stopBackgroundMusic();
+    play('gameOver');
+    vibrate('success');
+    crusader.announceGameOver();
   };
 
   const handleTestReset = () => {
     resetFingerGame();
-    setTimer(GAME_SETTINGS.commentTimerSeconds);
-    setGameTime(GAME_SETTINGS.gameDurationSeconds);
+    setTimer(60);
+    setGameTime(20 * 60);
     setIsGameOver(false);
     setShowFreezeScreen(false);
-    setLocalComments([]);
     setTopThree([]);
     setLastLeader('');
     setIsShaking(false);
     hasAnnouncedStart.current = false;
   };
 
-  const formatGameTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  const currentUsername = profile?.username || userProfile.username;
+  const currentAvatar = profile?.avatar || userProfile.avatar;
+  const poolValue = game?.pool_value || 0;
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Entering arena...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Freeze Screen
   if (showFreezeScreen) {
@@ -512,7 +371,7 @@ export const FingerArena = () => {
                 <span>Last comment standing wins!</span>
                 <span className="inline-flex items-center gap-1">
                   <Users className="w-3 h-3" />
-                  {audienceCount} watching
+                  {audienceCount} playing
                 </span>
               </p>
             </div>
@@ -536,8 +395,8 @@ export const FingerArena = () => {
               <span className="text-sm text-muted-foreground">Prize Pool</span>
             </div>
             <div className="text-right">
-              <p className="font-black text-xl text-primary">₦{fingerPoolValue.toLocaleString()}</p>
-              <p className="text-[10px] text-muted-foreground">{mockPlayers.length + 10} players</p>
+              <p className="font-black text-xl text-primary">₦{poolValue.toLocaleString()}</p>
+              <p className="text-[10px] text-muted-foreground">{audienceCount} players</p>
             </div>
           </div>
         </div>
@@ -564,7 +423,7 @@ export const FingerArena = () => {
             {/* 1st Place */}
             <div className="flex flex-col items-center -mt-2">
               <Crown className="w-4 h-4 text-gold mb-0.5" />
-              <div className={`w-10 h-10 rounded-full bg-card flex items-center justify-center text-lg border-2 border-gold ${topThree[0]?.name === userProfile.username ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}>
+              <div className={`w-10 h-10 rounded-full bg-card flex items-center justify-center text-lg border-2 border-gold ${topThree[0]?.name === currentUsername ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}>
                 {topThree[0]?.avatar || '—'}
               </div>
               <div className="text-xs text-gold font-bold mt-1">1st</div>
@@ -641,7 +500,11 @@ export const FingerArena = () => {
       {/* Voice Room */}
       <div className="px-4 py-2">
         <VoiceRoom 
-          players={mockPlayers.slice(0, 6)} 
+          players={participants.slice(0, 6).map(p => ({
+            id: p.user_id,
+            name: p.profile?.username || 'Player',
+            avatar: p.profile?.avatar || '🎮',
+          }))} 
           audienceMuted={audienceMuted}
           onAudienceMuteToggle={setAudienceMuted}
           audienceCount={audienceCount}
@@ -655,9 +518,11 @@ export const FingerArena = () => {
         className="flex-1 overflow-y-auto p-4 flex flex-col-reverse"
       >
         <div className="space-y-1.5">
-          {localComments.slice(0, 30).map((comment, index) => {
-            const isLeader = comment.playerName === topThree[0]?.name;
-            const isUser = comment.playerId === 'user';
+          {comments.slice(0, 30).map((comment, index) => {
+            const username = comment.profile?.username || 'Unknown';
+            const avatar = comment.profile?.avatar || '🎮';
+            const isLeader = username === topThree[0]?.name;
+            const isUser = comment.user_id === user?.id;
             
             return (
               <div
@@ -672,7 +537,7 @@ export const FingerArena = () => {
                 style={{ animationDelay: `${index * 10}ms` }}
               >
                 <div className={`w-8 h-8 rounded-full bg-card-elevated flex items-center justify-center text-sm shrink-0 ${isLeader ? 'ring-1 ring-gold' : ''}`}>
-                  {comment.playerAvatar}
+                  {avatar}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
@@ -680,13 +545,13 @@ export const FingerArena = () => {
                       isUser ? 'text-primary' : 
                       isLeader ? 'text-gold' : 'text-foreground'
                     }`}>
-                      {comment.playerName}
+                      {username}
                     </p>
                     {isLeader && (
                       <Crown className="w-3 h-3 text-gold" />
                     )}
                   </div>
-                  <p className="text-foreground text-sm">{comment.text}</p>
+                  <p className="text-foreground text-sm">{comment.content}</p>
                 </div>
               </div>
             );
@@ -710,10 +575,11 @@ export const FingerArena = () => {
               onKeyPress={handleKeyPress}
               placeholder="Type to claim the lead..."
               className="flex-1 bg-muted/50 border border-border/50 rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              disabled={sending}
             />
             <button
               onClick={handleSend}
-              disabled={!inputValue.trim()}
+              disabled={!inputValue.trim() || sending}
               className="btn-primary px-5 disabled:opacity-50"
             >
               <Send className="w-5 h-5" />
