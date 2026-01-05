@@ -659,6 +659,67 @@ export const useCrusaderHost = () => {
     }
   }, [playNextInQueue]);
 
+  // Parse co-host dialogue and generate TTS for each speaker
+  const speakCoHostDialogue = useCallback(async (text: string) => {
+    if (!enabledRef.current || !coHost) return;
+    
+    const now = Date.now();
+    if (now - lastAnnouncementRef.current < minIntervalRef.current) return;
+    lastAnnouncementRef.current = now;
+
+    setLastPhrase(text);
+    console.log('[Co-Host Dialogue]:', text);
+
+    // Parse the dialogue into segments by host
+    // Format: "[HostName] text [HostName] text..."
+    const regex = /\[([^\]]+)\]\s*([^[]*)/g;
+    const segments: Array<{ host: HostConfig; text: string }> = [];
+    
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const hostName = match[1].trim();
+      const spokenText = match[2].trim();
+      
+      if (spokenText) {
+        // Find the matching host
+        const host = hostName.toLowerCase() === currentHost.name.toLowerCase() 
+          ? currentHost 
+          : hostName.toLowerCase() === coHost.name.toLowerCase() 
+            ? coHost 
+            : currentHost;
+        
+        segments.push({ host, text: spokenText });
+      }
+    }
+
+    // If no segments parsed, fall back to single voice
+    if (segments.length === 0) {
+      speak(text);
+      return;
+    }
+
+    // Generate TTS for each segment sequentially and queue them
+    for (const segment of segments) {
+      try {
+        const { data, error } = await supabase.functions.invoke('crusader-tts', {
+          body: { text: segment.text, voiceId: segment.host.voiceId },
+        });
+
+        if (error) {
+          console.error('TTS error for', segment.host.name, ':', error);
+          continue;
+        }
+
+        if (data?.audioContent) {
+          const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
+          queueAudio(audioUrl);
+        }
+      } catch (err) {
+        console.error('TTS request failed for', segment.host.name, ':', err);
+      }
+    }
+  }, [queueAudio, currentHost, coHost]);
+
   // Generate TTS using ElevenLabs with the selected host's voice
   const speak = useCallback(async (text: string) => {
     if (!enabledRef.current) return;
@@ -859,20 +920,20 @@ export const useCrusaderHost = () => {
     
     if (isCoHostMode && coHost) {
       const phrases = generateCoHostWelcome(currentHost, coHost, participantCount, poolValue);
-      speak(getRandomPhrase(phrases));
+      speakCoHostDialogue(getRandomPhrase(phrases));
     } else {
       const PHRASES = getGamePhrases(currentHost.id);
       const phrases = PHRASES.welcome(participantCount, poolValue);
       speak(getRandomPhrase(phrases));
     }
-  }, [speak, currentHost, coHost, isCoHostMode]);
+  }, [speak, speakCoHostDialogue, currentHost, coHost, isCoHostMode]);
 
   const announceGameStart = useCallback(() => {
     const { participantCount, isSponsored } = gameStateRef.current;
     
     if (isCoHostMode && coHost) {
       const phrases = generateCoHostGameStart(currentHost, coHost, participantCount);
-      speak(getRandomPhrase(phrases));
+      speakCoHostDialogue(getRandomPhrase(phrases));
     } else {
       const PHRASES = getGamePhrases(currentHost.id);
       const phrases = PHRASES.game_start(participantCount);
@@ -889,14 +950,14 @@ export const useCrusaderHost = () => {
     if (isSponsored) {
       setTimeout(() => calloutPrize('sponsored'), 5000);
     }
-  }, [speak, calloutPrize, currentHost, coHost, isCoHostMode]);
+  }, [speak, speakCoHostDialogue, calloutPrize, currentHost, coHost, isCoHostMode]);
 
   const announceLeaderChange = useCallback((leaderName: string) => {
     const { timer, poolValue, participantCount } = gameStateRef.current;
     
     if (isCoHostMode && coHost) {
       const phrases = generateCoHostLeaderChange(currentHost, coHost, leaderName, timer);
-      speak(getRandomPhrase(phrases));
+      speakCoHostDialogue(getRandomPhrase(phrases));
     } else {
       const PHRASES = getGamePhrases(currentHost.id);
       const phrases = PHRASES.leader_change(leaderName, timer);
@@ -910,7 +971,7 @@ export const useCrusaderHost = () => {
     if (isLargePool && isLateGame && Math.random() < 0.3 && participantCount >= 10) {
       setTimeout(() => calloutPrize('leader_change'), 3000);
     }
-  }, [speak, calloutPrize, currentHost, coHost, isCoHostMode]);
+  }, [speak, speakCoHostDialogue, calloutPrize, currentHost, coHost, isCoHostMode]);
 
   const announceTimerLow = useCallback((seconds: number) => {
     const { leader, commentCount, gameTimeRemaining } = gameStateRef.current;
@@ -921,7 +982,9 @@ export const useCrusaderHost = () => {
     let phrases: string[] = [];
     
     if (isCoHostMode && coHost) {
-      if (seconds === 30) {
+      if (seconds === 60) {
+        phrases = generateCoHostTimer60(currentHost, coHost, leader);
+      } else if (seconds === 30) {
         phrases = generateCoHostTimer30(currentHost, coHost, leader, commentCount);
       } else if (seconds === 15) {
         phrases = generateCoHostTimer15(currentHost, coHost, leader);
@@ -932,6 +995,10 @@ export const useCrusaderHost = () => {
         }
       } else if (seconds === 5) {
         phrases = generateCoHostTimer5(currentHost, coHost);
+      }
+      
+      if (phrases.length > 0) {
+        speakCoHostDialogue(getRandomPhrase(phrases));
       }
     } else {
       const PHRASES = getGamePhrases(currentHost.id);
@@ -949,12 +1016,12 @@ export const useCrusaderHost = () => {
       } else if (seconds === 5) {
         phrases = PHRASES.timer_5();
       }
+      
+      if (phrases.length > 0) {
+        speak(getRandomPhrase(phrases));
+      }
     }
-    
-    if (phrases.length > 0) {
-      speak(getRandomPhrase(phrases));
-    }
-  }, [speak, checkDangerMode, calloutPrize, currentHost, coHost, isCoHostMode]);
+  }, [speak, speakCoHostDialogue, checkDangerMode, calloutPrize, currentHost, coHost, isCoHostMode]);
 
   const announceCloseCall = useCallback((playerName?: string) => {
     const { leader } = gameStateRef.current;
@@ -962,13 +1029,13 @@ export const useCrusaderHost = () => {
     
     if (isCoHostMode && coHost) {
       const phrases = generateCoHostCloseCall(currentHost, coHost, name);
-      speak(getRandomPhrase(phrases));
+      speakCoHostDialogue(getRandomPhrase(phrases));
     } else {
       const PHRASES = getGamePhrases(currentHost.id);
       const phrases = PHRASES.close_call(name);
       speak(getRandomPhrase(phrases));
     }
-  }, [speak, currentHost, coHost, isCoHostMode]);
+  }, [speak, speakCoHostDialogue, currentHost, coHost, isCoHostMode]);
 
   const announceGameOver = useCallback((winnerName?: string, prize?: number) => {
     const { leader, poolValue } = gameStateRef.current;
@@ -977,13 +1044,13 @@ export const useCrusaderHost = () => {
     
     if (isCoHostMode && coHost) {
       const phrases = generateCoHostGameOver(currentHost, coHost, winner, prizeAmount);
-      speak(getRandomPhrase(phrases));
+      speakCoHostDialogue(getRandomPhrase(phrases));
     } else {
       const PHRASES = getGamePhrases(currentHost.id);
       const phrases = PHRASES.game_over(winner, prizeAmount);
       speak(getRandomPhrase(phrases));
     }
-  }, [speak, currentHost, coHost, isCoHostMode]);
+  }, [speak, speakCoHostDialogue, currentHost, coHost, isCoHostMode]);
 
   const randomHype = useCallback(() => {
     const { participantCount, commentCount, chatIntensity, poolValue } = gameStateRef.current;
@@ -995,7 +1062,7 @@ export const useCrusaderHost = () => {
       } else {
         if (isCoHostMode && coHost) {
           const phrases = generateCoHostQuiet(currentHost, coHost);
-          speak(getRandomPhrase(phrases));
+          speakCoHostDialogue(getRandomPhrase(phrases));
         } else {
           const PHRASES = getGamePhrases(currentHost.id);
           const phrases = PHRASES.quiet_game();
@@ -1009,7 +1076,7 @@ export const useCrusaderHost = () => {
       } else {
         if (isCoHostMode && coHost) {
           const phrases = generateCoHostHype(currentHost, coHost, participantCount, commentCount);
-          speak(getRandomPhrase(phrases));
+          speakCoHostDialogue(getRandomPhrase(phrases));
         } else {
           const PHRASES = getGamePhrases(currentHost.id);
           const phrases = PHRASES.hype(participantCount, commentCount);
