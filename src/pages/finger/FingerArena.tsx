@@ -91,6 +91,7 @@ export const FingerArena = () => {
   const [finalizationTimer, setFinalizationTimer] = useState(0);
   const [finalizationPhase, setFinalizationPhase] = useState<'calculating' | 'retrying' | 'stuck'>('calculating');
   const [retryAttempt, setRetryAttempt] = useState(0);
+  const [showManualResultsBtn, setShowManualResultsBtn] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const hasAnnouncedStart = useRef(false);
   const hasNavigatedToResults = useRef(false);
@@ -365,6 +366,22 @@ export const FingerArena = () => {
       resultsNavTimeoutRef.current = null;
     }, 1500);
   }, [game?.status, winners, topThree, user?.id, game?.pool_value, navigate]);
+
+  // Show manual results button after 3 seconds if still on freeze screen
+  useEffect(() => {
+    if (game?.status !== 'ended') {
+      setShowManualResultsBtn(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (!hasNavigatedToResults.current) {
+        setShowManualResultsBtn(true);
+      }
+    }, 3000);
+
+    return () => window.clearTimeout(timeout);
+  }, [game?.status]);
 
   // Combine real and mock comments based on test mode
   const displayComments = useMemo(() => {
@@ -763,9 +780,37 @@ export const FingerArena = () => {
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-2 text-primary animate-fade-in">
-            <Trophy className="w-5 h-5" />
-            <span className="text-sm font-medium">Redirecting to results...</span>
+          <div className="flex flex-col items-center gap-3 animate-fade-in">
+            <div className="flex items-center gap-2 text-primary">
+              <Trophy className="w-5 h-5" />
+              <span className="text-sm font-medium">Redirecting to results...</span>
+            </div>
+            {showManualResultsBtn && (
+              <button
+                onClick={() => {
+                  hasNavigatedToResults.current = true;
+                  const sortedWinners = [...winners].sort((a, b) => a.position - b.position);
+                  const winnerNames =
+                    sortedWinners.length > 0
+                      ? sortedWinners.map((w) => w.profile?.username || 'Unknown')
+                      : topThree.map((t) => t.name).slice(0, 3);
+                  const isWinner = sortedWinners.some((w) => w.user_id === user?.id);
+                  const userPosition = sortedWinners.find((w) => w.user_id === user?.id)?.position || 0;
+                  navigate('/finger/results', {
+                    state: {
+                      winners: winnerNames,
+                      totalPool: game?.pool_value || 0,
+                      isWinner,
+                      position: userPosition,
+                    },
+                  });
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:bg-primary/90 transition-all animate-fade-in"
+              >
+                <Trophy className="w-4 h-4" />
+                Open Results Now
+              </button>
+            )}
           </div>
         )}
       </div>
