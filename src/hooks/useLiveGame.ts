@@ -19,10 +19,13 @@ interface Game {
   payout_type: 'winner_takes_all' | 'top3' | 'top5' | 'top10';
   payout_distribution: number[];
   min_participants: number;
+  min_participants_action: 'reset' | 'cancel' | 'start_anyway';
   created_at: string;
   is_sponsored?: boolean;
   sponsored_amount?: number;
   entry_cutoff_minutes?: number;
+  entry_wait_seconds?: number;
+  platform_cut_percentage?: number;
 }
 
 interface Comment {
@@ -95,9 +98,12 @@ export const useLiveGame = (gameId?: string) => {
         payout_type: (data as any).payout_type || 'top3',
         payout_distribution: (data as any).payout_distribution || [0.5, 0.3, 0.2],
         min_participants: (data as any).min_participants || 3,
+        min_participants_action: (data as any).min_participants_action || 'reset',
         is_sponsored: isSponsored,
         sponsored_amount: sponsoredAmount,
         entry_cutoff_minutes: (data as any).entry_cutoff_minutes || 10,
+        entry_wait_seconds: (data as any).entry_wait_seconds || 60,
+        platform_cut_percentage: (data as any).platform_cut_percentage || 10,
         effective_prize_pool: poolValue + (isSponsored ? sponsoredAmount : 0),
       } as Game;
     }
@@ -128,9 +134,12 @@ export const useLiveGame = (gameId?: string) => {
         payout_type: (g as any).payout_type || 'top3',
         payout_distribution: (g as any).payout_distribution || [0.5, 0.3, 0.2],
         min_participants: (g as any).min_participants || 3,
+        min_participants_action: (g as any).min_participants_action || 'reset',
         is_sponsored: isSponsored,
         sponsored_amount: sponsoredAmount,
         entry_cutoff_minutes: (g as any).entry_cutoff_minutes || 10,
+        entry_wait_seconds: (g as any).entry_wait_seconds || 60,
+        platform_cut_percentage: (g as any).platform_cut_percentage || 10,
         effective_prize_pool: poolValue + (isSponsored ? sponsoredAmount : 0),
       };
     }) as Game[];
@@ -159,9 +168,12 @@ export const useLiveGame = (gameId?: string) => {
       payout_type: (data as any).payout_type || 'top3',
       payout_distribution: (data as any).payout_distribution || [0.5, 0.3, 0.2],
       min_participants: (data as any).min_participants || 3,
+      min_participants_action: (data as any).min_participants_action || 'reset',
       is_sponsored: isSponsored,
       sponsored_amount: sponsoredAmount,
       entry_cutoff_minutes: (data as any).entry_cutoff_minutes || 10,
+      entry_wait_seconds: (data as any).entry_wait_seconds || 60,
+      platform_cut_percentage: (data as any).platform_cut_percentage || 10,
       effective_prize_pool: poolValue + (isSponsored ? sponsoredAmount : 0),
     } as Game;
   }, []);

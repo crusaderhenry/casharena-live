@@ -10,6 +10,7 @@ interface Game {
   effective_prize_pool?: number;
   participant_count: number;
   countdown: number;
+  comment_timer?: number;
   entry_fee: number;
   max_duration?: number;
   payout_type?: string;
@@ -17,6 +18,7 @@ interface Game {
   scheduled_at?: string | null;
   is_sponsored?: boolean;
   sponsored_amount?: number;
+  entry_cutoff_minutes?: number;
 }
 
 interface GameStatusHeaderProps {
@@ -209,6 +211,12 @@ export const GameStatusHeader = ({
                 <span className={game.entry_fee === 0 ? 'text-green-400 font-medium' : ''}>
                   {game.entry_fee > 0 ? `₦${game.entry_fee}` : 'FREE ENTRY'}
                 </span>
+                {game.max_duration && (
+                  <>
+                    <span className="text-border">•</span>
+                    <span>{game.max_duration}min</span>
+                  </>
+                )}
               </div>
             </div>
           </div>

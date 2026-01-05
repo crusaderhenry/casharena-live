@@ -64,8 +64,9 @@ export const FingerArena = () => {
   // Mock comment callback to reset timer when other players comment
   const handleMockComment = useCallback(() => {
     // Reset timer when mock players comment (simulating real game behavior)
-    setTimer(testScenario?.commentTimer || 60);
-  }, [testScenario?.commentTimer]);
+    // Use the game's comment_timer or test scenario value
+    setTimer(game?.comment_timer || testScenario?.commentTimer || 60);
+  }, [game?.comment_timer, testScenario?.commentTimer]);
   
   const { mockComments, triggerCommentBurst } = useMockSimulation(isTestMode, game?.id, handleMockComment);
   
@@ -73,8 +74,12 @@ export const FingerArena = () => {
   const shouldTickBackend = !isTestMode && (game?.status === 'open' || game?.status === 'live');
   useCountdownTicker(shouldTickBackend, isTestMode, game?.id);
   
-  const [timer, setTimer] = useState(testScenario?.commentTimer || 60);
-  const [gameTime, setGameTime] = useState(testScenario?.gameTimeRemaining || 20 * 60);
+  // Use game's comment_timer from database, with fallback to test scenario or default
+  const gameCommentTimer = game?.comment_timer || testScenario?.commentTimer || 60;
+  const gameMaxDuration = game?.max_duration || testScenario?.gameTimeRemaining ? Math.ceil(testScenario?.gameTimeRemaining / 60) : 20;
+  
+  const [timer, setTimer] = useState(gameCommentTimer);
+  const [gameTime, setGameTime] = useState(testScenario?.gameTimeRemaining || gameMaxDuration * 60);
   const [inputValue, setInputValue] = useState('');
   const [isGameOver, setIsGameOver] = useState(false);
   const [isEndingSoon, setIsEndingSoon] = useState(false);
@@ -148,16 +153,24 @@ export const FingerArena = () => {
     };
   }, []);
   // Sync winner countdown from backend (only meaningful when live)
+  // Also sync when game first loads with its comment_timer
   useEffect(() => {
     if (isGameOver) return;
     if (isTestMode) return;
     if (game?.status !== 'live') return;
 
+    // Use the game's comment_timer on initial load
+    if (game?.comment_timer && timer === gameCommentTimer && game.countdown !== undefined) {
+      setTimer(game.countdown);
+      lastServerCountdownRef.current = game.countdown;
+      return;
+    }
+
     if (game?.countdown !== undefined && game.countdown !== lastServerCountdownRef.current) {
       lastServerCountdownRef.current = game.countdown;
       setTimer(game.countdown);
     }
-  }, [game?.countdown, game?.status, isGameOver, isTestMode]);
+  }, [game?.countdown, game?.status, game?.comment_timer, isGameOver, isTestMode, timer, gameCommentTimer]);
 
   // Local winner countdown tick (only when live/test) - for display only
   // Game over is determined by server status, not local timer
