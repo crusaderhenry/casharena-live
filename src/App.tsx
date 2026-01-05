@@ -8,6 +8,7 @@ import { GameProvider } from "@/contexts/GameContext";
 import { AudioProvider } from "@/contexts/AudioContext";
 import { NotificationProvider } from "@/components/PushNotification";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 
 // Auth
 import { AuthPage } from "@/pages/AuthPage";
@@ -64,6 +65,47 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Admin route wrapper - requires authentication AND admin role
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading: authLoading } = useAuth();
+  const { isAdmin, loading: roleLoading } = useUserRole();
+
+  if (authLoading || roleLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Verifying access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center p-8">
+          <div className="text-6xl mb-4">🔒</div>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Access Denied</h1>
+          <p className="text-muted-foreground mb-6">You don't have permission to access the admin panel.</p>
+          <button 
+            onClick={() => window.location.href = '/home'}
+            className="btn-primary"
+          >
+            Go Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
+
 // Redirect authenticated users away from auth page
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -106,8 +148,8 @@ const AppRoutes = () => (
     <Route path="/wallet" element={<ProtectedRoute><WalletMain /></ProtectedRoute>} />
     <Route path="/wallet/history" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
     
-    {/* Admin Dashboard - No auth required for prototype, would add admin check in production */}
-    <Route path="/admin" element={<AdminLayout />}>
+    {/* Admin Dashboard - Requires admin role */}
+    <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
       <Route index element={<AdminDashboard />} />
       <Route path="finger-control" element={<AdminFingerControl />} />
       <Route path="live-monitor" element={<AdminLiveMonitor />} />

@@ -6,6 +6,35 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper to verify JWT and get user
+async function verifyAuth(req: Request, supabase: any): Promise<{ user: any | null; error: string | null }> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return { user: null, error: 'Missing authorization header' };
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  
+  if (error || !user) {
+    return { user: null, error: 'Invalid or expired token' };
+  }
+
+  return { user, error: null };
+}
+
+// Helper to check if user has admin role
+async function isAdmin(supabase: any, userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('role', 'admin')
+    .maybeSingle();
+  
+  return !!data;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -14,15 +43,48 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    // Use anon key for auth verification, service key for data operations
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
     const { action, gameId, userId, config } = body;
     console.log(`Game action: ${action}`, { gameId, userId, config });
 
+    // Actions that require authentication
+    const authRequiredActions = ['join', 'create_game', 'start_game', 'end_game', 'reset_weekly_ranks'];
+    const adminRequiredActions = ['create_game', 'start_game', 'end_game', 'reset_weekly_ranks'];
+
+    let authenticatedUser = null;
+
+    // Verify authentication for protected actions
+    if (authRequiredActions.includes(action)) {
+      const { user, error } = await verifyAuth(req, supabaseAuth);
+      if (error) {
+        return new Response(JSON.stringify({ error }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      authenticatedUser = user;
+
+      // Verify admin role for admin actions
+      if (adminRequiredActions.includes(action)) {
+        const hasAdminRole = await isAdmin(supabase, user.id);
+        if (!hasAdminRole) {
+          return new Response(JSON.stringify({ error: 'Admin access required' }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+    }
+
     switch (action) {
       case 'create_game': {
-        // Create a new scheduled game with optional custom config
+        // Admin only - already verified above
         const gameConfig = config || {};
         
         const { data: game, error } = await supabase
@@ -39,19 +101,28 @@ serve(async (req) => {
             payout_type: gameConfig.payout_type || 'top3',
             payout_distribution: gameConfig.payout_distribution || [0.5, 0.3, 0.2],
             min_participants: gameConfig.min_participants || 3,
+            created_by: authenticatedUser?.id,
           })
           .select()
           .single();
 
         if (error) throw error;
-        console.log('Game created:', game.id, game.name);
+        console.log('Game created by admin:', authenticatedUser?.id, game.id);
         return new Response(JSON.stringify({ success: true, game }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       case 'join': {
-        if (!gameId || !userId) throw new Error('Missing gameId or userId');
+        // Verify user is joining as themselves
+        if (userId !== authenticatedUser?.id) {
+          return new Response(JSON.stringify({ error: 'Cannot join as another user' }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (!gameId) throw new Error('Missing gameId');
 
         // Get game info
         const { data: game, error: gameError } = await supabase
@@ -131,6 +202,7 @@ serve(async (req) => {
       }
 
       case 'start_game': {
+        // Admin only - already verified above
         if (!gameId) throw new Error('Missing gameId');
 
         const { data: game } = await supabase
@@ -151,16 +223,16 @@ serve(async (req) => {
           .eq('id', gameId);
 
         if (error) throw error;
-        console.log('Game started:', gameId);
+        console.log('Game started by admin:', authenticatedUser?.id, gameId);
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       case 'end_game': {
+        // Admin only - already verified above
         if (!gameId) throw new Error('Missing gameId');
 
-        // Get game
         const { data: game, error: gameError } = await supabase
           .from('fastest_finger_games')
           .select('*')
@@ -169,12 +241,10 @@ serve(async (req) => {
 
         if (gameError || !game) throw new Error('Game not found');
 
-        // Get payout configuration
         const payoutType = (game as any).payout_type || 'top3';
         const payoutDistribution: number[] = (game as any).payout_distribution || [0.5, 0.3, 0.2];
         const winnerCount = payoutDistribution.length;
 
-        // Get last N commenters (winners based on payout type)
         const { data: lastComments, error: commentsError } = await supabase
           .from('comments')
           .select('user_id, created_at')
@@ -184,7 +254,6 @@ serve(async (req) => {
 
         if (commentsError) throw commentsError;
 
-        // Get unique winners (in case same person commented multiple times)
         const uniqueWinnerIds: string[] = [];
         for (const comment of lastComments || []) {
           if (!uniqueWinnerIds.includes(comment.user_id)) {
@@ -193,7 +262,6 @@ serve(async (req) => {
           if (uniqueWinnerIds.length >= winnerCount) break;
         }
 
-        // Fetch winner profiles
         const { data: winnerProfiles } = await supabase
           .from('profiles')
           .select('id, username, avatar, wallet_balance, rank_points, total_wins')
@@ -201,16 +269,12 @@ serve(async (req) => {
 
         const profileMap = new Map(winnerProfiles?.map(p => [p.id, p]) || []);
 
-        // Calculate payouts (90% of pool, 10% platform cut)
         const netPool = Math.floor(game.pool_value * 0.9);
         const platformCut = game.pool_value - netPool;
-        
-        // Calculate prizes based on distribution
         const prizes = payoutDistribution.map(pct => Math.floor(netPool * pct));
 
         const winners: any[] = [];
 
-        // Process winners
         for (let i = 0; i < uniqueWinnerIds.length; i++) {
           const winnerId = uniqueWinnerIds[i];
           const position = i + 1;
@@ -219,7 +283,6 @@ serve(async (req) => {
 
           if (!profile) continue;
 
-          // Record winner
           await supabase.from('winners').insert({
             game_id: gameId,
             user_id: winnerId,
@@ -227,7 +290,6 @@ serve(async (req) => {
             amount_won: prize,
           });
 
-          // Award rank points based on position
           const rankPoints = position === 1 ? 100 : position === 2 ? 60 : position === 3 ? 30 : 10;
 
           await supabase
@@ -239,7 +301,6 @@ serve(async (req) => {
             })
             .eq('id', winnerId);
 
-          // Record win transaction
           await supabase.from('wallet_transactions').insert({
             user_id: winnerId,
             type: 'win',
@@ -248,7 +309,6 @@ serve(async (req) => {
             game_id: gameId,
           });
 
-          // Record rank points
           await supabase.from('rank_history').insert({
             user_id: winnerId,
             points: rankPoints,
@@ -265,7 +325,6 @@ serve(async (req) => {
           });
         }
 
-        // Update all participants' games_played count
         const { data: participants } = await supabase
           .from('fastest_finger_participants')
           .select('user_id')
@@ -288,7 +347,6 @@ serve(async (req) => {
           }
         }
 
-        // End game
         await supabase
           .from('fastest_finger_games')
           .update({
@@ -297,13 +355,14 @@ serve(async (req) => {
           })
           .eq('id', gameId);
 
-        console.log('Game ended:', gameId, 'Winners:', winners.length);
+        console.log('Game ended by admin:', authenticatedUser?.id, gameId, 'Winners:', winners.length);
         return new Response(JSON.stringify({ success: true, winners, platformCut }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       case 'update_countdown': {
+        // Internal use only - no auth (called by cron)
         if (!gameId) throw new Error('Missing gameId');
         const { countdown } = body;
 
@@ -318,35 +377,16 @@ serve(async (req) => {
       }
 
       case 'reset_weekly_ranks': {
-        // Reset all rank points
+        // Admin only - already verified above
         await supabase
           .from('profiles')
           .update({ rank_points: 0, weekly_rank: null });
 
-        console.log('Weekly ranks reset');
+        console.log('Weekly ranks reset by admin:', authenticatedUser?.id);
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-
-      // Legacy action names for backward compatibility
-      case 'create':
-        return new Response(JSON.stringify({ error: 'Use create_game action' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-
-      case 'start':
-        return new Response(JSON.stringify({ error: 'Use start_game action' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-
-      case 'end':
-        return new Response(JSON.stringify({ error: 'Use end_game action' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
 
       default:
         throw new Error(`Unknown action: ${action}`);
