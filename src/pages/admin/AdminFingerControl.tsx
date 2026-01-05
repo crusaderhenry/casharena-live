@@ -1,5 +1,5 @@
 import { useAdmin } from '@/contexts/AdminContext';
-import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle } from 'lucide-react';
+import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -10,6 +10,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import {
@@ -79,12 +80,16 @@ export const AdminFingerControl = () => {
     createGameWithConfig, 
     startGame, 
     endGame, 
+    cancelGame,
     resetGame,
     updateSettings,
     refreshData,
   } = useAdmin();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelGameId, setCancelGameId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
   
   // Get default date/time for scheduling
   const getDefaultDateTime = () => {
@@ -194,7 +199,22 @@ export const AdminFingerControl = () => {
 
   // Get active games
   const activeGames = games.filter(g => g.status === 'live' || g.status === 'scheduled' || g.status === 'open');
-  const recentEndedGames = games.filter(g => g.status === 'ended').slice(0, 5);
+  const recentEndedGames = games.filter(g => g.status === 'ended' || g.status === 'cancelled').slice(0, 5);
+
+  // Handle cancel game
+  const handleOpenCancelDialog = (gameId: string) => {
+    setCancelGameId(gameId);
+    setCancelReason('');
+    setShowCancelDialog(true);
+  };
+
+  const handleCancelGame = async () => {
+    if (!cancelGameId || !cancelReason.trim()) return;
+    await cancelGame(cancelGameId, cancelReason.trim());
+    setShowCancelDialog(false);
+    setCancelGameId(null);
+    setCancelReason('');
+  };
 
   // Helper to format recurrence description
   const getRecurrenceDescription = () => {
@@ -548,6 +568,58 @@ export const AdminFingerControl = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Cancel Game Dialog */}
+        <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <XCircle className="w-5 h-5" />
+                Cancel Game
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                This will cancel the game and refund all participants. Please provide a reason that will be shown to affected users.
+              </p>
+              
+              <div className="space-y-2">
+                <Label htmlFor="cancelReason">Cancellation Reason</Label>
+                <Textarea
+                  id="cancelReason"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="e.g., Technical issues, Not enough participants, Scheduling conflict..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <p className="text-xs text-yellow-600 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  All participants will be notified and their entry fees will be refunded.
+                </p>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <button
+                onClick={() => setShowCancelDialog(false)}
+                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Keep Game
+              </button>
+              <button
+                onClick={handleCancelGame}
+                disabled={!cancelReason.trim()}
+                className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel Game
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Active Games Grid */}
@@ -603,22 +675,40 @@ export const AdminFingerControl = () => {
                 
                 <div className="flex gap-2">
                   {(game.status === 'scheduled' || game.status === 'open') && (
-                    <button
-                      onClick={() => startGame(game.id)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-medium hover:bg-green-500/30 transition-colors"
-                    >
-                      <Play className="w-4 h-4" />
-                      Start Now
-                    </button>
+                    <>
+                      <button
+                        onClick={() => startGame(game.id)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-medium hover:bg-green-500/30 transition-colors"
+                      >
+                        <Play className="w-4 h-4" />
+                        Start Now
+                      </button>
+                      <button
+                        onClick={() => handleOpenCancelDialog(game.id)}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-destructive/20 text-destructive rounded-lg font-medium hover:bg-destructive/30 transition-colors"
+                        title="Cancel Game"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                   {game.status === 'live' && (
-                    <button
-                      onClick={() => endGame(game.id)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 transition-colors"
-                    >
-                      <Square className="w-4 h-4" />
-                      End Game
-                    </button>
+                    <>
+                      <button
+                        onClick={() => endGame(game.id)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 transition-colors"
+                      >
+                        <Square className="w-4 h-4" />
+                        End Game
+                      </button>
+                      <button
+                        disabled
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-muted text-muted-foreground rounded-lg font-medium cursor-not-allowed opacity-50"
+                        title="Cannot cancel live game"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
