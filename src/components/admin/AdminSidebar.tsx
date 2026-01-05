@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Shield,
   ShieldAlert,
+  Clock,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ const navItems = [
   { label: 'Users', icon: Users, path: '/admin/users' },
   { label: 'Role Management', icon: ShieldAlert, path: '/admin/roles' },
   { label: 'Wallet & Payouts', icon: Wallet, path: '/admin/wallet' },
+  { label: 'Pending Withdrawals', icon: Clock, path: '/admin/withdrawals' },
   { label: 'Rank & Rewards', icon: Trophy, path: '/admin/rank' },
   { label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
   { label: 'Audit Logs', icon: Shield, path: '/admin/audit-logs' },

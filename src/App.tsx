@@ -38,6 +38,7 @@ import { AdminLiveMonitor } from "@/pages/admin/AdminLiveMonitor";
 import { AdminUsers } from "@/pages/admin/AdminUsers";
 import { AdminRoleManagement } from "@/pages/admin/AdminRoleManagement";
 import { AdminWallet } from "@/pages/admin/AdminWallet";
+import { AdminPendingWithdrawals } from "@/pages/admin/AdminPendingWithdrawals";
 import { AdminRank } from "@/pages/admin/AdminRank";
 import { AdminAnalytics } from "@/pages/admin/AdminAnalytics";
 import { AdminAuditLogs } from "@/pages/admin/AdminAuditLogs";
@@ -209,6 +210,7 @@ const AppRoutes = () => (
       <Route path="users" element={<AdminUsers />} />
       <Route path="roles" element={<AdminRoleManagement />} />
       <Route path="wallet" element={<AdminWallet />} />
+      <Route path="withdrawals" element={<AdminPendingWithdrawals />} />
       <Route path="rank" element={<AdminRank />} />
       <Route path="analytics" element={<AdminAnalytics />} />
       <Route path="audit-logs" element={<AdminAuditLogs />} />
