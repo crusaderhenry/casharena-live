@@ -1209,9 +1209,51 @@ export const FingerArena = () => {
       {/* Input */}
       <div className={`backdrop-blur-xl border-t p-4 sticky bottom-0 ${isGameTimeDanger ? 'bg-destructive/5 border-destructive/30' : 'bg-card/95 border-border/50'}`}>
         {isSpectator ? (
-          <div className="text-center py-3 bg-muted/50 rounded-xl">
-            <p className="text-sm text-muted-foreground">👀 You're watching as a spectator</p>
-            <p className="text-xs text-muted-foreground mt-1">You can still talk in voice chat</p>
+          <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-orange-400 font-medium flex items-center gap-1">
+                  <Eye className="w-3.5 h-3.5" /> Spectator Mode
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Comments disabled • Voice chat enabled
+                </p>
+              </div>
+              
+              {/* Join Pool Button for Spectators */}
+              {canJoinFromSpectator && (
+                <button
+                  onClick={handleJoinFromSpectator}
+                  disabled={joiningFromSpectator || !canAffordEntry}
+                  className="px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {joiningFromSpectator ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Zap className="w-4 h-4" />
+                  )}
+                  {joiningFromSpectator ? 'Joining...' : 
+                   !canAffordEntry ? 'Low balance' :
+                   game?.is_sponsored ? 'Join FREE' :
+                   `Join ₦${((game?.entry_fee || 700) / 1000).toFixed(0)}K`}
+                </button>
+              )}
+            </div>
+            
+            {/* Time remaining for join eligibility */}
+            {canJoinFromSpectator && gameJoinStatus.timeRemaining && (
+              <div className="mt-2 flex items-center gap-1 text-xs text-primary">
+                <Clock className="w-3 h-3" />
+                <span>{Math.floor(gameJoinStatus.timeRemaining / 60)} min left to join pool</span>
+              </div>
+            )}
+            
+            {/* Entries closed message */}
+            {!canJoinFromSpectator && game?.status === 'live' && !isTestMode && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Less than 10 minutes remaining — entries closed
+              </p>
+            )}
           </div>
         ) : (
           <div className="flex gap-3">
