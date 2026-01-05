@@ -1,12 +1,20 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { WalletCard } from '@/components/WalletCard';
-import { useWallet } from '@/contexts/WalletContext';
-import { ArrowLeft, ChevronRight, ArrowUpRight, ArrowDownLeft, Clock, Lock, Zap } from 'lucide-react';
+import { useWalletTransactions } from '@/hooks/useWalletTransactions';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
+import { DepositModal } from '@/components/wallet/DepositModal';
+import { WithdrawModal } from '@/components/wallet/WithdrawModal';
+import { TestModeBanner } from '@/components/wallet/TestModeBanner';
+import { ArrowLeft, ChevronRight, ArrowUpRight, ArrowDownLeft, Clock, Wallet, Zap, AlertTriangle } from 'lucide-react';
 
 export const WalletMain = () => {
   const navigate = useNavigate();
-  const { transactions } = useWallet();
+  const { transactions, loading } = useWalletTransactions();
+  const { isTestMode } = usePlatformSettings();
+  const [depositOpen, setDepositOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   const getTransactionIcon = (type: string) => {
     if (type.includes('win') || type === 'deposit') {
@@ -19,7 +27,8 @@ export const WalletMain = () => {
     return amount >= 0 ? 'text-primary' : 'text-destructive';
   };
 
-  const formatTime = (date: Date) => {
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
     const now = new Date();
     const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
     
@@ -29,13 +38,20 @@ export const WalletMain = () => {
     return date.toLocaleDateString();
   };
 
-  // Filter for Fastest Finger related transactions only
-  const fingerTransactions = transactions.filter(tx => 
-    tx.type.includes('finger') || tx.type === 'deposit' || tx.type === 'rank_reward'
-  );
+  const getStatusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      completed: 'bg-primary/20 text-primary',
+      pending: 'bg-yellow-500/20 text-yellow-500',
+      processing: 'bg-blue-500/20 text-blue-400',
+      failed: 'bg-destructive/20 text-destructive',
+    };
+    return styles[status] || 'bg-muted text-muted-foreground';
+  };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className={`min-h-screen bg-background pb-24 ${isTestMode ? 'pt-10' : ''}`}>
+      <TestModeBanner />
+      
       <div className="p-4 space-y-5">
         {/* Header */}
         <div className="flex items-center gap-3 pt-2">
@@ -52,35 +68,41 @@ export const WalletMain = () => {
         </div>
 
         {/* Balance Card */}
-        <WalletCard />
+        <WalletCard 
+          onDepositClick={() => setDepositOpen(true)}
+          onWithdrawClick={() => setWithdrawOpen(true)}
+        />
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <button
-            onClick={() => navigate('/wallet/history')}
-            className="card-panel flex items-center gap-3 hover:border-primary/40 transition-all"
+            onClick={() => setDepositOpen(true)}
+            className="card-panel flex flex-col items-center gap-2 py-4 hover:border-primary/40 transition-all"
           >
             <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-              <Clock className="w-5 h-5 text-primary" />
+              <Wallet className="w-5 h-5 text-primary" />
             </div>
-            <div className="flex-1 text-left">
-              <span className="font-medium text-foreground">History</span>
-              <p className="text-xs text-muted-foreground">View all</p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            <span className="font-medium text-foreground text-sm">Deposit</span>
           </button>
           
           <button
-            className="card-panel flex items-center gap-3 opacity-60 cursor-not-allowed"
-            disabled
+            onClick={() => setWithdrawOpen(true)}
+            className="card-panel flex flex-col items-center gap-2 py-4 hover:border-primary/40 transition-all"
+          >
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+              <ArrowUpRight className="w-5 h-5 text-primary" />
+            </div>
+            <span className="font-medium text-foreground text-sm">Withdraw</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/wallet/history')}
+            className="card-panel flex flex-col items-center gap-2 py-4 hover:border-primary/40 transition-all"
           >
             <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
-              <Lock className="w-5 h-5 text-muted-foreground" />
+              <Clock className="w-5 h-5 text-muted-foreground" />
             </div>
-            <div className="flex-1 text-left">
-              <span className="font-medium text-muted-foreground">Withdraw</span>
-              <p className="text-xs text-muted-foreground">Coming soon</p>
-            </div>
+            <span className="font-medium text-foreground text-sm">History</span>
           </button>
         </div>
 
@@ -101,7 +123,12 @@ export const WalletMain = () => {
             )}
           </div>
           
-          {transactions.length === 0 ? (
+          {loading ? (
+            <div className="card-panel text-center py-8">
+              <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-muted-foreground">Loading transactions...</p>
+            </div>
+          ) : transactions.length === 0 ? (
             <div className="card-panel text-center py-8">
               <Zap className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-foreground font-medium">No transactions yet</p>
@@ -117,8 +144,15 @@ export const WalletMain = () => {
                     {getTransactionIcon(tx.type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{tx.description}</p>
-                    <p className="text-xs text-muted-foreground">{formatTime(tx.timestamp)}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-foreground truncate">{tx.description || tx.type}</p>
+                      {tx.status !== 'completed' && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase ${getStatusBadge(tx.status)}`}>
+                          {tx.status}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{formatTime(tx.created_at)}</p>
                   </div>
                   <p className={`font-bold ${getTransactionColor(tx.amount)}`}>
                     {tx.amount >= 0 ? '+' : ''}₦{Math.abs(tx.amount).toLocaleString()}
@@ -129,14 +163,25 @@ export const WalletMain = () => {
           )}
         </div>
 
-        {/* Demo Notice */}
-        <div className="card-panel bg-primary/5 border-primary/20">
-          <p className="text-sm text-center text-muted-foreground">
-            🎮 Demo wallet — all transactions are simulated
-          </p>
-        </div>
+        {/* Mode Notice */}
+        {isTestMode && (
+          <div className="card-panel bg-yellow-500/10 border-yellow-500/30">
+            <div className="flex items-center gap-2 text-sm text-center text-yellow-500">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <span>Test Mode — all transactions are simulated</span>
+            </div>
+          </div>
+        )}
       </div>
       
+      <DepositModal 
+        open={depositOpen} 
+        onOpenChange={setDepositOpen} 
+      />
+      <WithdrawModal 
+        open={withdrawOpen} 
+        onOpenChange={setWithdrawOpen} 
+      />
       <BottomNav />
     </div>
   );

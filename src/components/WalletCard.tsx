@@ -1,18 +1,19 @@
-import { Plus, Sparkles } from 'lucide-react';
-import { useWallet } from '@/contexts/WalletContext';
+import { Plus, Sparkles, ArrowUpRight, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useState, useEffect } from 'react';
 
 interface WalletCardProps {
   compact?: boolean;
+  onDepositClick?: () => void;
+  onWithdrawClick?: () => void;
 }
 
-export const WalletCard = ({ compact = false }: WalletCardProps) => {
-  const { balance: mockBalance, addFunds } = useWallet();
-  const { profile } = useAuth();
+export const WalletCard = ({ compact = false, onDepositClick, onWithdrawClick }: WalletCardProps) => {
+  const { profile, loading } = useAuth();
+  const { isTestMode } = usePlatformSettings();
   
-  // Use real profile balance if available, otherwise use mock
-  const realBalance = profile?.wallet_balance ?? mockBalance;
+  const realBalance = profile?.wallet_balance ?? 0;
   const [displayBalance, setDisplayBalance] = useState(realBalance);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -41,12 +42,6 @@ export const WalletCard = ({ compact = false }: WalletCardProps) => {
     }
   }, [realBalance, displayBalance]);
 
-  const handleAddFunds = () => {
-    // In production, this would open a payment modal
-    // For now, use mock funds
-    addFunds(5000);
-  };
-
   const formatMoney = (amount: number) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -55,6 +50,14 @@ export const WalletCard = ({ compact = false }: WalletCardProps) => {
       maximumFractionDigits: 0,
     }).format(amount);
   };
+
+  if (loading) {
+    return (
+      <div className="card-panel flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   if (compact) {
     return (
@@ -65,13 +68,15 @@ export const WalletCard = ({ compact = false }: WalletCardProps) => {
             {formatMoney(displayBalance)}
           </p>
         </div>
-        <button
-          onClick={handleAddFunds}
-          className="btn-outline flex items-center gap-1 py-2 px-3 text-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Add
-        </button>
+        {onDepositClick && (
+          <button
+            onClick={onDepositClick}
+            className="btn-outline flex items-center gap-1 py-2 px-3 text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Add
+          </button>
+        )}
       </div>
     );
   }
@@ -79,6 +84,12 @@ export const WalletCard = ({ compact = false }: WalletCardProps) => {
   return (
     <div className="card-panel glow-soft relative overflow-hidden">
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+      
+      {isTestMode && (
+        <div className="absolute top-3 right-3 px-2 py-0.5 bg-yellow-500/20 rounded text-[10px] font-medium text-yellow-500 uppercase">
+          Test
+        </div>
+      )}
       
       <div className="relative">
         <div className="flex items-start justify-between mb-5">
@@ -92,13 +103,23 @@ export const WalletCard = ({ compact = false }: WalletCardProps) => {
             <Sparkles className="w-7 h-7 text-primary" />
           </div>
         </div>
-        <button
-          onClick={handleAddFunds}
-          className="w-full btn-primary flex items-center justify-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Add Demo Funds (+₦5,000)
-        </button>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={onDepositClick}
+            className="btn-primary flex items-center justify-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Deposit
+          </button>
+          <button
+            onClick={onWithdrawClick}
+            className="btn-outline flex items-center justify-center gap-2"
+          >
+            <ArrowUpRight className="w-5 h-5" />
+            Withdraw
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -11,3 +11,15 @@ verify_jwt = false
 
 [functions.role-manager]
 verify_jwt = true
+
+[functions.paystack-deposit]
+verify_jwt = true
+
+[functions.paystack-webhook]
+verify_jwt = false
+
+[functions.paystack-withdraw]
+verify_jwt = true
+
+[functions.get-banks]
+verify_jwt = false

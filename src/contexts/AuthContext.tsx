@@ -12,6 +12,10 @@ interface Profile {
   weekly_rank: number | null;
   games_played: number;
   total_wins: number;
+  wallet_locked?: boolean;
+  bank_account_name?: string | null;
+  bank_account_number?: string | null;
+  bank_code?: string | null;
 }
 
 interface AuthContextType {
