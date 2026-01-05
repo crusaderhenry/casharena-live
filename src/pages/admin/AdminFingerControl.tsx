@@ -1,6 +1,6 @@
 import { useAdmin } from '@/contexts/AdminContext';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
-import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle, XCircle } from 'lucide-react';
+import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle, XCircle, Music, Upload } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -71,6 +71,11 @@ interface GameFormData {
   isSponsored: boolean;
   sponsoredAmount: number;
   platformCutPercentage: number;
+  // Music settings
+  musicType: 'generated' | 'uploaded';
+  lobbyMusicUrl: string;
+  arenaMusicUrl: string;
+  tenseMusicUrl: string;
 }
 
 export const AdminFingerControl = () => {
@@ -141,6 +146,10 @@ export const AdminFingerControl = () => {
     isSponsored: false,
     sponsoredAmount: 0,
     platformCutPercentage: platformCut,
+    musicType: 'generated',
+    lobbyMusicUrl: '',
+    arenaMusicUrl: '',
+    tenseMusicUrl: '',
   });
 
   // Sync form data with platform settings when they load
@@ -213,6 +222,11 @@ export const AdminFingerControl = () => {
       fixed_daily_time: formData.recurrenceType === 'daily' ? formData.fixedDailyTime : null,
       entry_wait_seconds: formData.entryWaitSeconds,
       min_participants_action: formData.minParticipantsAction,
+      // Music settings
+      music_type: formData.musicType,
+      lobby_music_url: formData.musicType === 'uploaded' ? formData.lobbyMusicUrl || null : null,
+      arena_music_url: formData.musicType === 'uploaded' ? formData.arenaMusicUrl || null : null,
+      tense_music_url: formData.musicType === 'uploaded' ? formData.tenseMusicUrl || null : null,
     });
     setShowCreateDialog(false);
     
@@ -237,6 +251,10 @@ export const AdminFingerControl = () => {
       isSponsored: false,
       sponsoredAmount: 0,
       platformCutPercentage: 10,
+      musicType: 'generated',
+      lobbyMusicUrl: '',
+      arenaMusicUrl: '',
+      tenseMusicUrl: '',
     });
   };
 
@@ -596,6 +614,73 @@ export const AdminFingerControl = () => {
                     <Repeat className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
                     {getRecurrenceDescription()}
                   </p>
+                )}
+              </div>
+
+              {/* Music Settings */}
+              <div className="space-y-3 pt-4 border-t border-border">
+                <Label className="flex items-center gap-2">
+                  <Music className="w-4 h-4 text-muted-foreground" />
+                  Background Music
+                </Label>
+                
+                <Select
+                  value={formData.musicType}
+                  onValueChange={(value: 'generated' | 'uploaded') => setFormData(prev => ({ ...prev, musicType: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select music type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="generated">
+                      <div className="flex items-center gap-2">
+                        <span>🎵</span> Generated (Web Audio)
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="uploaded">
+                      <div className="flex items-center gap-2">
+                        <Upload className="w-4 h-4" /> Custom Music Files
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                {formData.musicType === 'uploaded' && (
+                  <div className="space-y-3 p-3 bg-muted/30 rounded-lg border border-border">
+                    <div>
+                      <Label htmlFor="lobbyMusic" className="text-xs">Lobby Music URL</Label>
+                      <Input
+                        id="lobbyMusic"
+                        type="url"
+                        placeholder="https://..."
+                        value={formData.lobbyMusicUrl}
+                        onChange={(e) => setFormData(prev => ({ ...prev, lobbyMusicUrl: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="arenaMusic" className="text-xs">Arena Music URL</Label>
+                      <Input
+                        id="arenaMusic"
+                        type="url"
+                        placeholder="https://..."
+                        value={formData.arenaMusicUrl}
+                        onChange={(e) => setFormData(prev => ({ ...prev, arenaMusicUrl: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="tenseMusic" className="text-xs">Tense Music URL</Label>
+                      <Input
+                        id="tenseMusic"
+                        type="url"
+                        placeholder="https://..."
+                        value={formData.tenseMusicUrl}
+                        onChange={(e) => setFormData(prev => ({ ...prev, tenseMusicUrl: e.target.value }))}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Upload MP3 files to storage and paste URLs here, or leave empty to use generated audio.
+                    </p>
+                  </div>
                 )}
               </div>
 

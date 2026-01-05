@@ -26,6 +26,11 @@ interface Game {
   entry_cutoff_minutes?: number;
   entry_wait_seconds?: number;
   platform_cut_percentage?: number;
+  // Music settings
+  music_type?: 'generated' | 'uploaded';
+  lobby_music_url?: string | null;
+  arena_music_url?: string | null;
+  tense_music_url?: string | null;
 }
 
 interface Comment {
@@ -105,6 +110,11 @@ export const useLiveGame = (gameId?: string) => {
         entry_wait_seconds: (data as any).entry_wait_seconds || 60,
         platform_cut_percentage: (data as any).platform_cut_percentage || 10,
         effective_prize_pool: poolValue + (isSponsored ? sponsoredAmount : 0),
+        // Music settings
+        music_type: (data as any).music_type || 'generated',
+        lobby_music_url: (data as any).lobby_music_url || null,
+        arena_music_url: (data as any).arena_music_url || null,
+        tense_music_url: (data as any).tense_music_url || null,
       } as Game;
     }
     return null;
@@ -141,6 +151,11 @@ export const useLiveGame = (gameId?: string) => {
         entry_wait_seconds: (g as any).entry_wait_seconds || 60,
         platform_cut_percentage: (g as any).platform_cut_percentage || 10,
         effective_prize_pool: poolValue + (isSponsored ? sponsoredAmount : 0),
+        // Music settings
+        music_type: (g as any).music_type || 'generated',
+        lobby_music_url: (g as any).lobby_music_url || null,
+        arena_music_url: (g as any).arena_music_url || null,
+        tense_music_url: (g as any).tense_music_url || null,
       };
     }) as Game[];
   }, []);
@@ -175,6 +190,11 @@ export const useLiveGame = (gameId?: string) => {
       entry_wait_seconds: (data as any).entry_wait_seconds || 60,
       platform_cut_percentage: (data as any).platform_cut_percentage || 10,
       effective_prize_pool: poolValue + (isSponsored ? sponsoredAmount : 0),
+      // Music settings
+      music_type: (data as any).music_type || 'generated',
+      lobby_music_url: (data as any).lobby_music_url || null,
+      arena_music_url: (data as any).arena_music_url || null,
+      tense_music_url: (data as any).tense_music_url || null,
     } as Game;
   }, []);
 

@@ -474,7 +474,9 @@ export const FingerArena = () => {
     if (hasStartedAudio.current) return;
     hasStartedAudio.current = true;
 
-    playBackgroundMusic('arena');
+    // Use custom music URL if game has uploaded music, otherwise use generated
+    const arenaMusicUrl = game?.music_type === 'uploaded' ? game?.arena_music_url : null;
+    playBackgroundMusic('arena', arenaMusicUrl);
 
     const micCheckDone = sessionStorage.getItem('micCheckComplete');
     if (!micCheckDone) {
@@ -483,7 +485,7 @@ export const FingerArena = () => {
 
     return () => stopBackgroundMusic();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [game?.music_type, game?.arena_music_url]);
   
   // Welcome announcement (separate effect to avoid loops)
   useEffect(() => {
@@ -515,7 +517,9 @@ export const FingerArena = () => {
     if (timer <= 10) {
       play('urgent');
       vibrate('heavy');
-      playBackgroundMusic('tense');
+      // Use custom tense music URL if game has uploaded music
+      const tenseMusicUrl = game?.music_type === 'uploaded' ? game?.tense_music_url : null;
+      playBackgroundMusic('tense', tenseMusicUrl);
     } else if (timer <= 30) {
       play('tick');
     }
@@ -523,7 +527,7 @@ export const FingerArena = () => {
     if ([60, 30, 15, 10, 5].includes(timer)) {
       crusader.announceTimerLow(timer);
     }
-  }, [timer]);
+  }, [timer, game?.music_type, game?.tense_music_url]);
 
   // Random hype from Crusader
   useEffect(() => {

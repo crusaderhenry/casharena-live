@@ -101,6 +101,11 @@ interface CreateGameConfig {
   fixed_daily_time?: string | null;
   entry_wait_seconds?: number;
   min_participants_action?: 'reset' | 'cancel' | 'start_anyway';
+  // Music settings
+  music_type?: 'generated' | 'uploaded';
+  lobby_music_url?: string | null;
+  arena_music_url?: string | null;
+  tense_music_url?: string | null;
 }
 
 interface AdminContextType {

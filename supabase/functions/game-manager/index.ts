@@ -163,6 +163,11 @@ serve(async (req) => {
             fixed_daily_time: gameConfig.fixed_daily_time || null,
             entry_wait_seconds: gameConfig.entry_wait_seconds || 60,
             min_participants_action: gameConfig.min_participants_action || 'reset',
+            // Music settings
+            music_type: gameConfig.music_type || 'generated',
+            lobby_music_url: gameConfig.lobby_music_url || null,
+            arena_music_url: gameConfig.arena_music_url || null,
+            tense_music_url: gameConfig.tense_music_url || null,
           })
           .select()
           .single();

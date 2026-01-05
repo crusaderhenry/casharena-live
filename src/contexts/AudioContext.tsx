@@ -15,7 +15,7 @@ interface AudioContextType {
   toggleSfx: () => void;
   toggleCommentary: () => void;
   setVolume: (volume: number) => void;
-  playBackgroundMusic: (type: 'lobby' | 'arena' | 'tense') => void;
+  playBackgroundMusic: (type: 'lobby' | 'arena' | 'tense', customUrl?: string | null) => void;
   stopBackgroundMusic: () => void;
   toggleHostMute: () => void;
   toggleVoiceRoomMute: () => void;
@@ -91,6 +91,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const ambientRef = useRef<ReturnType<typeof createAmbientSound> | null>(null);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     localStorage.setItem('fortuneshq_audio', JSON.stringify(settings));
@@ -129,14 +130,42 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const playBackgroundMusic = useCallback((type: 'lobby' | 'arena' | 'tense') => {
+  const playBackgroundMusic = useCallback((type: 'lobby' | 'arena' | 'tense', customUrl?: string | null) => {
     if (!settings.musicEnabled) return;
     
-    // Stop existing
+    // Stop existing music (both generated and uploaded)
     if (ambientRef.current) {
       ambientRef.current.stop();
+      ambientRef.current = null;
+    }
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current.src = '';
+      audioElementRef.current = null;
     }
 
+    // If custom URL provided, play uploaded audio file
+    if (customUrl) {
+      try {
+        const audio = new Audio(customUrl);
+        audio.loop = true;
+        audio.volume = settings.volume * 0.3; // Background music at 30% of master volume
+        audio.play().catch(err => {
+          console.warn('Failed to play custom music:', err);
+          // Fallback to generated audio
+          const ctx = getContext();
+          ambientRef.current = createAmbientSound(ctx, type);
+          ambientRef.current.gainNode.gain.value = settings.volume * 0.05;
+          ambientRef.current.start();
+        });
+        audioElementRef.current = audio;
+        return;
+      } catch (err) {
+        console.warn('Error loading custom music, falling back to generated:', err);
+      }
+    }
+
+    // Use generated ambient sounds
     const ctx = getContext();
     ambientRef.current = createAmbientSound(ctx, type);
     ambientRef.current.gainNode.gain.value = settings.volume * 0.05;
@@ -147,6 +176,11 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     if (ambientRef.current) {
       ambientRef.current.stop();
       ambientRef.current = null;
+    }
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current.src = '';
+      audioElementRef.current = null;
     }
   }, []);
 
