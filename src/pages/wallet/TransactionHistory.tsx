@@ -7,6 +7,7 @@ import { TestModeBanner } from '@/components/wallet/TestModeBanner';
 import { TransactionReceiptModal } from '@/components/wallet/TransactionReceiptModal';
 import { DepositModal } from '@/components/wallet/DepositModal';
 import { ChevronLeft, ArrowUpRight, ArrowDownLeft, FileText, RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Transaction {
   id: string;
@@ -37,8 +38,10 @@ export const TransactionHistory = () => {
   };
 
   const handleRetryDeposit = (tx: Transaction) => {
-    setRetryAmount(Math.abs(tx.amount));
+    const amount = Math.abs(tx.amount);
+    setRetryAmount(amount);
     setDepositOpen(true);
+    toast.info(`Retrying deposit of ₦${amount.toLocaleString()}`);
   };
 
   const getTransactionIcon = (type: string) => {
