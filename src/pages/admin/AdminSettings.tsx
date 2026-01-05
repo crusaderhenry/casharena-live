@@ -40,13 +40,10 @@ export const AdminSettings = () => {
   };
 
   const handleTestModeToggle = async () => {
-    const newValue = !localSettings.testMode;
-    setLocalSettings(prev => ({ ...prev, testMode: newValue }));
+    const newValue = !isTestMode;
     
-    const success = await toggleTestMode();
+    const success = await toggleTestMode(newValue);
     if (!success) {
-      // Revert on failure
-      setLocalSettings(prev => ({ ...prev, testMode: !newValue }));
       toast.error('Failed to toggle test mode');
     } else {
       toast.success(newValue ? 'Test Mode enabled' : 'Live Mode enabled - Real payments active!');

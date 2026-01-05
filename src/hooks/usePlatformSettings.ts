@@ -61,6 +61,9 @@ export const usePlatformSettings = () => {
   const updateSettings = useCallback(async (updates: Partial<PlatformSettings>) => {
     if (!settings) return false;
 
+    // Optimistically update local state
+    setSettings(prev => prev ? { ...prev, ...updates } : null);
+
     try {
       const { error } = await supabase
         .from('platform_settings')
@@ -71,13 +74,16 @@ export const usePlatformSettings = () => {
       return true;
     } catch (err) {
       console.error('Failed to update settings:', err);
+      // Revert on failure
+      await fetchSettings();
       return false;
     }
-  }, [settings]);
+  }, [settings, fetchSettings]);
 
-  const toggleTestMode = useCallback(async () => {
+  const toggleTestMode = useCallback(async (newValue?: boolean) => {
     if (!settings) return false;
-    return updateSettings({ test_mode: !settings.test_mode });
+    const targetValue = newValue !== undefined ? newValue : !settings.test_mode;
+    return updateSettings({ test_mode: targetValue });
   }, [settings, updateSettings]);
 
   return {
