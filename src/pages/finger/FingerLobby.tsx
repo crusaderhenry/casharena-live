@@ -46,24 +46,25 @@ export const FingerLobby = () => {
   const [isSpectator, setIsSpectator] = useState(isSpectatorFromState);
   const [joining, setJoining] = useState(false);
 
-  // Sync with server countdown using server time
+  // Sync with server countdown using server time - automatic arena transition
   useEffect(() => {
     if (!game) return;
     
     const updateCountdown = () => {
       if (game.start_time) {
-        // Calculate seconds until game goes live
         const secsUntilLive = secondsUntil(game.start_time);
         setCountdown(Math.max(0, secsUntilLive));
         
-        if (secsUntilLive <= 0 && game.status === 'live') {
-          // Game is live, navigate to arena
-          if (!preferLobby) {
-            navigate('/finger/arena');
-          }
+        // Auto-transition to arena when game goes live
+        if (secsUntilLive <= 0 && game.status === 'live' && hasJoined && !isSpectator) {
+          play('success');
+          buttonClick();
+          navigate('/finger/arena', { state: { gameId: game.id } });
         }
+      } else if (game.status === 'open') {
+        // For open games waiting to go live, use countdown
+        setCountdown(game.countdown || 60);
       } else {
-        // Fallback to game countdown
         setCountdown(game.countdown || 60);
       }
     };
@@ -71,20 +72,22 @@ export const FingerLobby = () => {
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
-  }, [game, synced, secondsUntil, preferLobby, navigate]);
+  }, [game, synced, secondsUntil, hasJoined, isSpectator, navigate, play, buttonClick]);
 
-  // Redirect if game is ended
+  // Redirect based on game status for live game show experience
   useEffect(() => {
     if (game?.status === 'ended') {
-      navigate('/finger/results');
+      navigate('/finger/results', { state: { gameId: game.id } });
       return;
     }
 
-    // If game is live and user doesn't prefer lobby, go to arena
-    if (game?.status === 'live' && !preferLobby && countdown <= 0) {
-      navigate('/finger/arena');
+    // Auto-enter arena when game goes live (for joined players or spectators who chose to watch)
+    if (game?.status === 'live' && countdown <= 0) {
+      if (hasJoined || isSpectator) {
+        navigate('/finger/arena', { state: { gameId: game.id, isSpectator } });
+      }
     }
-  }, [game?.status, preferLobby, countdown, navigate]);
+  }, [game?.status, game?.id, countdown, hasJoined, isSpectator, navigate]);
 
   // Start lobby music and Crusader welcome
   useEffect(() => {
