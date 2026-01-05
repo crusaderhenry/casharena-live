@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { triggerMockUserJoins, triggerMockUserComment, getMockParticipants } from '@/services/mockUserService';
 
 interface Game {
   id: string;
@@ -72,10 +73,12 @@ export const useLiveGame = (gameId?: string) => {
   const [game, setGame] = useState<Game | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [mockParticipants, setMockParticipants] = useState<Participant[]>([]);
   const [winners, setWinners] = useState<Winner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasJoined, setHasJoined] = useState(false);
+  const mockCommentIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch current live or scheduled game
   const fetchCurrentGame = useCallback(async () => {
@@ -310,6 +313,12 @@ export const useLiveGame = (gameId?: string) => {
 
       setHasJoined(true);
       await refreshProfile();
+      
+      // Trigger mock users to potentially join when a real user joins
+      if (gameToJoin) {
+        triggerMockUserJoins(gameToJoin).catch(console.error);
+      }
+      
       return true;
     } catch (err: any) {
       // Catch any unexpected client/runtime errors without crashing the UI
@@ -373,13 +382,22 @@ export const useLiveGame = (gameId?: string) => {
         if (currentGame) {
           setGame(currentGame);
 
-          const [commentsData, participantsData] = await Promise.all([
+          const [commentsData, participantsData, mockParticipantsData] = await Promise.all([
             fetchComments(currentGame.id),
             fetchParticipants(currentGame.id),
+            getMockParticipants(currentGame.id),
           ]);
 
           setComments(commentsData);
           setParticipants(participantsData);
+          
+          // Add mock participants to display
+          setMockParticipants(mockParticipantsData.map((m: any) => ({
+            id: m.id,
+            user_id: m.id,
+            joined_at: m.joined_at,
+            profile: { username: m.username, avatar: m.avatar },
+          })));
 
           if (user) {
             const joined = await checkJoinStatus(currentGame.id, user.id);
@@ -551,6 +569,40 @@ export const useLiveGame = (gameId?: string) => {
     };
   }, [game?.id]);
 
+  // Mock comment triggering during live games
+  useEffect(() => {
+    if (!game || game.status !== 'live') {
+      if (mockCommentIntervalRef.current) {
+        clearInterval(mockCommentIntervalRef.current);
+        mockCommentIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Trigger mock comments every 5-15 seconds randomly during live games
+    const triggerMockComment = async () => {
+      if (game.id) {
+        await triggerMockUserComment(game.id);
+      }
+    };
+
+    // Initial trigger with small delay
+    const initialTimeout = setTimeout(triggerMockComment, 3000);
+
+    // Set up interval with randomized timing
+    mockCommentIntervalRef.current = setInterval(() => {
+      triggerMockComment();
+    }, 8000 + Math.random() * 7000); // 8-15 seconds
+
+    return () => {
+      clearTimeout(initialTimeout);
+      if (mockCommentIntervalRef.current) {
+        clearInterval(mockCommentIntervalRef.current);
+        mockCommentIntervalRef.current = null;
+      }
+    };
+  }, [game?.id, game?.status]);
+
   // Calculate if entries are still open for a game
   const canJoinGame = useCallback((targetGame: Game | null): { canJoin: boolean; reason: string | null; timeRemaining: number | null } => {
     if (!targetGame) {
@@ -594,10 +646,15 @@ export const useLiveGame = (gameId?: string) => {
   // Current game join eligibility
   const gameJoinStatus = canJoinGame(game);
 
+  // Combined participants (real + mock) for display
+  const allParticipants = [...participants, ...mockParticipants];
+
   return {
     game,
     comments,
-    participants,
+    participants: allParticipants, // Return combined list for display
+    realParticipants: participants, // Keep reference to real only
+    mockParticipants,
     winners,
     loading,
     error,
