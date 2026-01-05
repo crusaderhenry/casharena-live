@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.game-timer]
 verify_jwt = false
 
+[functions.game-lifecycle]
+verify_jwt = false
+
 [functions.role-manager]
 verify_jwt = true
 

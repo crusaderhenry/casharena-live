@@ -91,6 +91,11 @@ interface CreateGameConfig {
   scheduled_at?: string | null;
   recurrence_type?: string | null;
   recurrence_interval?: number | null;
+  // Sponsored games
+  is_sponsored?: boolean;
+  sponsored_amount?: number | null;
+  platform_cut_percentage?: number;
+  description?: string | null;
 }
 
 interface AdminContextType {
