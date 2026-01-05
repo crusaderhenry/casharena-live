@@ -176,7 +176,12 @@ export const FingerMain = () => {
   const balance = profile?.wallet_balance || 0;
   const hasGames = allGames.length > 0;
 
-  const formatMoney = (amount: number) => `₦${amount.toLocaleString()}`;
+  const formatMoney = (amount: number) => {
+    if (amount >= 1_000_000_000) return `₦${(amount / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
+    if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+    if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+    return `₦${amount.toLocaleString()}`;
+  };
 
   const handleJoin = async () => {
     if (!profile || joining) return;
