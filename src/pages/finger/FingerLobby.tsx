@@ -149,10 +149,13 @@ export const FingerLobby = () => {
     navigate('/finger');
   };
 
-  const handleEnterArena = () => {
+  const handleEnterArena = (asSpectator?: boolean) => {
+    if (!game) return;
     play('click');
     buttonClick();
-    navigate('/finger/arena', { state: { isSpectator } });
+
+    const spectatorFlag = asSpectator ?? isSpectator;
+    navigate('/finger/arena', { state: { gameId: game.id, isSpectator: spectatorFlag } });
   };
 
   const handleJoinGame = async () => {
@@ -293,7 +296,7 @@ export const FingerLobby = () => {
                 
                 {hasJoined ? (
                   <button
-                    onClick={handleEnterArena}
+                    onClick={() => handleEnterArena(false)}
                     className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-green-500 to-green-600 text-white"
                   >
                     <Play className="w-5 h-5" fill="currentColor" />
@@ -301,21 +304,57 @@ export const FingerLobby = () => {
                   </button>
                 ) : isSpectator ? (
                   <button
-                    onClick={handleEnterArena}
+                    onClick={() => handleEnterArena(true)}
                     className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-orange-500 to-orange-600 text-white"
                   >
                     <Eye className="w-5 h-5" />
                     Watch Arena
                   </button>
-                ) : (
+                ) : entryClosed ? (
                   <div className="space-y-2">
-                    <div className="flex items-center justify-center gap-2 py-2 text-destructive">
-                      <Lock className="w-4 h-4" />
-                      <span className="font-bold text-sm">Entries Closed</span>
+                    <div className="flex flex-col items-center justify-center gap-1 py-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive">
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-4 h-4" />
+                        <span className="font-bold text-sm">Entries Closed</span>
+                      </div>
+                      {gameJoinStatus.reason && (
+                        <span className="text-xs opacity-80">{gameJoinStatus.reason}</span>
+                      )}
                     </div>
                     <button
-                      onClick={() => { setIsSpectator(true); handleEnterArena(); }}
+                      onClick={() => handleEnterArena(true)}
                       className="w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                    >
+                      <Eye className="w-5 h-5" />
+                      Watch as Spectator
+                      <ChevronLeft className="w-5 h-5 rotate-180" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <button
+                      onClick={handleJoinGame}
+                      disabled={!canAfford || joining}
+                      className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity bg-gradient-to-r from-green-500 to-green-600 text-white"
+                    >
+                      {game?.is_sponsored ? (
+                        <>
+                          <Gift className="w-5 h-5" />
+                          {joining ? 'Joining...' : 'Join FREE Game'}
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-5 h-5" />
+                          {joining ? 'Joining...' :
+                           !canAfford ? `Need ₦${(entryFee - balance).toLocaleString()} more` :
+                           `Join Live Game — ₦${entryFee.toLocaleString()}`}
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => handleEnterArena(true)}
+                      className="w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity bg-gradient-to-r from-orange-500/80 to-orange-600/80 text-white"
                     >
                       <Eye className="w-5 h-5" />
                       Watch as Spectator
