@@ -98,7 +98,9 @@ export const FingerLobby = () => {
 
   // Start lobby music and Crusader welcome
   useEffect(() => {
-    playBackgroundMusic('lobby');
+    // Use custom music URL if game has uploaded music, otherwise use generated
+    const lobbyMusicUrl = game?.music_type === 'uploaded' ? game?.lobby_music_url : null;
+    playBackgroundMusic('lobby', lobbyMusicUrl);
     crusader.welcomeLobby();
     
     const micCheckDone = sessionStorage.getItem('micCheckComplete');
@@ -116,7 +118,7 @@ export const FingerLobby = () => {
       stopBackgroundMusic();
       clearInterval(messageInterval);
     };
-  }, []);
+  }, [game?.music_type, game?.lobby_music_url]);
 
   // Entry closed warning - play sound once when entries close
   const entryClosedSoundRef = useRef(false);

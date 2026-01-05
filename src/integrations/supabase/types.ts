@@ -81,6 +81,7 @@ export type Database = {
       }
       fastest_finger_games: {
         Row: {
+          arena_music_url: string | null
           auto_restart: boolean | null
           comment_timer: number | null
           countdown: number
@@ -95,10 +96,12 @@ export type Database = {
           go_live_type: string
           id: string
           is_sponsored: boolean | null
+          lobby_music_url: string | null
           lobby_opens_at: string | null
           max_duration: number
           min_participants: number | null
           min_participants_action: string | null
+          music_type: string
           name: string | null
           participant_count: number
           payout_distribution: number[] | null
@@ -111,9 +114,11 @@ export type Database = {
           sponsored_amount: number | null
           start_time: string | null
           status: string
+          tense_music_url: string | null
           visibility: string | null
         }
         Insert: {
+          arena_music_url?: string | null
           auto_restart?: boolean | null
           comment_timer?: number | null
           countdown?: number
@@ -128,10 +133,12 @@ export type Database = {
           go_live_type?: string
           id?: string
           is_sponsored?: boolean | null
+          lobby_music_url?: string | null
           lobby_opens_at?: string | null
           max_duration?: number
           min_participants?: number | null
           min_participants_action?: string | null
+          music_type?: string
           name?: string | null
           participant_count?: number
           payout_distribution?: number[] | null
@@ -144,9 +151,11 @@ export type Database = {
           sponsored_amount?: number | null
           start_time?: string | null
           status?: string
+          tense_music_url?: string | null
           visibility?: string | null
         }
         Update: {
+          arena_music_url?: string | null
           auto_restart?: boolean | null
           comment_timer?: number | null
           countdown?: number
@@ -161,10 +170,12 @@ export type Database = {
           go_live_type?: string
           id?: string
           is_sponsored?: boolean | null
+          lobby_music_url?: string | null
           lobby_opens_at?: string | null
           max_duration?: number
           min_participants?: number | null
           min_participants_action?: string | null
+          music_type?: string
           name?: string | null
           participant_count?: number
           payout_distribution?: number[] | null
@@ -177,6 +188,7 @@ export type Database = {
           sponsored_amount?: number | null
           start_time?: string | null
           status?: string
+          tense_music_url?: string | null
           visibility?: string | null
         }
         Relationships: []
