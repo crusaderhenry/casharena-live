@@ -10,7 +10,8 @@ import { useCrusader } from '@/hooks/useCrusader';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ChevronLeft, Zap, Lock, Users, Mic } from 'lucide-react';
+import { useServerTime, formatCountdown } from '@/hooks/useServerTime';
+import { ChevronLeft, Zap, Lock, Users, Mic, Trophy, Clock, Play, Sparkles, Radio } from 'lucide-react';
 
 const CRUSADER_LOBBY_MESSAGES = [
   "What's good everyone! Get ready for some ACTION! 🔥",
@@ -23,6 +24,7 @@ export const FingerLobby = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const preferLobby = Boolean((location.state as any)?.preferLobby);
+  const gameIdFromState = (location.state as any)?.gameId;
 
   const { isTestMode, resetFingerGame } = useGame();
   const { game, participants, loading } = useLiveGame();
@@ -30,6 +32,7 @@ export const FingerLobby = () => {
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
+  const { secondsUntil, synced } = useServerTime();
   
   const [countdown, setCountdown] = useState(60);
   const [entryClosed, setEntryClosed] = useState(false);
@@ -37,31 +40,51 @@ export const FingerLobby = () => {
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [micCheckComplete, setMicCheckComplete] = useState(false);
 
-  // Sync with server countdown
+  // Sync with server countdown using server time
   useEffect(() => {
-    if (game) {
-      setCountdown(game.countdown || 60);
-    }
-  }, [game?.countdown]);
+    if (!game) return;
+    
+    const updateCountdown = () => {
+      if (game.start_time) {
+        // Calculate seconds until game goes live
+        const secsUntilLive = secondsUntil(game.start_time);
+        setCountdown(Math.max(0, secsUntilLive));
+        
+        if (secsUntilLive <= 0 && game.status === 'live') {
+          // Game is live, navigate to arena
+          if (!preferLobby) {
+            navigate('/finger/arena');
+          }
+        }
+      } else {
+        // Fallback to game countdown
+        setCountdown(game.countdown || 60);
+      }
+    };
+    
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [game, synced, secondsUntil, preferLobby, navigate]);
 
-  // Redirect if game is ended (keep lobby accessible even when game is live)
+  // Redirect if game is ended
   useEffect(() => {
     if (game?.status === 'ended') {
       navigate('/finger/results');
       return;
     }
 
-    if (game?.status === 'live' && !preferLobby) {
+    // If game is live and user doesn't prefer lobby, go to arena
+    if (game?.status === 'live' && !preferLobby && countdown <= 0) {
       navigate('/finger/arena');
     }
-  }, [game?.status, preferLobby, navigate]);
+  }, [game?.status, preferLobby, countdown, navigate]);
 
   // Start lobby music and Crusader welcome
   useEffect(() => {
     playBackgroundMusic('lobby');
     crusader.welcomeLobby();
     
-    // Show mic check if not done before
     const micCheckDone = sessionStorage.getItem('micCheckComplete');
     if (!micCheckDone) {
       setTimeout(() => setShowMicCheck(true), 1500);
@@ -69,7 +92,6 @@ export const FingerLobby = () => {
       setMicCheckComplete(true);
     }
     
-    // Rotate Crusader messages
     const messageInterval = setInterval(() => {
       setCrusaderMessage(CRUSADER_LOBBY_MESSAGES[Math.floor(Math.random() * CRUSADER_LOBBY_MESSAGES.length)]);
     }, 8000);
@@ -80,27 +102,13 @@ export const FingerLobby = () => {
     };
   }, []);
 
-  // Local countdown with sync from server
+  // Entry closed warning
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 10 && !entryClosed) {
-          setEntryClosed(true);
-          play('countdown');
-        }
-        if (prev <= 0) {
-          clearInterval(timer);
-          // In "prefer lobby" mode (from /finger), don't auto-kick the user into arena
-          if (!(preferLobby && game?.status === 'live')) {
-            navigate('/finger/arena');
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [navigate, entryClosed, play, preferLobby, game?.status]);
+    if (countdown <= 10 && !entryClosed) {
+      setEntryClosed(true);
+      play('countdown');
+    }
+  }, [countdown, entryClosed, play]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -126,6 +134,12 @@ export const FingerLobby = () => {
     navigate('/finger');
   };
 
+  const handleEnterArena = () => {
+    play('click');
+    buttonClick();
+    navigate('/finger/arena');
+  };
+
   const handleMicCheckComplete = () => {
     setMicCheckComplete(true);
     sessionStorage.setItem('micCheckComplete', 'true');
@@ -133,13 +147,15 @@ export const FingerLobby = () => {
 
   const poolValue = game?.pool_value || 0;
   const playerCount = participants.length || game?.participant_count || 0;
+  const gameName = game?.name || 'Fastest Finger';
+  const isGameLive = game?.status === 'live';
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading lobby...</p>
+          <div className="w-14 h-14 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground font-medium">Entering lobby...</p>
         </div>
       </div>
     );
@@ -147,18 +163,28 @@ export const FingerLobby = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-5">
         {/* Header */}
         <div className="flex items-center gap-4 pt-2">
           <button 
             onClick={handleBack}
-            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
+            className="w-11 h-11 rounded-xl bg-card flex items-center justify-center border border-border/50 hover:border-primary/50 transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-foreground">Fastest Finger Lobby</h1>
-            <p className="text-sm text-muted-foreground">Waiting for game to start</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-foreground">{gameName}</h1>
+              {isGameLive && (
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 text-xs font-bold text-green-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  LIVE
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {isGameLive ? 'Game is live! Jump in now' : 'Waiting for game to start'}
+            </p>
           </div>
         </div>
 
@@ -172,100 +198,148 @@ export const FingerLobby = () => {
           startLabel="Start Game Now"
         />
 
-        {/* Countdown */}
-        <div className={`card-game text-center ${entryClosed ? 'border-destructive/50' : 'glow-primary'}`}>
+        {/* Game Status Card */}
+        <div className={`relative overflow-hidden rounded-2xl border-2 p-5 text-center ${
+          isGameLive 
+            ? 'bg-gradient-to-br from-green-500/10 via-card to-card border-green-500/50' 
+            : entryClosed 
+            ? 'bg-gradient-to-br from-destructive/10 via-card to-card border-destructive/50' 
+            : 'bg-gradient-to-br from-primary/10 via-card to-card border-primary/40'
+        }`}>
+          {/* Glow effect */}
+          <div className={`absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl ${
+            isGameLive ? 'bg-green-500/20' : entryClosed ? 'bg-destructive/20' : 'bg-primary/20'
+          }`} />
+          
           <div className="relative z-10">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Zap className={`w-6 h-6 ${entryClosed ? 'text-destructive' : 'text-primary'}`} />
-              <span className="text-sm text-muted-foreground font-medium">
-                {entryClosed ? 'Entry Closed' : 'Game Starts In'}
-              </span>
-            </div>
-            <p className={`timer-display ${entryClosed ? 'text-destructive' : ''} ${countdown <= 10 ? 'animate-pulse' : ''}`}>
-              {formatTime(countdown)}
-            </p>
-            {entryClosed && (
-              <div className="flex items-center justify-center gap-2 mt-3 text-destructive">
-                <Lock className="w-4 h-4" />
-                <span className="text-sm font-bold">No more entries</span>
-              </div>
+            {isGameLive ? (
+              <>
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <Radio className="w-6 h-6 text-green-400 animate-pulse" />
+                  <span className="text-sm text-green-400 font-bold uppercase tracking-wider">
+                    Game is Live!
+                  </span>
+                </div>
+                <button
+                  onClick={handleEnterArena}
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                >
+                  <Play className="w-5 h-5" fill="currentColor" />
+                  Enter Arena Now
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Zap className={`w-6 h-6 ${entryClosed ? 'text-destructive' : 'text-primary'}`} />
+                  <span className="text-sm text-muted-foreground font-medium">
+                    {entryClosed ? 'Entry Closed' : 'Game Starts In'}
+                  </span>
+                </div>
+                <p className={`text-5xl font-black font-mono ${
+                  entryClosed ? 'text-destructive' : 'text-foreground'
+                } ${countdown <= 10 ? 'animate-pulse' : ''}`}>
+                  {formatTime(countdown)}
+                </p>
+                {entryClosed && (
+                  <div className="flex items-center justify-center gap-2 mt-3 text-destructive">
+                    <Lock className="w-4 h-4" />
+                    <span className="text-sm font-bold">No more entries</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
 
         {/* Pool Info */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="card-panel text-center">
-            <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Participants</p>
-            <p className="text-2xl font-black text-foreground flex items-center justify-center gap-2">
+          <div className="rounded-2xl border border-border bg-card p-4 text-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-2">
               <Users className="w-5 h-5 text-primary" />
-              {playerCount}
-            </p>
+            </div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Players</p>
+            <p className="text-2xl font-black text-foreground">{playerCount}</p>
           </div>
-          <div className="card-panel text-center">
-            <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Total Pool</p>
+          <div className="rounded-2xl border border-border bg-card p-4 text-center">
+            <div className="w-10 h-10 rounded-xl bg-gold/20 flex items-center justify-center mx-auto mb-2">
+              <Trophy className="w-5 h-5 text-gold" />
+            </div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Prize Pool</p>
             <p className="text-2xl font-black text-primary">₦{poolValue.toLocaleString()}</p>
           </div>
         </div>
 
-        {/* Participants */}
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+        {/* Participants Grid */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <Users className="w-4 h-4" />
             Players in Lobby
           </h3>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
             {participants.slice(0, 12).map((participant, index) => (
               <div key={participant.id} className="flex flex-col items-center animate-scale-in" style={{ animationDelay: `${index * 30}ms` }}>
-                <div className="w-12 h-12 rounded-full bg-card-elevated flex items-center justify-center text-xl border border-border/50">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-card flex items-center justify-center text-2xl border border-border/50">
                   {participant.profile?.avatar || '🎮'}
                 </div>
-                <p className="text-xs mt-1.5 truncate w-full text-center font-medium text-muted-foreground">
+                <p className="text-xs mt-2 truncate w-full text-center font-medium text-muted-foreground">
                   {participant.profile?.username?.split(' ')[0] || 'Player'}
                 </p>
               </div>
             ))}
             {playerCount > 12 && (
               <div className="flex flex-col items-center justify-center">
-                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-sm border border-border/50">
+                <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center text-sm font-bold border border-border/50">
                   +{playerCount - 12}
                 </div>
-                <p className="text-xs mt-1.5 text-muted-foreground">more</p>
+                <p className="text-xs mt-2 text-muted-foreground">more</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Tips */}
-        <div className="card-panel border-primary/30 bg-primary/5">
-          <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
-            💡 Pro Tips from Crusader
+        <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent p-4">
+          <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Pro Tips from Crusader
           </h3>
-          <ul className="text-sm text-muted-foreground space-y-1.5">
-            <li>• Keep your finger ready on the send button</li>
-            <li>• Short messages are faster to type</li>
-            <li>• Watch the timer - strike at the last second!</li>
-            <li>• Stay calm when others are spamming!</li>
+          <ul className="text-sm text-muted-foreground space-y-2">
+            <li className="flex items-start gap-2">
+              <span className="text-primary">•</span>
+              Keep your finger ready on the send button
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary">•</span>
+              Short messages are faster to type
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary">•</span>
+              Watch the timer - strike at the last second!
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary">•</span>
+              Stay calm when others are spamming!
+            </li>
           </ul>
         </div>
 
-        {/* Mic Check Button */}
-        {!micCheckComplete && (
+        {/* Mic Check */}
+        {!micCheckComplete ? (
           <button
             onClick={() => setShowMicCheck(true)}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-primary/10 border border-primary/30 text-primary font-medium transition-all hover:bg-primary/20"
+            className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-primary/10 border border-primary/30 text-primary font-medium transition-all hover:bg-primary/20"
           >
-            <Mic className="w-4 h-4" />
+            <Mic className="w-5 h-5" />
             Test Your Microphone
           </button>
-        )}
-        
-        {micCheckComplete && (
-          <div className="flex items-center justify-center gap-2 py-2 text-sm text-primary">
+        ) : (
+          <div className="flex items-center justify-center gap-2 py-3 text-sm text-primary bg-primary/5 rounded-xl border border-primary/20">
             <Mic className="w-4 h-4" />
             <span>Mic ready!</span>
             <button 
               onClick={() => setShowMicCheck(true)}
-              className="text-muted-foreground hover:text-primary underline"
+              className="text-muted-foreground hover:text-primary underline ml-2"
             >
               Test again
             </button>
@@ -275,7 +349,6 @@ export const FingerLobby = () => {
       
       <BottomNav />
 
-      {/* Mic Check Modal */}
       <MicCheckModal 
         open={showMicCheck}
         onOpenChange={setShowMicCheck}
