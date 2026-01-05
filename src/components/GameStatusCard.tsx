@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Zap, Users, Clock, ChevronRight, Trophy, Eye, Play, Wifi, WifiOff } from 'lucide-react';
+import { Users, Clock, ChevronRight, Trophy, Eye, Play, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -32,11 +32,12 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
   const navigate = useNavigate();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
-  const { getSecondsUntil, getSecondsElapsed, synced } = useServerTime();
+  const { getSecondsUntil, getSecondsElapsed } = useServerTime();
   const [timeDisplay, setTimeDisplay] = useState({ label: '', value: '' });
 
   const isLive = game.status === 'live';
   const isScheduled = game.status === 'scheduled';
+  const isOpen = game.status === 'open';
 
   // Calculate dynamic countdown using server-synced time
   useEffect(() => {
@@ -48,18 +49,19 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
           const remaining = Math.max(0, (game.max_duration * 60) - elapsed);
           setTimeDisplay({ label: 'Ending In', value: formatDuration(remaining) });
         } else {
-          // Use server-provided countdown directly
           setTimeDisplay({ label: 'Timer', value: `${game.countdown}s` });
         }
+      } else if (isOpen) {
+        // For open games: show lobby countdown
+        setTimeDisplay({ label: 'Starts In', value: formatDuration(game.countdown) });
       } else if (isScheduled) {
-        // For scheduled games: show time until start
-        const scheduledTime = game.scheduled_at || game.start_time;
+        // For scheduled games: show time until opens
+        const scheduledTime = game.scheduled_at;
         if (scheduledTime) {
           const remaining = getSecondsUntil(scheduledTime);
-          setTimeDisplay({ label: 'Starting In', value: formatDuration(remaining) });
+          setTimeDisplay({ label: 'Opens In', value: formatDuration(remaining) });
         } else {
-          // Use server-provided countdown
-          setTimeDisplay({ label: 'Lobby Timer', value: formatDuration(game.countdown) });
+          setTimeDisplay({ label: 'Coming Soon', value: '--:--' });
         }
       }
     };
@@ -67,12 +69,13 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
     calculateTime();
     const interval = setInterval(calculateTime, 1000);
     return () => clearInterval(interval);
-  }, [game, isLive, isScheduled, getSecondsUntil, getSecondsElapsed]);
+  }, [game, isLive, isScheduled, isOpen, getSecondsUntil, getSecondsElapsed]);
 
   const handleClick = () => {
     play('click');
     buttonClick();
-    navigate('/finger');
+    // Always go to lobby first - let lobby handle navigation to arena
+    navigate('/finger/lobby');
   };
 
   const formatMoney = (amount: number) => {
@@ -82,8 +85,11 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
     return `₦${amount.toLocaleString()}`;
   };
 
-  const statusColor = isLive ? 'green' : 'yellow';
-  const statusLabel = isLive ? 'LIVE' : 'SOON';
+  const statusColor = isLive ? 'green' : isOpen ? 'blue' : 'yellow';
+  const statusLabel = isLive ? 'LIVE' : isOpen ? 'OPEN' : 'SOON';
+
+  // Only show pool for open/live games (when participants have joined)
+  const showPool = isOpen || isLive;
 
   return (
     <button
@@ -91,12 +97,14 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
       className={`w-full relative overflow-hidden rounded-2xl border p-4 text-left transition-all hover:scale-[0.99] active:scale-[0.98] ${
         isLive 
           ? 'bg-gradient-to-br from-card via-card to-green-500/5 border-green-500/30 hover:border-green-500/50' 
+          : isOpen
+          ? 'bg-gradient-to-br from-card via-card to-blue-500/5 border-blue-500/30 hover:border-blue-500/50'
           : 'bg-gradient-to-br from-card via-card to-yellow-500/5 border-yellow-500/30 hover:border-yellow-500/50'
       }`}
     >
       {/* Glow effect */}
       <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl ${
-        isLive ? 'bg-green-500/10' : 'bg-yellow-500/10'
+        isLive ? 'bg-green-500/10' : isOpen ? 'bg-blue-500/10' : 'bg-yellow-500/10'
       }`} />
       
       <div className="relative z-10">
@@ -104,12 +112,14 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
-              isLive ? 'bg-green-500/20' : 'bg-yellow-500/20'
+              isLive ? 'bg-green-500/20' : isOpen ? 'bg-blue-500/20' : 'bg-yellow-500/20'
             }`}>
               {isLive ? (
-                <Play className={`w-5 h-5 text-${statusColor}-400`} fill="currentColor" />
+                <Play className="w-5 h-5 text-green-400" fill="currentColor" />
+              ) : isOpen ? (
+                <Users className="w-5 h-5 text-blue-400" />
               ) : (
-                <Clock className={`w-5 h-5 text-${statusColor}-400`} />
+                <Calendar className="w-5 h-5 text-yellow-400" />
               )}
             </div>
             <div>
@@ -125,13 +135,13 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
           
           {/* Status badge */}
           <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${
-            isLive ? 'bg-green-500/20' : 'bg-yellow-500/20'
+            isLive ? 'bg-green-500/20' : isOpen ? 'bg-blue-500/20' : 'bg-yellow-500/20'
           }`}>
             <span className={`w-2 h-2 rounded-full ${
-              isLive ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'
+              isLive ? 'bg-green-500 animate-pulse' : isOpen ? 'bg-blue-500 animate-pulse' : 'bg-yellow-500'
             }`} />
             <span className={`text-xs font-bold ${
-              isLive ? 'text-green-400' : 'text-yellow-400'
+              isLive ? 'text-green-400' : isOpen ? 'text-blue-400' : 'text-yellow-400'
             }`}>
               {statusLabel}
             </span>
@@ -141,20 +151,24 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
         {/* Stats row */}
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-xs text-muted-foreground">Prize Pool</p>
-            <p className="text-xl font-black text-primary">{formatMoney(game.pool_value)}</p>
+            <p className="text-xs text-muted-foreground">{showPool ? 'Prize Pool' : 'Entry Fee'}</p>
+            <p className="text-xl font-black text-primary">
+              {showPool ? formatMoney(game.pool_value) : `₦${game.entry_fee.toLocaleString()}`}
+            </p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">Players</p>
-              <p className="font-bold text-foreground flex items-center gap-1">
-                <Users className="w-3.5 h-3.5" /> {game.participant_count}
-              </p>
-            </div>
+            {showPool && (
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">Players</p>
+                <p className="font-bold text-foreground flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5" /> {game.participant_count}
+                </p>
+              </div>
+            )}
             <div className="text-center">
               <p className="text-xs text-muted-foreground">{timeDisplay.label}</p>
               <p className={`font-bold flex items-center gap-1 ${
-                isLive ? 'text-green-400' : 'text-yellow-400'
+                isLive ? 'text-green-400' : isOpen ? 'text-blue-400' : 'text-yellow-400'
               }`}>
                 <Clock className="w-3.5 h-3.5" /> {timeDisplay.value}
               </p>
@@ -163,28 +177,39 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
           <ChevronRight className="w-5 h-5 text-muted-foreground" />
         </div>
 
-        {/* View pool CTA */}
-        <div className="flex items-center justify-between pt-2 border-t border-border/30">
-          <div className="flex items-center gap-2">
-            <Users className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{game.participant_count} in pool</span>
-          </div>
-          <PoolParticipantsSheet
-            gameId={game.id}
-            gameName={game.name || 'Fastest Finger'}
-            participantCount={game.participant_count}
-            poolValue={game.pool_value}
-            entryFee={game.entry_fee}
-            isTestMode={isTestMode}
-          >
-            <span 
-              className="flex items-center gap-1 text-xs text-primary font-medium" 
-              onClick={(e) => e.stopPropagation()}
+        {/* View pool CTA - only for open/live */}
+        {showPool && (
+          <div className="flex items-center justify-between pt-2 border-t border-border/30">
+            <div className="flex items-center gap-2">
+              <Users className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">{game.participant_count} in pool</span>
+            </div>
+            <PoolParticipantsSheet
+              gameId={game.id}
+              gameName={game.name || 'Fastest Finger'}
+              participantCount={game.participant_count}
+              poolValue={game.pool_value}
+              entryFee={game.entry_fee}
+              isTestMode={isTestMode}
             >
-              <Eye className="w-3 h-3" /> View pool
-            </span>
-          </PoolParticipantsSheet>
-        </div>
+              <span 
+                className="flex items-center gap-1 text-xs text-primary font-medium" 
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Eye className="w-3 h-3" /> View pool
+              </span>
+            </PoolParticipantsSheet>
+          </div>
+        )}
+
+        {/* For scheduled games, show a hint */}
+        {isScheduled && (
+          <div className="pt-2 border-t border-border/30">
+            <p className="text-xs text-muted-foreground text-center">
+              Tap to view lobby • Join when entries open
+            </p>
+          </div>
+        )}
       </div>
     </button>
   );

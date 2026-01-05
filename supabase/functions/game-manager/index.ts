@@ -127,14 +127,19 @@ serve(async (req) => {
         
         // Calculate scheduled_at based on go_live_type
         let scheduledAt = null;
+        let initialStatus = 'scheduled';
+        
         if (gameConfig.go_live_type === 'scheduled' && gameConfig.scheduled_at) {
           scheduledAt = gameConfig.scheduled_at;
+        } else if (gameConfig.go_live_type === 'immediate') {
+          // For immediate games, set status to 'open' directly
+          initialStatus = 'open';
         }
         
         const { data: game, error } = await supabase
           .from('fastest_finger_games')
           .insert({
-            status: 'scheduled',
+            status: initialStatus,
             name: gameConfig.name || 'Fastest Finger',
             entry_fee: gameConfig.entry_fee || 700,
             max_duration: gameConfig.max_duration || 20,
@@ -150,6 +155,8 @@ serve(async (req) => {
             scheduled_at: scheduledAt,
             recurrence_type: gameConfig.recurrence_type || null,
             recurrence_interval: gameConfig.recurrence_interval || null,
+            // Set start_time for immediate games
+            start_time: initialStatus === 'open' ? new Date().toISOString() : null,
           })
           .select()
           .single();
@@ -159,7 +166,7 @@ serve(async (req) => {
         // Log audit action
         await logAuditAction(supabase, authenticatedUser!.id, 'create_game', 'game', game.id, gameConfig, clientIp);
         
-        console.log('Game created by admin:', authenticatedUser?.id, game.id);
+        console.log('Game created by admin:', authenticatedUser?.id, game.id, 'status:', initialStatus);
         return new Response(JSON.stringify({ success: true, game }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -253,20 +260,34 @@ serve(async (req) => {
         // Admin only - open game for entries
         if (!gameId) throw new Error('Missing gameId');
 
-        const { data: game } = await supabase
+        console.log('Attempting to open game:', gameId);
+        
+        const { data: game, error: fetchError } = await supabase
           .from('fastest_finger_games')
           .select('*')
           .eq('id', gameId)
           .single();
 
-        if (!game || game.status !== 'scheduled') {
+        if (fetchError) {
+          console.error('Error fetching game:', fetchError.message);
+          throw new Error(`Failed to fetch game: ${fetchError.message}`);
+        }
+
+        if (!game) {
+          return new Response(JSON.stringify({ error: 'Game not found' }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (game.status !== 'scheduled') {
           return new Response(JSON.stringify({ error: 'Can only open scheduled games' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
 
-        const { error } = await supabase
+        const { error: updateError } = await supabase
           .from('fastest_finger_games')
           .update({
             status: 'open',
@@ -274,7 +295,10 @@ serve(async (req) => {
           })
           .eq('id', gameId);
 
-        if (error) throw error;
+        if (updateError) {
+          console.error('Error updating game status:', updateError.message);
+          throw new Error(`Failed to update game: ${updateError.message}`);
+        }
         
         await logAuditAction(supabase, authenticatedUser!.id, 'open_game', 'game', gameId, null, clientIp);
         
