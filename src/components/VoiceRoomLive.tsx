@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Mic, MicOff, Volume2, VolumeX, Users, Radio } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,6 +27,10 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
 
+  const presenceChannelRef = useRef<any>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastSpeakingRef = useRef(false);
+
   // Join presence channel
   useEffect(() => {
     if (!gameId || !user) return;
@@ -35,17 +39,19 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
       config: { presence: { key: user.id } },
     });
 
+    presenceChannelRef.current = channel;
+
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState<VoiceParticipant>();
         const allParticipants: VoiceParticipant[] = [];
-        
+
         Object.values(state).forEach((presences) => {
           if (presences && presences.length > 0) {
             allParticipants.push(presences[0] as VoiceParticipant);
           }
         });
-        
+
         setParticipants(allParticipants);
       })
       .subscribe(async (status) => {
@@ -61,13 +67,21 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
       });
 
     return () => {
+      presenceChannelRef.current = null;
       channel.unsubscribe();
     };
   }, [gameId, user, profile]);
 
   // Handle microphone
   const startMicrophone = useCallback(async () => {
+    if (!gameId || !user) return;
+
     try {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -86,38 +100,49 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
       analyser.fftSize = 256;
       source.connect(analyser);
 
+      // Mark as unmuted in presence immediately
+      presenceChannelRef.current?.track({
+        user_id: user.id,
+        username: profile?.username || 'Player',
+        avatar: profile?.avatar || '🎮',
+        is_speaking: false,
+        is_muted: false,
+      });
+
+      lastSpeakingRef.current = false;
+      setIsSpeaking(false);
+
       // Voice activity detection loop
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      let lastSpeakingState = false;
-      
       const detectVoice = () => {
+        // Stop the loop if mic got turned off
+        if (!mediaStream.getTracks().some((t) => t.readyState === 'live')) return;
+
         analyser.getByteFrequencyData(dataArray);
         let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
-        }
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+
         const avg = sum / dataArray.length / 255;
         setMicVolume(avg);
-        
+
         const speaking = avg > 0.1;
-        if (speaking !== lastSpeakingState) {
-          lastSpeakingState = speaking;
+        if (speaking !== lastSpeakingRef.current) {
+          lastSpeakingRef.current = speaking;
           setIsSpeaking(speaking);
-          
-          // Broadcast speaking state to other participants
-          const channel = supabase.channel(`voice-${gameId}`);
-          channel.track({
-            user_id: user?.id,
+
+          // Broadcast speaking state to other participants (presence)
+          presenceChannelRef.current?.track({
+            user_id: user.id,
             username: profile?.username || 'Player',
             avatar: profile?.avatar || '🎮',
             is_speaking: speaking,
             is_muted: false,
           });
         }
-        
-        requestAnimationFrame(detectVoice);
+
+        rafRef.current = requestAnimationFrame(detectVoice);
       };
-      
+
       detectVoice();
       setIsMicEnabled(true);
       onMicToggle?.(true);
@@ -127,22 +152,29 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
   }, [gameId, user, profile, onMicToggle]);
 
   const stopMicrophone = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach((track) => track.stop());
       setStream(null);
     }
+
     if (audioContext) {
       audioContext.close();
       setAudioContext(null);
     }
+
     setIsMicEnabled(false);
     setIsSpeaking(false);
     setMicVolume(0);
-    
+    lastSpeakingRef.current = false;
+
     // Broadcast muted state
-    if (gameId && user) {
-      const channel = supabase.channel(`voice-${gameId}`);
-      channel.track({
+    if (user) {
+      presenceChannelRef.current?.track({
         user_id: user.id,
         username: profile?.username || 'Player',
         avatar: profile?.avatar || '🎮',
@@ -150,9 +182,9 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle }: VoiceRoo
         is_muted: true,
       });
     }
-    
+
     onMicToggle?.(false);
-  }, [stream, audioContext, gameId, user, profile, onMicToggle]);
+  }, [stream, audioContext, user, profile, onMicToggle]);
 
   const toggleMic = useCallback(() => {
     if (isMicEnabled) {
