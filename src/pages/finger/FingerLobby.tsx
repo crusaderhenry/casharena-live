@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { TestControls } from '@/components/TestControls';
 import { CrusaderHost } from '@/components/CrusaderHost';
@@ -21,6 +21,9 @@ const CRUSADER_LOBBY_MESSAGES = [
 
 export const FingerLobby = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const preferLobby = Boolean((location.state as any)?.preferLobby);
+
   const { isTestMode, resetFingerGame } = useGame();
   const { game, participants, loading } = useLiveGame();
   const crusader = useCrusader();
@@ -41,15 +44,17 @@ export const FingerLobby = () => {
     }
   }, [game?.countdown]);
 
-  // Redirect if game is live
+  // Redirect if game is ended (keep lobby accessible even when game is live)
   useEffect(() => {
-    if (game?.status === 'live') {
-      navigate('/finger/arena');
-    }
     if (game?.status === 'ended') {
       navigate('/finger/results');
+      return;
     }
-  }, [game?.status, navigate]);
+
+    if (game?.status === 'live' && !preferLobby) {
+      navigate('/finger/arena');
+    }
+  }, [game?.status, preferLobby, navigate]);
 
   // Start lobby music and Crusader welcome
   useEffect(() => {
@@ -85,14 +90,17 @@ export const FingerLobby = () => {
         }
         if (prev <= 0) {
           clearInterval(timer);
-          navigate('/finger/arena');
+          // In "prefer lobby" mode (from /finger), don't auto-kick the user into arena
+          if (!(preferLobby && game?.status === 'live')) {
+            navigate('/finger/arena');
+          }
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [navigate, entryClosed, play]);
+  }, [navigate, entryClosed, play, preferLobby, game?.status]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);

@@ -197,7 +197,8 @@ export const FingerMain = () => {
     if (success_result) {
       play('success');
       success();
-      navigate('/finger/lobby');
+      // Keep users in the lobby even if the game is already live
+      navigate('/finger/lobby', { state: { preferLobby: true } });
     } else {
       play('error');
     }
@@ -215,7 +216,7 @@ export const FingerMain = () => {
       await joinGame();
     }
     // Go to lobby first, not directly to arena
-    navigate('/finger/lobby');
+    navigate('/finger/lobby', { state: { preferLobby: true } });
   };
 
   if (loading) {
