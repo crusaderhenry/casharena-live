@@ -14,6 +14,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useToast } from '@/hooks/use-toast';
 import { useServerTime } from '@/hooks/useServerTime';
 import { useMockSimulation } from '@/hooks/useMockSimulation';
+import { useCountdownTicker } from '@/hooks/useCountdownTicker';
 import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, AlertTriangle, Zap, Trophy, Radio, Timer, Flame, Eye } from 'lucide-react';
 import {
   AlertDialog,
@@ -66,6 +67,10 @@ export const FingerArena = () => {
   }, [testScenario?.commentTimer]);
   
   const { mockComments, triggerCommentBurst } = useMockSimulation(isTestMode, game?.id, handleMockComment);
+  
+  // Use countdown ticker to keep game countdown synced (only for live non-test games)
+  const isLiveGame = game?.status === 'live' && !isTestMode;
+  useCountdownTicker(isLiveGame, isTestMode, game?.id);
   
   const [timer, setTimer] = useState(testScenario?.commentTimer || 60);
   const [gameTime, setGameTime] = useState(testScenario?.gameTimeRemaining || 20 * 60);
