@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { WalletCard } from '@/components/WalletCard';
@@ -18,9 +18,67 @@ import { ArrowLeft, Zap, Users, Clock, Trophy, MessageSquare, ChevronRight, Play
 // Mock games for test mode
 const mockGamesForTest = [
   { id: 'mock-1', name: 'Fastest Finger', status: 'live', pool_value: 35000, participant_count: 23, countdown: 45, entry_fee: 700, max_duration: 20, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2] },
-  { id: 'mock-2', name: 'Speed Rush', status: 'live', pool_value: 18500, participant_count: 15, countdown: 32, entry_fee: 500, max_duration: 15, payout_type: 'winner_takes_all', payout_distribution: [1.0] },
-  { id: 'mock-3', name: 'Quick Draw', status: 'scheduled', pool_value: 12000, participant_count: 8, countdown: 180, entry_fee: 300, max_duration: 10, payout_type: 'top5', payout_distribution: [0.4, 0.25, 0.15, 0.12, 0.08] },
+  { id: 'mock-2', name: 'Speed Rush', status: 'open', pool_value: 18500, participant_count: 15, countdown: 32, entry_fee: 500, max_duration: 15, payout_type: 'winner_takes_all', payout_distribution: [1.0] },
+  { id: 'mock-3', name: 'Quick Draw', status: 'scheduled', pool_value: 0, participant_count: 0, countdown: 180, entry_fee: 300, max_duration: 10, payout_type: 'top5', payout_distribution: [0.4, 0.25, 0.15, 0.12, 0.08], scheduled_at: new Date(Date.now() + 30 * 60000).toISOString() },
 ];
+
+// Component for scheduled game with countdown
+const ScheduledGameCard = ({ game, formatMoney }: { game: any; formatMoney: (n: number) => string }) => {
+  const [timeToOpen, setTimeToOpen] = useState<string>('');
+
+  useEffect(() => {
+    if (!game.scheduled_at) {
+      setTimeToOpen('Soon');
+      return;
+    }
+
+    const updateCountdown = () => {
+      const now = Date.now();
+      const target = new Date(game.scheduled_at).getTime();
+      const diff = target - now;
+
+      if (diff <= 0) {
+        setTimeToOpen('Opening...');
+        return;
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (hours > 0) {
+        setTimeToOpen(`${hours}h ${mins}m`);
+      } else if (mins > 0) {
+        setTimeToOpen(`${mins}m ${secs}s`);
+      } else {
+        setTimeToOpen(`${secs}s`);
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [game.scheduled_at]);
+
+  return (
+    <div className="w-full flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50">
+      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-yellow-500/15">
+        <Zap className="w-5 h-5 text-yellow-400" />
+      </div>
+      <div className="flex-1 text-left">
+        <h4 className="font-semibold text-foreground text-sm">{game.name || 'Fastest Finger'}</h4>
+        <div className="flex items-center gap-2 text-xs text-yellow-400 mt-0.5">
+          <Clock className="w-3 h-3" />
+          <span>Opens in {timeToOpen}</span>
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-bold text-foreground">₦{game.entry_fee}</p>
+        <span className="text-xs text-muted-foreground">entry</span>
+      </div>
+    </div>
+  );
+};
 
 export const FingerMain = () => {
   const navigate = useNavigate();
@@ -473,7 +531,7 @@ export const FingerMain = () => {
               </div>
             )}
 
-            {/* Scheduled Games - Coming Soon */}
+            {/* Scheduled Games - Coming Soon with Countdown */}
             {scheduledGames.length > 0 && (
               <div className="space-y-3">
                 <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -482,27 +540,12 @@ export const FingerMain = () => {
                 </h2>
                 
                 {scheduledGames.map((g) => {
-                  const isSelected = selectedGame?.id === g.id;
                   return (
-                    <div
-                      key={g.id}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50 opacity-70"
-                    >
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-yellow-500/15">
-                        <Zap className="w-5 h-5 text-yellow-400" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <h4 className="font-semibold text-foreground text-sm">{g.name || 'Fastest Finger'}</h4>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                          <span className="text-yellow-400">Not accepting entries yet</span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="px-2 py-1 rounded-full bg-yellow-500/20 text-xs font-medium text-yellow-400">
-                          Coming Soon
-                        </span>
-                      </div>
-                    </div>
+                    <ScheduledGameCard 
+                      key={g.id} 
+                      game={g} 
+                      formatMoney={formatMoney}
+                    />
                   );
                 })}
               </div>

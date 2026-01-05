@@ -176,10 +176,10 @@ serve(async (req) => {
 
         if (!gameId) throw new Error('Missing gameId');
 
-        // Check if game is open for entries
+        // Check if game is accepting entries
         const { data: gameCheck, error: gameCheckError } = await supabase
           .from('fastest_finger_games')
-          .select('status')
+          .select('status, start_time, max_duration')
           .eq('id', gameId)
           .single();
 
@@ -190,8 +190,27 @@ serve(async (req) => {
           });
         }
 
-        // Only allow joining games that are 'open' for entries
-        if (gameCheck.status !== 'open') {
+        // Allow joining 'open' games OR 'live' games if more than 10 minutes remain
+        let canJoin = false;
+        
+        if (gameCheck.status === 'open') {
+          canJoin = true;
+        } else if (gameCheck.status === 'live' && gameCheck.start_time) {
+          // Calculate time remaining in game
+          const startTime = new Date(gameCheck.start_time).getTime();
+          const maxDurationMs = (gameCheck.max_duration || 20) * 60 * 1000;
+          const endTime = startTime + maxDurationMs;
+          const now = Date.now();
+          const timeRemainingMs = endTime - now;
+          const tenMinutesMs = 10 * 60 * 1000;
+          
+          // Allow joining if more than 10 minutes remain
+          if (timeRemainingMs > tenMinutesMs) {
+            canJoin = true;
+          }
+        }
+
+        if (!canJoin) {
           return new Response(JSON.stringify({ error: 'Game is not accepting entries' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
