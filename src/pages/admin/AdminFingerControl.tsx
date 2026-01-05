@@ -1,5 +1,5 @@
 import { useAdmin } from '@/contexts/AdminContext';
-import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit } from 'lucide-react';
+import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat } from 'lucide-react';
 import { useState } from 'react';
 import {
   Dialog,
@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 const PAYOUT_PRESETS = {
   winner_takes_all: { label: 'Winner Takes All', distribution: [1] },
@@ -25,6 +26,15 @@ const PAYOUT_PRESETS = {
   top5: { label: 'Top 5 (40/25/15/12/8)', distribution: [0.4, 0.25, 0.15, 0.12, 0.08] },
   top10: { label: 'Top 10', distribution: [0.25, 0.18, 0.14, 0.10, 0.08, 0.07, 0.06, 0.05, 0.04, 0.03] },
 };
+
+const RECURRENCE_OPTIONS = [
+  { value: 'none', label: 'One-time (No repeat)' },
+  { value: 'minutes', label: 'Every X minutes' },
+  { value: 'hours', label: 'Every X hours' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+];
 
 interface GameFormData {
   name: string;
@@ -34,6 +44,13 @@ interface GameFormData {
   payoutType: 'winner_takes_all' | 'top3' | 'top5' | 'top10';
   minParticipants: number;
   countdownToStart: number;
+  // Scheduling
+  goLiveType: 'immediate' | 'scheduled';
+  scheduledDate: string;
+  scheduledTime: string;
+  // Recurrence
+  recurrenceType: string;
+  recurrenceInterval: number;
 }
 
 export const AdminFingerControl = () => {
@@ -50,6 +67,17 @@ export const AdminFingerControl = () => {
   } = useAdmin();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  
+  // Get default date/time for scheduling
+  const getDefaultDateTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 30);
+    return {
+      date: now.toISOString().split('T')[0],
+      time: now.toTimeString().slice(0, 5),
+    };
+  };
+
   const [formData, setFormData] = useState<GameFormData>({
     name: 'Fastest Finger',
     entryFee: 700,
@@ -58,6 +86,11 @@ export const AdminFingerControl = () => {
     payoutType: 'top3',
     minParticipants: 3,
     countdownToStart: 60,
+    goLiveType: 'immediate',
+    scheduledDate: getDefaultDateTime().date,
+    scheduledTime: getDefaultDateTime().time,
+    recurrenceType: 'none',
+    recurrenceInterval: 1,
   });
 
   const [localSettings, setLocalSettings] = useState({
@@ -76,6 +109,12 @@ export const AdminFingerControl = () => {
   };
 
   const handleCreateGame = async () => {
+    // Build scheduled_at if scheduled
+    let scheduledAt: string | null = null;
+    if (formData.goLiveType === 'scheduled') {
+      scheduledAt = new Date(`${formData.scheduledDate}T${formData.scheduledTime}`).toISOString();
+    }
+
     await createGameWithConfig({
       name: formData.name,
       entry_fee: formData.entryFee,
@@ -85,8 +124,15 @@ export const AdminFingerControl = () => {
       payout_distribution: PAYOUT_PRESETS[formData.payoutType].distribution,
       min_participants: formData.minParticipants,
       countdown: formData.countdownToStart,
+      go_live_type: formData.goLiveType,
+      scheduled_at: scheduledAt,
+      recurrence_type: formData.recurrenceType === 'none' ? null : formData.recurrenceType,
+      recurrence_interval: formData.recurrenceType === 'none' ? null : formData.recurrenceInterval,
     });
     setShowCreateDialog(false);
+    
+    // Reset form
+    const defaults = getDefaultDateTime();
     setFormData({
       name: 'Fastest Finger',
       entryFee: 700,
@@ -95,6 +141,11 @@ export const AdminFingerControl = () => {
       payoutType: 'top3',
       minParticipants: 3,
       countdownToStart: 60,
+      goLiveType: 'immediate',
+      scheduledDate: defaults.date,
+      scheduledTime: defaults.time,
+      recurrenceType: 'none',
+      recurrenceInterval: 1,
     });
   };
 
@@ -207,6 +258,96 @@ export const AdminFingerControl = () => {
                     onChange={(e) => setFormData(prev => ({ ...prev, countdownToStart: parseInt(e.target.value) || 60 }))}
                   />
                 </div>
+              </div>
+
+              {/* Go Live Type */}
+              <div className="space-y-3 pt-4 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Go Live</Label>
+                    <p className="text-xs text-muted-foreground">When should this game start?</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm ${formData.goLiveType === 'immediate' ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                      Immediately
+                    </span>
+                    <Switch
+                      checked={formData.goLiveType === 'scheduled'}
+                      onCheckedChange={(checked) => setFormData(prev => ({ 
+                        ...prev, 
+                        goLiveType: checked ? 'scheduled' : 'immediate' 
+                      }))}
+                    />
+                    <span className={`text-sm ${formData.goLiveType === 'scheduled' ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                      Scheduled
+                    </span>
+                  </div>
+                </div>
+
+                {formData.goLiveType === 'scheduled' && (
+                  <div className="grid grid-cols-2 gap-3 p-3 bg-muted/30 rounded-lg">
+                    <div className="space-y-2">
+                      <Label htmlFor="scheduledDate">Date</Label>
+                      <Input
+                        id="scheduledDate"
+                        type="date"
+                        value={formData.scheduledDate}
+                        onChange={(e) => setFormData(prev => ({ ...prev, scheduledDate: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="scheduledTime">Time</Label>
+                      <Input
+                        id="scheduledTime"
+                        type="time"
+                        value={formData.scheduledTime}
+                        onChange={(e) => setFormData(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Recurrence */}
+              <div className="space-y-3 pt-4 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <Repeat className="w-4 h-4 text-muted-foreground" />
+                  <Label>Recurrence</Label>
+                </div>
+                
+                <Select
+                  value={formData.recurrenceType}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, recurrenceType: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select recurrence" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RECURRENCE_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {['minutes', 'hours'].includes(formData.recurrenceType) && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Every</span>
+                    <Input
+                      type="number"
+                      value={formData.recurrenceInterval}
+                      onChange={(e) => setFormData(prev => ({ ...prev, recurrenceInterval: parseInt(e.target.value) || 1 }))}
+                      className="w-20"
+                      min={1}
+                    />
+                    <span className="text-sm text-muted-foreground">{formData.recurrenceType}</span>
+                  </div>
+                )}
+
+                {formData.recurrenceType !== 'none' && (
+                  <p className="text-xs text-muted-foreground bg-primary/10 p-2 rounded">
+                    ℹ️ Recurring games will automatically create new instances when the previous one ends
+                  </p>
+                )}
               </div>
             </div>
             

@@ -87,6 +87,7 @@ export type Database = {
           created_by: string | null
           end_time: string | null
           entry_fee: number
+          go_live_type: string
           id: string
           max_duration: number
           min_participants: number | null
@@ -95,6 +96,9 @@ export type Database = {
           payout_distribution: number[] | null
           payout_type: string | null
           pool_value: number
+          recurrence_interval: number | null
+          recurrence_type: string | null
+          scheduled_at: string | null
           start_time: string | null
           status: string
         }
@@ -105,6 +109,7 @@ export type Database = {
           created_by?: string | null
           end_time?: string | null
           entry_fee?: number
+          go_live_type?: string
           id?: string
           max_duration?: number
           min_participants?: number | null
@@ -113,6 +118,9 @@ export type Database = {
           payout_distribution?: number[] | null
           payout_type?: string | null
           pool_value?: number
+          recurrence_interval?: number | null
+          recurrence_type?: string | null
+          scheduled_at?: string | null
           start_time?: string | null
           status?: string
         }
@@ -123,6 +131,7 @@ export type Database = {
           created_by?: string | null
           end_time?: string | null
           entry_fee?: number
+          go_live_type?: string
           id?: string
           max_duration?: number
           min_participants?: number | null
@@ -131,6 +140,9 @@ export type Database = {
           payout_distribution?: number[] | null
           payout_type?: string | null
           pool_value?: number
+          recurrence_interval?: number | null
+          recurrence_type?: string | null
+          scheduled_at?: string | null
           start_time?: string | null
           status?: string
         }
