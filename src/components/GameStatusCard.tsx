@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Zap, Users, Clock, ChevronRight, Trophy, Eye, Play } from 'lucide-react';
+import { Zap, Users, Clock, ChevronRight, Trophy, Eye, Play, Wifi, WifiOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { getPayoutLabel } from '@/components/PrizeDistribution';
 import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
 import { formatDuration } from '@/hooks/useGameCountdown';
+import { useServerTime } from '@/hooks/useServerTime';
 
 interface Game {
   id: string;
@@ -31,34 +32,33 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
   const navigate = useNavigate();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
+  const { getSecondsUntil, getSecondsElapsed, synced } = useServerTime();
   const [timeDisplay, setTimeDisplay] = useState({ label: '', value: '' });
 
   const isLive = game.status === 'live';
   const isScheduled = game.status === 'scheduled';
 
-  // Calculate dynamic countdown
+  // Calculate dynamic countdown using server-synced time
   useEffect(() => {
     const calculateTime = () => {
-      const now = Date.now();
-
       if (isLive) {
         // For live games: show time until game ends
         if (game.start_time && game.max_duration) {
-          const startTime = new Date(game.start_time).getTime();
-          const endTime = startTime + (game.max_duration * 60 * 1000);
-          const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
+          const elapsed = getSecondsElapsed(game.start_time);
+          const remaining = Math.max(0, (game.max_duration * 60) - elapsed);
           setTimeDisplay({ label: 'Ending In', value: formatDuration(remaining) });
         } else {
+          // Use server-provided countdown directly
           setTimeDisplay({ label: 'Timer', value: `${game.countdown}s` });
         }
       } else if (isScheduled) {
         // For scheduled games: show time until start
         const scheduledTime = game.scheduled_at || game.start_time;
         if (scheduledTime) {
-          const targetTime = new Date(scheduledTime).getTime();
-          const remaining = Math.max(0, Math.floor((targetTime - now) / 1000));
+          const remaining = getSecondsUntil(scheduledTime);
           setTimeDisplay({ label: 'Starting In', value: formatDuration(remaining) });
         } else {
+          // Use server-provided countdown
           setTimeDisplay({ label: 'Lobby Timer', value: formatDuration(game.countdown) });
         }
       }
@@ -67,7 +67,7 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
     calculateTime();
     const interval = setInterval(calculateTime, 1000);
     return () => clearInterval(interval);
-  }, [game, isLive, isScheduled]);
+  }, [game, isLive, isScheduled, getSecondsUntil, getSecondsElapsed]);
 
   const handleClick = () => {
     play('click');

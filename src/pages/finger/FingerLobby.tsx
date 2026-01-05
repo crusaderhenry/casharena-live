@@ -6,11 +6,12 @@ import { CrusaderHost } from '@/components/CrusaderHost';
 import { MicCheckModal } from '@/components/MicCheckModal';
 import { useGame } from '@/contexts/GameContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
+import { useGameTimer } from '@/hooks/useServerTime';
 import { useCrusader } from '@/hooks/useCrusader';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ChevronLeft, Zap, Lock, Users, Mic } from 'lucide-react';
+import { ChevronLeft, Zap, Lock, Users, Mic, Wifi, WifiOff } from 'lucide-react';
 
 const CRUSADER_LOBBY_MESSAGES = [
   "What's good everyone! Get ready for some ACTION! 🔥",
@@ -26,25 +27,47 @@ export const FingerLobby = () => {
 
   const { isTestMode, resetFingerGame } = useGame();
   const { game, participants, loading } = useLiveGame();
+  const { lobbyCountdown, synced } = useGameTimer(game);
   const crusader = useCrusader();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
   
-  const [countdown, setCountdown] = useState(60);
   const [entryClosed, setEntryClosed] = useState(false);
   const [crusaderMessage, setCrusaderMessage] = useState(CRUSADER_LOBBY_MESSAGES[0]);
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [micCheckComplete, setMicCheckComplete] = useState(false);
 
-  // Sync with server countdown
-  useEffect(() => {
-    if (game) {
-      setCountdown(game.countdown || 60);
-    }
-  }, [game?.countdown]);
+  // Use server-synced countdown
+  const countdown = lobbyCountdown;
 
-  // Redirect if game is ended (keep lobby accessible even when game is live)
+  // Check entry closed state
+  useEffect(() => {
+    if (countdown <= 10 && !entryClosed) {
+      setEntryClosed(true);
+      play('countdown');
+    }
+    
+    // Reset entry closed if countdown goes back up (game reset)
+    if (countdown > 10) {
+      setEntryClosed(false);
+    }
+  }, [countdown, entryClosed, play]);
+
+  // Handle navigation when countdown ends
+  useEffect(() => {
+    if (countdown <= 0 && game?.status !== 'ended') {
+      // Small delay to ensure server has updated
+      const timeout = setTimeout(() => {
+        if (!(preferLobby && game?.status === 'live')) {
+          navigate('/finger/arena');
+        }
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [countdown, game?.status, preferLobby, navigate]);
+
+  // Redirect if game is ended
   useEffect(() => {
     if (game?.status === 'ended') {
       navigate('/finger/results');
@@ -80,28 +103,6 @@ export const FingerLobby = () => {
     };
   }, []);
 
-  // Local countdown with sync from server
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 10 && !entryClosed) {
-          setEntryClosed(true);
-          play('countdown');
-        }
-        if (prev <= 0) {
-          clearInterval(timer);
-          // In "prefer lobby" mode (from /finger), don't auto-kick the user into arena
-          if (!(preferLobby && game?.status === 'live')) {
-            navigate('/finger/arena');
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [navigate, entryClosed, play, preferLobby, game?.status]);
-
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -116,7 +117,6 @@ export const FingerLobby = () => {
 
   const handleTestReset = () => {
     resetFingerGame();
-    setCountdown(60);
     setEntryClosed(false);
   };
 
@@ -158,7 +158,19 @@ export const FingerLobby = () => {
           </button>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-foreground">Fastest Finger Lobby</h1>
-            <p className="text-sm text-muted-foreground">Waiting for game to start</p>
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
+              {synced ? (
+                <>
+                  <Wifi className="w-3 h-3 text-green-500" />
+                  <span>Synced</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-3 h-3 text-yellow-500" />
+                  <span>Syncing...</span>
+                </>
+              )}
+            </p>
           </div>
         </div>
 

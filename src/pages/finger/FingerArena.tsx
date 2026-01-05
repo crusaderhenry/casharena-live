@@ -6,12 +6,14 @@ import { MicCheckModal } from '@/components/MicCheckModal';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
+import { useGameTimer } from '@/hooks/useServerTime';
+import { useRealtimeLeaderboard } from '@/hooks/useRealtimeLeaderboard';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useCrusaderHost } from '@/hooks/useCrusaderHost';
 import { useAudio } from '@/contexts/AudioContext';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut } from 'lucide-react';
+import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, Wifi, WifiOff } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,14 +37,18 @@ export const FingerArena = () => {
   const { isTestMode, resetFingerGame, userProfile } = useGame();
   const { profile, user } = useAuth();
   const { game, comments, participants, winners, sendComment, loading } = useLiveGame();
+  const { commentTimer, gameTimeRemaining, synced } = useGameTimer(game);
+  const { topThree: leaderboardTop, entries: leaderboardEntries } = useRealtimeLeaderboard(game?.id || null);
   const { play } = useSounds();
   const { vibrate, buttonClick } = useHaptics();
   const crusader = useCrusaderHost();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { toast } = useToast();
   
-  const [timer, setTimer] = useState(60);
-  const [gameTime, setGameTime] = useState(20 * 60);
+  // Use server-synced timers
+  const timer = commentTimer;
+  const gameTime = gameTimeRemaining;
+  
   const [inputValue, setInputValue] = useState('');
   const [isGameOver, setIsGameOver] = useState(false);
   const [showFreezeScreen, setShowFreezeScreen] = useState(false);
@@ -59,21 +65,16 @@ export const FingerArena = () => {
   const hasAnnouncedStart = useRef(false);
   const lastHypeRef = useRef(0);
 
-  // Sync with server game state
+  // Update top 3 from real-time leaderboard
   useEffect(() => {
-    if (game) {
-      setTimer(game.countdown || 60);
-      
-      // Calculate remaining game time
-      if (game.start_time) {
-        const startTime = new Date(game.start_time).getTime();
-        const now = Date.now();
-        const elapsed = Math.floor((now - startTime) / 1000);
-        const remaining = (game.max_duration * 60) - elapsed;
-        setGameTime(Math.max(0, remaining));
-      }
+    if (leaderboardTop.length > 0) {
+      setTopThree(leaderboardTop.map(entry => ({
+        name: entry.username,
+        avatar: entry.avatar,
+        comment: `${entry.comment_count} comments`,
+      })));
     }
-  }, [game?.countdown, game?.start_time, game?.max_duration]);
+  }, [leaderboardTop]);
 
   // Update Crusader with game state (separate effect to avoid loops)
   useEffect(() => {
@@ -128,31 +129,16 @@ export const FingerArena = () => {
     }
   }, [winners, isGameOver, navigate, user?.id, game?.pool_value]);
 
-  // Update top 3 from comments
+  // Announce leader changes from real-time leaderboard
   useEffect(() => {
-    const uniquePlayers = new Map<string, TopThree>();
-    comments.forEach(comment => {
-      const username = comment.profile?.username || 'Unknown';
-      if (!uniquePlayers.has(username)) {
-        uniquePlayers.set(username, {
-          name: username,
-          avatar: comment.profile?.avatar || '🎮',
-          comment: comment.content,
-        });
-      }
-    });
-    const top = Array.from(uniquePlayers.values()).slice(0, 3);
-    setTopThree(top);
-
-    // Announce leader changes
-    if (top[0] && top[0].name !== lastLeader && lastLeader !== '') {
-      crusader.announceLeaderChange(top[0].name);
+    if (topThree[0] && topThree[0].name !== lastLeader && lastLeader !== '') {
+      crusader.announceLeaderChange(topThree[0].name);
       play('leaderChange');
     }
-    if (top[0]) {
-      setLastLeader(top[0].name);
+    if (topThree[0]) {
+      setLastLeader(topThree[0].name);
     }
-  }, [comments, lastLeader, crusader, play]);
+  }, [topThree, lastLeader, crusader, play]);
 
   // Start background music and welcome
   useEffect(() => {
@@ -276,8 +262,6 @@ export const FingerArena = () => {
 
   const handleTestReset = () => {
     resetFingerGame();
-    setTimer(60);
-    setGameTime(20 * 60);
     setIsGameOver(false);
     setShowFreezeScreen(false);
     setTopThree([]);
