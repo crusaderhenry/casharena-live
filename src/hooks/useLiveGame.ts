@@ -9,6 +9,7 @@ interface Game {
   status: 'scheduled' | 'live' | 'ended' | 'open';
   entry_fee: number;
   pool_value: number;
+  effective_prize_pool: number;
   participant_count: number;
   countdown: number;
   comment_timer: number;
@@ -84,6 +85,9 @@ export const useLiveGame = (gameId?: string) => {
     }
     
     if (data) {
+      const isSponsored = (data as any).is_sponsored || false;
+      const sponsoredAmount = (data as any).sponsored_amount || 0;
+      const poolValue = data.pool_value || 0;
       return {
         ...data,
         name: (data as any).name || 'Fastest Finger',
@@ -91,9 +95,10 @@ export const useLiveGame = (gameId?: string) => {
         payout_type: (data as any).payout_type || 'top3',
         payout_distribution: (data as any).payout_distribution || [0.5, 0.3, 0.2],
         min_participants: (data as any).min_participants || 3,
-        is_sponsored: (data as any).is_sponsored || false,
-        sponsored_amount: (data as any).sponsored_amount || 0,
+        is_sponsored: isSponsored,
+        sponsored_amount: sponsoredAmount,
         entry_cutoff_minutes: (data as any).entry_cutoff_minutes || 10,
+        effective_prize_pool: poolValue + (isSponsored ? sponsoredAmount : 0),
       } as Game;
     }
     return null;
@@ -112,17 +117,23 @@ export const useLiveGame = (gameId?: string) => {
       return [];
     }
     
-    return (data || []).map(g => ({
-      ...g,
-      name: (g as any).name || 'Fastest Finger',
-      comment_timer: (g as any).comment_timer || 60,
-      payout_type: (g as any).payout_type || 'top3',
-      payout_distribution: (g as any).payout_distribution || [0.5, 0.3, 0.2],
-      min_participants: (g as any).min_participants || 3,
-      is_sponsored: (g as any).is_sponsored || false,
-      sponsored_amount: (g as any).sponsored_amount || 0,
-      entry_cutoff_minutes: (g as any).entry_cutoff_minutes || 10,
-    })) as Game[];
+    return (data || []).map(g => {
+      const isSponsored = (g as any).is_sponsored || false;
+      const sponsoredAmount = (g as any).sponsored_amount || 0;
+      const poolValue = g.pool_value || 0;
+      return {
+        ...g,
+        name: (g as any).name || 'Fastest Finger',
+        comment_timer: (g as any).comment_timer || 60,
+        payout_type: (g as any).payout_type || 'top3',
+        payout_distribution: (g as any).payout_distribution || [0.5, 0.3, 0.2],
+        min_participants: (g as any).min_participants || 3,
+        is_sponsored: isSponsored,
+        sponsored_amount: sponsoredAmount,
+        entry_cutoff_minutes: (g as any).entry_cutoff_minutes || 10,
+        effective_prize_pool: poolValue + (isSponsored ? sponsoredAmount : 0),
+      };
+    }) as Game[];
   }, []);
 
   // Fetch specific game
@@ -138,6 +149,9 @@ export const useLiveGame = (gameId?: string) => {
       return null;
     }
     
+    const isSponsored = (data as any).is_sponsored || false;
+    const sponsoredAmount = (data as any).sponsored_amount || 0;
+    const poolValue = data.pool_value || 0;
     return {
       ...data,
       name: (data as any).name || 'Fastest Finger',
@@ -145,9 +159,10 @@ export const useLiveGame = (gameId?: string) => {
       payout_type: (data as any).payout_type || 'top3',
       payout_distribution: (data as any).payout_distribution || [0.5, 0.3, 0.2],
       min_participants: (data as any).min_participants || 3,
-      is_sponsored: (data as any).is_sponsored || false,
-      sponsored_amount: (data as any).sponsored_amount || 0,
+      is_sponsored: isSponsored,
+      sponsored_amount: sponsoredAmount,
       entry_cutoff_minutes: (data as any).entry_cutoff_minutes || 10,
+      effective_prize_pool: poolValue + (isSponsored ? sponsoredAmount : 0),
     } as Game;
   }, []);
 
