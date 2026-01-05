@@ -585,18 +585,41 @@ export const FingerMain = () => {
                       {selectedGame.status === 'live' ? 'Enter Arena' : 'Go to Lobby'}
                       <ChevronRight className="w-5 h-5" />
                     </button>
-                  ) : selectedGame.status === 'open' ? (
-                    <button
-                      onClick={handleJoin}
-                      disabled={balance < entryFee || joining}
-                      className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Zap className="w-5 h-5" />
-                      {joining ? 'Joining...' : balance < entryFee ? `Need ₦${entryFee - balance} more` : `Join Game — ₦${entryFee}`}
-                    </button>
+                  ) : selectedGame.status === 'open' || selectedGame.status === 'live' ? (
+                    (() => {
+                      // Check if live game has more than 10 min remaining
+                      let canJoinLive = true;
+                      if (selectedGame.status === 'live' && selectedGame.start_time) {
+                        const startTime = new Date(selectedGame.start_time).getTime();
+                        const maxDurationMs = (selectedGame.max_duration || 20) * 60 * 1000;
+                        const endTime = startTime + maxDurationMs;
+                        const timeRemainingMs = endTime - Date.now();
+                        const tenMinutesMs = 10 * 60 * 1000;
+                        canJoinLive = timeRemainingMs > tenMinutesMs;
+                      }
+                      
+                      if (!canJoinLive) {
+                        return (
+                          <div className="w-full py-3 text-center text-muted-foreground text-sm bg-muted/30 rounded-xl">
+                            ⏳ Less than 10 min remaining - entries closed
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <button
+                          onClick={handleJoin}
+                          disabled={balance < entryFee || joining}
+                          className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Zap className="w-5 h-5" />
+                          {joining ? 'Joining...' : balance < entryFee ? `Need ₦${entryFee - balance} more` : `Join Game — ₦${entryFee}`}
+                        </button>
+                      );
+                    })()
                   ) : (
                     <div className="w-full py-3 text-center text-muted-foreground text-sm bg-muted/30 rounded-xl">
-                      Game already in progress
+                      Game not available
                     </div>
                   )}
                 </>
