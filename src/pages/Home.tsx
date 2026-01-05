@@ -68,7 +68,7 @@ export const Home = () => {
             setAllGames(prev => [payload.new as any, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
             const updated = payload.new as any;
-            setAllGames(prev => prev.map(g => g.id === updated.id ? { ...g, ...updated } : g).filter(g => g.status === 'live' || g.status === 'scheduled'));
+          setAllGames(prev => prev.map(g => g.id === updated.id ? { ...g, ...updated } : g).filter(g => ['live', 'open', 'scheduled'].includes(g.status)));
           } else if (payload.eventType === 'DELETE') {
             setAllGames(prev => prev.filter(g => g.id !== (payload.old as any).id));
           }
@@ -150,6 +150,7 @@ export const Home = () => {
 
   const displayGames = isTestMode ? mockActiveGames : allGames;
   const liveGames = displayGames.filter(g => g.status === 'live');
+  const openGames = displayGames.filter(g => g.status === 'open');
   const scheduledGames = displayGames.filter(g => g.status === 'scheduled');
   const userRank = profile?.weekly_rank || Math.ceil((profile?.rank_points || 0) / 100) || 1;
 
@@ -292,6 +293,24 @@ export const Home = () => {
             
             <div className="space-y-3">
               {liveGames.slice(0, 2).map((g) => (
+                <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Open Games Section - Accepting Entries */}
+        {openGames.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Zap className="w-4 h-4 text-blue-400" />
+                Open for Entry
+              </h2>
+            </div>
+            
+            <div className="space-y-2">
+              {openGames.slice(0, 3).map((g) => (
                 <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
               ))}
             </div>

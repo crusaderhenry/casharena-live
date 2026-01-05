@@ -167,10 +167,10 @@ export const FingerMain = () => {
   const openGames = allGames.filter(g => g.status === 'open');
   const scheduledGames = allGames.filter(g => g.status === 'scheduled');
   
-  // Find next scheduled game for countdown
+  // Find next scheduled game for countdown (use scheduled_at for scheduled games)
   const nextScheduledGame = scheduledGames
-    .filter(g => g.start_time)
-    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())[0];
+    .filter(g => g.scheduled_at)
+    .sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime())[0];
 
   // Real-time countdown to next game
   const [timeToNext, setTimeToNext] = useState<string | null>(null);

@@ -52,8 +52,17 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
           setTimeDisplay({ label: 'Timer', value: `${game.countdown}s` });
         }
       } else if (isOpen) {
-        // For open games: show lobby countdown
-        setTimeDisplay({ label: 'Starts In', value: formatDuration(game.countdown) });
+        // For open games: show lobby countdown based on when game started
+        if (game.start_time) {
+          const startTime = new Date(game.start_time).getTime();
+          const lobbyDuration = (game.countdown || 60) * 1000;
+          const now = Date.now();
+          const elapsed = now - startTime;
+          const remaining = Math.max(0, Math.floor((lobbyDuration - elapsed) / 1000));
+          setTimeDisplay({ label: 'Starts In', value: formatDuration(remaining) });
+        } else {
+          setTimeDisplay({ label: 'Accepting', value: 'Entries' });
+        }
       } else if (isScheduled) {
         // For scheduled games: show time until opens
         const scheduledTime = game.scheduled_at;
@@ -66,7 +75,7 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
           }
         } else {
           // No scheduled time - waiting for admin
-          setTimeDisplay({ label: 'Status', value: 'Waiting' });
+          setTimeDisplay({ label: 'Waiting for', value: 'Admin' });
         }
       }
     };
@@ -91,7 +100,7 @@ export const GameStatusCard = ({ game, isTestMode = false }: GameStatusCardProps
   };
 
   const statusColor = isLive ? 'green' : isOpen ? 'blue' : 'yellow';
-  const statusLabel = isLive ? 'LIVE' : isOpen ? 'OPEN' : 'SOON';
+  const statusLabel = isLive ? 'LIVE' : isOpen ? 'JOIN NOW' : 'SOON';
 
   // Only show pool for open/live games (when participants have joined)
   const showPool = isOpen || isLive;
