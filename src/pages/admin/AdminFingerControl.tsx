@@ -1,5 +1,5 @@
 import { useAdmin } from '@/contexts/AdminContext';
-import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat } from 'lucide-react';
+import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent } from 'lucide-react';
 import { useState } from 'react';
 import {
   Dialog,
@@ -38,6 +38,7 @@ const RECURRENCE_OPTIONS = [
 
 interface GameFormData {
   name: string;
+  description: string;
   entryFee: number;
   maxDuration: number;
   commentTimer: number;
@@ -51,6 +52,10 @@ interface GameFormData {
   // Recurrence
   recurrenceType: string;
   recurrenceInterval: number;
+  // Sponsored game
+  isSponsored: boolean;
+  sponsoredAmount: number;
+  platformCutPercentage: number;
 }
 
 export const AdminFingerControl = () => {
@@ -80,6 +85,7 @@ export const AdminFingerControl = () => {
 
   const [formData, setFormData] = useState<GameFormData>({
     name: 'Fastest Finger',
+    description: '',
     entryFee: 700,
     maxDuration: 20,
     commentTimer: 60,
@@ -91,6 +97,9 @@ export const AdminFingerControl = () => {
     scheduledTime: getDefaultDateTime().time,
     recurrenceType: 'none',
     recurrenceInterval: 1,
+    isSponsored: false,
+    sponsoredAmount: 0,
+    platformCutPercentage: 10,
   });
 
   const [localSettings, setLocalSettings] = useState({
@@ -117,7 +126,7 @@ export const AdminFingerControl = () => {
 
     await createGameWithConfig({
       name: formData.name,
-      entry_fee: formData.entryFee,
+      entry_fee: formData.isSponsored ? 0 : formData.entryFee,
       max_duration: formData.maxDuration,
       comment_timer: formData.commentTimer,
       payout_type: formData.payoutType,
@@ -128,6 +137,10 @@ export const AdminFingerControl = () => {
       scheduled_at: scheduledAt,
       recurrence_type: formData.recurrenceType === 'none' ? null : formData.recurrenceType,
       recurrence_interval: formData.recurrenceType === 'none' ? null : formData.recurrenceInterval,
+      is_sponsored: formData.isSponsored,
+      sponsored_amount: formData.isSponsored ? formData.sponsoredAmount : null,
+      platform_cut_percentage: formData.platformCutPercentage,
+      description: formData.description || null,
     });
     setShowCreateDialog(false);
     
@@ -135,6 +148,7 @@ export const AdminFingerControl = () => {
     const defaults = getDefaultDateTime();
     setFormData({
       name: 'Fastest Finger',
+      description: '',
       entryFee: 700,
       maxDuration: 20,
       commentTimer: 60,
@@ -146,6 +160,9 @@ export const AdminFingerControl = () => {
       scheduledTime: defaults.time,
       recurrenceType: 'none',
       recurrenceInterval: 1,
+      isSponsored: false,
+      sponsoredAmount: 0,
+      platformCutPercentage: 10,
     });
   };
 
@@ -174,7 +191,7 @@ export const AdminFingerControl = () => {
               <DialogTitle>Create New Game</DialogTitle>
             </DialogHeader>
             
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
               {/* Game Name */}
               <div className="space-y-2">
                 <Label htmlFor="name">Game Name</Label>
@@ -185,17 +202,64 @@ export const AdminFingerControl = () => {
                   placeholder="e.g., High Rollers, Beginner's Arena"
                 />
               </div>
-              
-              {/* Entry Fee */}
+
+              {/* Description */}
               <div className="space-y-2">
-                <Label htmlFor="entryFee">Entry Fee (₦)</Label>
+                <Label htmlFor="description">Description (optional)</Label>
                 <Input
-                  id="entryFee"
-                  type="number"
-                  value={formData.entryFee}
-                  onChange={(e) => setFormData(prev => ({ ...prev, entryFee: parseInt(e.target.value) || 0 }))}
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Last comment wins the prize!"
                 />
               </div>
+
+              {/* Sponsored Game Toggle */}
+              <div className="space-y-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="flex items-center gap-2">
+                      <Gift className="w-4 h-4 text-primary" />
+                      Sponsored Game
+                    </Label>
+                    <p className="text-xs text-muted-foreground">Free entry with sponsored prize pool</p>
+                  </div>
+                  <Switch
+                    checked={formData.isSponsored}
+                    onCheckedChange={(checked) => setFormData(prev => ({ 
+                      ...prev, 
+                      isSponsored: checked,
+                      entryFee: checked ? 0 : 700,
+                    }))}
+                  />
+                </div>
+
+                {formData.isSponsored && (
+                  <div className="space-y-2">
+                    <Label htmlFor="sponsoredAmount">Sponsored Prize (₦)</Label>
+                    <Input
+                      id="sponsoredAmount"
+                      type="number"
+                      value={formData.sponsoredAmount}
+                      onChange={(e) => setFormData(prev => ({ ...prev, sponsoredAmount: parseInt(e.target.value) || 0 }))}
+                      placeholder="50000"
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {/* Entry Fee - only show if not sponsored */}
+              {!formData.isSponsored && (
+                <div className="space-y-2">
+                  <Label htmlFor="entryFee">Entry Fee (₦)</Label>
+                  <Input
+                    id="entryFee"
+                    type="number"
+                    value={formData.entryFee}
+                    onChange={(e) => setFormData(prev => ({ ...prev, entryFee: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
+              )}
               
               {/* Payout Type */}
               <div className="space-y-2">
@@ -348,6 +412,25 @@ export const AdminFingerControl = () => {
                     ℹ️ Recurring games will automatically create new instances when the previous one ends
                   </p>
                 )}
+              </div>
+
+              {/* Platform Cut */}
+              <div className="space-y-2 pt-4 border-t border-border">
+                <Label htmlFor="platformCut" className="flex items-center gap-2">
+                  <Percent className="w-4 h-4 text-muted-foreground" />
+                  Platform Cut (%)
+                </Label>
+                <Input
+                  id="platformCut"
+                  type="number"
+                  min={0}
+                  max={50}
+                  value={formData.platformCutPercentage}
+                  onChange={(e) => setFormData(prev => ({ ...prev, platformCutPercentage: parseInt(e.target.value) || 10 }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Platform receives {formData.platformCutPercentage}% of the prize pool
+                </p>
               </div>
             </div>
             

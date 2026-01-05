@@ -136,6 +136,7 @@ serve(async (req) => {
           .insert({
             status: 'scheduled',
             name: gameConfig.name || 'Fastest Finger',
+            description: gameConfig.description || null,
             entry_fee: gameConfig.entry_fee || 700,
             max_duration: gameConfig.max_duration || 20,
             pool_value: 0,
@@ -150,6 +151,10 @@ serve(async (req) => {
             scheduled_at: scheduledAt,
             recurrence_type: gameConfig.recurrence_type || null,
             recurrence_interval: gameConfig.recurrence_interval || null,
+            is_sponsored: gameConfig.is_sponsored || false,
+            sponsored_amount: gameConfig.sponsored_amount || 0,
+            platform_cut_percentage: gameConfig.platform_cut_percentage || 10,
+            visibility: 'public',
           })
           .select()
           .single();

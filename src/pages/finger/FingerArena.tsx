@@ -11,7 +11,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useCrusaderHost } from '@/hooks/useCrusaderHost';
 import { useAudio } from '@/contexts/AudioContext';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut } from 'lucide-react';
+import { useServerTime } from '@/hooks/useServerTime';
+import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,11 +41,13 @@ export const FingerArena = () => {
   const crusader = useCrusaderHost();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { toast } = useToast();
+  const { gameTimeRemaining, synced } = useServerTime();
   
   const [timer, setTimer] = useState(60);
   const [gameTime, setGameTime] = useState(20 * 60);
   const [inputValue, setInputValue] = useState('');
   const [isGameOver, setIsGameOver] = useState(false);
+  const [isEndingSoon, setIsEndingSoon] = useState(false);
   const [showFreezeScreen, setShowFreezeScreen] = useState(false);
   const [systemMessage, setSystemMessage] = useState('');
   const [topThree, setTopThree] = useState<TopThree[]>([]);
@@ -59,21 +62,29 @@ export const FingerArena = () => {
   const hasAnnouncedStart = useRef(false);
   const lastHypeRef = useRef(0);
 
-  // Sync with server game state
+  // Sync with server game state using server-authoritative time
   useEffect(() => {
-    if (game) {
-      setTimer(game.countdown || 60);
-      
-      // Calculate remaining game time
+    if (!game) return;
+    
+    // Always use server countdown value
+    setTimer(game.countdown || 60);
+    
+    // Calculate remaining game time using server-synced time
+    const updateGameTime = () => {
       if (game.start_time) {
-        const startTime = new Date(game.start_time).getTime();
-        const now = Date.now();
-        const elapsed = Math.floor((now - startTime) / 1000);
-        const remaining = (game.max_duration * 60) - elapsed;
-        setGameTime(Math.max(0, remaining));
+        const remaining = gameTimeRemaining(game.start_time, game.max_duration);
+        setGameTime(remaining);
+        
+        // Check if in "danger mode" (last 5 minutes)
+        const inDangerZone = remaining <= 300 && remaining > 0;
+        setIsEndingSoon(inDangerZone);
       }
-    }
-  }, [game?.countdown, game?.start_time, game?.max_duration]);
+    };
+    
+    updateGameTime();
+    const interval = setInterval(updateGameTime, 1000);
+    return () => clearInterval(interval);
+  }, [game?.countdown, game?.start_time, game?.max_duration, synced, gameTimeRemaining]);
 
   // Update Crusader with game state (separate effect to avoid loops)
   useEffect(() => {
@@ -230,7 +241,8 @@ export const FingerArena = () => {
     setTimeout(() => setSystemMessage(''), 3000);
   };
 
-  const isGameTimeDanger = gameTime <= 5 * 60;
+  const isGameTimeDanger = isEndingSoon || gameTime <= 5 * 60;
+  const isTimerUrgent = timer <= 15;
   const audienceCount = participants.length || game?.participant_count || 0;
 
   const formatGameTime = (seconds: number) => {

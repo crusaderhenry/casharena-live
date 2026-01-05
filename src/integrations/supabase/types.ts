@@ -99,6 +99,7 @@ export type Database = {
           participant_count: number
           payout_distribution: number[] | null
           payout_type: string | null
+          platform_cut_percentage: number | null
           pool_value: number
           recurrence_interval: number | null
           recurrence_type: string | null
@@ -127,6 +128,7 @@ export type Database = {
           participant_count?: number
           payout_distribution?: number[] | null
           payout_type?: string | null
+          platform_cut_percentage?: number | null
           pool_value?: number
           recurrence_interval?: number | null
           recurrence_type?: string | null
@@ -155,6 +157,7 @@ export type Database = {
           participant_count?: number
           payout_distribution?: number[] | null
           payout_type?: string | null
+          platform_cut_percentage?: number | null
           pool_value?: number
           recurrence_interval?: number | null
           recurrence_type?: string | null
