@@ -48,16 +48,27 @@ export const FingerArena = () => {
   const { toast } = useToast();
   const { gameTimeRemaining, synced } = useServerTime();
   
+  // Load test scenario from session storage if in test mode
+  const testScenario = isTestMode ? (() => {
+    const stored = sessionStorage.getItem('testScenario');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch { return null; }
+    }
+    return null;
+  })() : null;
+  
   // Mock comment callback to reset timer when other players comment
   const handleMockComment = useCallback(() => {
     // Reset timer when mock players comment (simulating real game behavior)
-    setTimer(60);
-  }, []);
+    setTimer(testScenario?.commentTimer || 60);
+  }, [testScenario?.commentTimer]);
   
   const { mockComments, triggerCommentBurst } = useMockSimulation(isTestMode, game?.id, handleMockComment);
   
-  const [timer, setTimer] = useState(60);
-  const [gameTime, setGameTime] = useState(20 * 60);
+  const [timer, setTimer] = useState(testScenario?.commentTimer || 60);
+  const [gameTime, setGameTime] = useState(testScenario?.gameTimeRemaining || 20 * 60);
   const [inputValue, setInputValue] = useState('');
   const [isGameOver, setIsGameOver] = useState(false);
   const [isEndingSoon, setIsEndingSoon] = useState(false);
@@ -77,8 +88,8 @@ export const FingerArena = () => {
 
   const currentUsername = profile?.username || userProfile.username;
   const currentAvatar = profile?.avatar || userProfile.avatar;
-  const poolValue = game?.pool_value || 0;
-  const audienceCount = participants.length || game?.participant_count || 0;
+  const poolValue = testScenario?.poolValue || game?.pool_value || 0;
+  const audienceCount = testScenario?.playerCount || participants.length || game?.participant_count || 0;
   const isGameTimeDanger = isEndingSoon || gameTime <= 5 * 60;
   const isTimerUrgent = timer <= 15;
 
@@ -327,7 +338,7 @@ export const FingerArena = () => {
     
     // In test mode, simulate successful comment and reset timer
     if (isTestMode) {
-      setTimer(60); // Reset timer like in real game
+      setTimer(testScenario?.commentTimer || 60); // Reset timer like in real game
       setInputValue('');
       showSystemMessage("⏱️ Timer reset - You're leading!");
       play('send');
@@ -450,14 +461,14 @@ export const FingerArena = () => {
     );
   }
 
-  // Mock game for test mode
+  // Mock game for test mode - use scenario values if available
   const mockGame = {
     id: 'test-game',
     name: 'Test Game',
     status: 'live' as const,
-    pool_value: 35000,
-    participant_count: 24,
-    countdown: 60,
+    pool_value: testScenario?.poolValue || 35000,
+    participant_count: testScenario?.playerCount || 24,
+    countdown: testScenario?.commentTimer || 60,
     entry_fee: 700,
     max_duration: 20,
     payout_type: 'top3',
@@ -566,22 +577,49 @@ export const FingerArena = () => {
           />
         )}
         
-        {/* Timer */}
-        <div className={`mt-3 text-center py-4 rounded-2xl transition-all border-2 ${
-          timer <= 10 ? 'bg-destructive/20 border-destructive/50 animate-pulse' : 
-          timer <= 30 ? 'bg-orange-500/20 border-orange-500/30' : 
-          'bg-primary/10 border-primary/20'
-        }`}>
-          <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Time Until Winner</p>
-          <p className={`text-5xl font-black font-mono ${
-            timer <= 10 ? 'text-destructive animate-pulse' : 
-            timer <= 30 ? 'text-orange-400' : 'text-foreground'
-          }`}>{timer}s</p>
-          {timer <= 15 && (
-            <p className="text-xs text-destructive font-bold mt-1 flex items-center justify-center gap-1">
-              <Flame className="w-3 h-3" /> CRITICAL - Comment now!
-            </p>
-          )}
+        {/* Dual Timer Display - Prominent */}
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          {/* Comment Timer - Time Until Winner */}
+          <div className={`text-center py-4 rounded-2xl transition-all border-2 ${
+            timer <= 10 ? 'bg-destructive/20 border-destructive/50 animate-pulse' : 
+            timer <= 30 ? 'bg-orange-500/20 border-orange-500/30' : 
+            'bg-primary/10 border-primary/20'
+          }`}>
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Zap className={`w-4 h-4 ${timer <= 10 ? 'text-destructive' : timer <= 30 ? 'text-orange-400' : 'text-primary'}`} />
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Winner In</p>
+            </div>
+            <p className={`text-4xl font-black font-mono ${
+              timer <= 10 ? 'text-destructive animate-pulse' : 
+              timer <= 30 ? 'text-orange-400' : 'text-foreground'
+            }`}>{timer}s</p>
+            {timer <= 15 && (
+              <p className="text-[10px] text-destructive font-bold mt-1 flex items-center justify-center gap-1">
+                <Flame className="w-3 h-3" /> COMMENT NOW!
+              </p>
+            )}
+          </div>
+
+          {/* Game Timer - Total Time Remaining */}
+          <div className={`text-center py-4 rounded-2xl transition-all border-2 ${
+            gameTime <= 60 ? 'bg-destructive/20 border-destructive/50 animate-pulse' : 
+            gameTime <= 300 ? 'bg-orange-500/20 border-orange-500/30' : 
+            'bg-muted/30 border-border/50'
+          }`}>
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Timer className={`w-4 h-4 ${gameTime <= 60 ? 'text-destructive' : gameTime <= 300 ? 'text-orange-400' : 'text-muted-foreground'}`} />
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Game Ends</p>
+            </div>
+            <p className={`text-4xl font-black font-mono ${
+              gameTime <= 60 ? 'text-destructive animate-pulse' : 
+              gameTime <= 300 ? 'text-orange-400' : 'text-foreground'
+            }`}>{formatGameTime(gameTime)}</p>
+            {gameTime <= 60 && (
+              <p className="text-[10px] text-destructive font-bold mt-1 flex items-center justify-center gap-1">
+                <AlertTriangle className="w-3 h-3" /> FINAL MINUTE!
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Live Top 3 Podium */}

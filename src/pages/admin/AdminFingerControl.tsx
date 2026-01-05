@@ -1,6 +1,7 @@
 import { useAdmin } from '@/contexts/AdminContext';
-import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent } from 'lucide-react';
+import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { useGame } from '@/contexts/GameContext';
+import { TestScenarioBuilder } from '@/components/admin/TestScenarioBuilder';
 
 const PAYOUT_PRESETS = {
   winner_takes_all: { label: 'Winner Takes All', distribution: [1] },
@@ -568,6 +571,9 @@ export const AdminFingerControl = () => {
           </div>
         </div>
       )}
+
+      {/* Test Scenario Builder */}
+      <TestScenarioBuilder />
 
       {/* Game Settings */}
       <div className="bg-card rounded-xl border border-border p-6">
