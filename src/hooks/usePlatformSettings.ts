@@ -13,6 +13,10 @@ export interface PlatformSettings {
   default_max_duration: number;
   default_comment_timer: number;
   maintenance_mode: boolean;
+  rank_points_win_1st: number;
+  rank_points_win_2nd: number;
+  rank_points_win_3rd: number;
+  rank_points_participation: number;
 }
 
 export const usePlatformSettings = () => {
@@ -106,6 +110,12 @@ export const usePlatformSettings = () => {
     defaultMaxDuration: settings?.default_max_duration ?? 20,
     defaultCommentTimer: settings?.default_comment_timer ?? 60,
     maintenanceMode: settings?.maintenance_mode ?? false,
+    rankPoints: {
+      win1st: settings?.rank_points_win_1st ?? 100,
+      win2nd: settings?.rank_points_win_2nd ?? 60,
+      win3rd: settings?.rank_points_win_3rd ?? 30,
+      participation: settings?.rank_points_participation ?? 5,
+    },
     updateSettings,
     toggleTestMode,
     refetch: fetchSettings,

@@ -7,10 +7,11 @@ import { GameStatusCard } from '@/components/GameStatusCard';
 import { WinnerStories } from '@/components/WinnerStories';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
-import { Zap, Trophy, ChevronRight, Flame, Bell, TrendingUp, Calendar, Sparkles, Crown, Radio, Play, Swords } from 'lucide-react';
+import { Zap, Trophy, ChevronRight, Flame, Bell, TrendingUp, Calendar, Sparkles, Crown, Radio, Play, Swords, Gamepad2 } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
+import { useMyGames } from '@/hooks/useMyGames';
 import { useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -20,6 +21,7 @@ export const Home = () => {
   const { isTestMode } = useGame();
   const { profile } = useAuth();
   const { fetchAllActiveGames } = useLiveGame();
+  const { myGames } = useMyGames();
   const navigate = useNavigate();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
@@ -140,17 +142,17 @@ export const Home = () => {
     fetchRecentWinners();
   }, []);
 
-  // Featured games: 1 live + 1 coming soon (max 2)
+  // Categorize games
   const liveGames = allGames.filter(g => g.status === 'live');
-  const upcomingGames = allGames.filter(g => g.status === 'scheduled' || g.status === 'open');
-  const featuredLive = liveGames.slice(0, 1);
-  const featuredUpcoming = upcomingGames.slice(0, 1);
+  const openGames = allGames.filter(g => g.status === 'open');
+  const scheduledGames = allGames.filter(g => g.status === 'scheduled');
   const userRank = profile?.weekly_rank || Math.ceil((profile?.rank_points || 0) / 100) || 1;
 
   // Notifications
+  const upcomingCount = openGames.length + scheduledGames.length;
   const notifications = [
     liveGames.length > 0 && `🎮 ${liveGames.length} game${liveGames.length > 1 ? 's' : ''} LIVE now!`,
-    upcomingGames.length > 0 && `⏰ ${upcomingGames.length} game${upcomingGames.length > 1 ? 's' : ''} starting soon`,
+    upcomingCount > 0 && `⏰ ${upcomingCount} game${upcomingCount > 1 ? 's' : ''} starting soon`,
     recentWinners[0]?.profile?.username && `🏆 ${recentWinners[0].profile.username} won ₦${recentWinners[0].amount_won?.toLocaleString()}!`,
   ].filter(Boolean) as string[];
 
@@ -207,10 +209,10 @@ export const Home = () => {
                   {liveGames.length} Live
                 </span>
               )}
-              {upcomingGames.length > 0 && (
+              {upcomingCount > 0 && (
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Calendar className="w-3 h-3" />
-                  {upcomingGames.length} Soon
+                  {upcomingCount} Soon
                 </span>
               )}
             </div>
@@ -277,7 +279,30 @@ export const Home = () => {
         {/* Winner Stories - Instagram style */}
         <WinnerStories winners={displayActivity} />
 
-        {/* Live Games Only */}
+        {/* My Active Games */}
+        {myGames.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <Gamepad2 className="w-3.5 h-3.5 text-primary" />
+                </div>
+                My Games
+              </h2>
+              {myGames.length > 3 && (
+                <button onClick={handleViewAllGames} className="text-xs text-primary font-medium flex items-center gap-1">
+                  +{myGames.length - 3} more <ChevronRight className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            
+            {myGames.slice(0, 3).map((g) => (
+              <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
+            ))}
+          </div>
+        )}
+
+        {/* Live Games */}
         {liveGames.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -287,38 +312,63 @@ export const Home = () => {
                 </div>
                 Live Now
               </h2>
-              {liveGames.length > 2 && (
+              {liveGames.length > 3 && (
                 <button onClick={handleViewAllGames} className="text-xs text-primary font-medium flex items-center gap-1">
-                  +{liveGames.length - 2} more <ChevronRight className="w-3 h-3" />
+                  View all <ChevronRight className="w-3 h-3" />
                 </button>
               )}
             </div>
             
-            {liveGames.slice(0, 2).map((g) => (
+            {liveGames.slice(0, 3).map((g) => (
               <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
             ))}
           </div>
         )}
 
-        {/* Coming Soon Teaser */}
-        {upcomingGames.length > 0 && (
-          <button
-            onClick={handleViewAllGames}
-            className="w-full rounded-2xl border border-yellow-500/30 bg-gradient-to-r from-yellow-500/10 via-yellow-500/5 to-transparent p-4 text-left hover:border-yellow-500/50 transition-all group"
-          >
+        {/* Open Games */}
+        {openGames.length > 0 && (
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-yellow-400" />
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                  <Play className="w-3.5 h-3.5 text-yellow-400" />
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-foreground">{upcomingGames.length} Games Coming Soon</p>
-                  <p className="text-xs text-muted-foreground">Browse all to join upcoming matches</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-yellow-400 group-hover:translate-x-1 transition-transform" />
+                Open for Entry
+              </h2>
+              {openGames.length > 3 && (
+                <button onClick={handleViewAllGames} className="text-xs text-primary font-medium flex items-center gap-1">
+                  View all <ChevronRight className="w-3 h-3" />
+                </button>
+              )}
             </div>
-          </button>
+            
+            {openGames.slice(0, 3).map((g) => (
+              <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
+            ))}
+          </div>
+        )}
+
+        {/* Coming Soon / Scheduled */}
+        {scheduledGames.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                </div>
+                Coming Soon
+              </h2>
+              {scheduledGames.length > 3 && (
+                <button onClick={handleViewAllGames} className="text-xs text-primary font-medium flex items-center gap-1">
+                  View all <ChevronRight className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            
+            {scheduledGames.slice(0, 3).map((g) => (
+              <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
+            ))}
+          </div>
         )}
 
         {/* No Games State */}
@@ -338,8 +388,8 @@ export const Home = () => {
             onClick={handleViewAllGames}
             className="w-full py-4 rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 to-transparent text-primary font-bold flex items-center justify-center gap-2 hover:bg-primary/20 transition-colors"
           >
-            <Play className="w-5 h-5" fill="currentColor" />
-            View All Games
+            <Swords className="w-5 h-5" />
+            Browse All Games
             <ChevronRight className="w-5 h-5" />
           </button>
         )}
