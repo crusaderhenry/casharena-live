@@ -211,14 +211,28 @@ export const FingerArena = () => {
     if (game) {
       crusader.updateGameState({
         timer: game.countdown || 60,
+        gameTimeRemaining: gameTime,
         participantCount: game.participant_count || participants.length,
         poolValue: game.pool_value || 0,
+        sponsoredAmount: game.sponsored_amount || 0,
+        isSponsored: game.is_sponsored || false,
+        entryFee: game.entry_fee || 0,
         isLive: game.status === 'live',
         leader: topThree[0]?.name || null,
         commentCount: comments.length,
       });
+      
+      // Check for prize milestones when pool value changes
+      if (game.pool_value) {
+        crusader.checkPrizeMilestone(game.pool_value);
+      }
+      
+      // Check for danger mode
+      if (gameTime > 0) {
+        crusader.checkDangerMode(gameTime);
+      }
     }
-  }, [game?.countdown, game?.pool_value, game?.participant_count, topThree[0]?.name, comments.length]);
+  }, [game?.countdown, game?.pool_value, game?.participant_count, game?.sponsored_amount, game?.is_sponsored, game?.entry_fee, topThree[0]?.name, comments.length, gameTime]);
 
   // Check for game ended
   useEffect(() => {

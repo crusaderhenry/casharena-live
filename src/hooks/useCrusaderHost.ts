@@ -5,22 +5,136 @@ import { supabase } from '@/integrations/supabase/client';
 // Crusader - Your custom voice game host with game-aware commentary
 interface GameState {
   timer: number;
+  gameTimeRemaining: number;
   leader: string | null;
   participantCount: number;
   poolValue: number;
+  sponsoredAmount: number;
+  isSponsored: boolean;
+  entryFee: number;
   isLive: boolean;
   commentCount: number;
+  chatIntensity: 'low' | 'medium' | 'high';
 }
+
+// Prize milestone thresholds for callouts
+const PRIZE_MILESTONES = [5000, 10000, 20000, 50000, 100000, 250000, 500000];
 
 // Voice ID for your custom cloned voice
 const CRUSADER_VOICE_ID = "I26ofw8CwlRZ6PZzoFaX";
 
+// Format pool value for speech (e.g., 50000 -> "fifty thousand")
+const formatPoolForSpeech = (amount: number): string => {
+  if (amount >= 1000000) {
+    const millions = amount / 1000000;
+    return millions === 1 ? 'one million' : `${millions} million`;
+  }
+  if (amount >= 1000) {
+    const thousands = Math.floor(amount / 1000);
+    const remainder = amount % 1000;
+    if (remainder === 0) {
+      return `${thousands} thousand`;
+    }
+    return `${thousands} thousand ${remainder}`;
+  }
+  return amount.toString();
+};
+
+// Prize callout phrases - varied and natural
+const PRIZE_CALLOUT_PHRASES = {
+  // Highlighting value (general awareness)
+  value_highlight: (pool: number, isSponsored: boolean) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    const sponsorNote = isSponsored ? ' And this one is sponsored!' : '';
+    return [
+      `Just a reminder... ${formattedPool} naira is on the line right now.${sponsorNote}`,
+      `That's ${formattedPool} naira waiting for someone to claim it.`,
+      `We're playing for ${formattedPool} naira here... that's real money!`,
+      `Don't forget what's at stake... ${formattedPool} naira!`,
+    ];
+  },
+  
+  // Vague value mentions (anti-repetition)
+  value_vague: () => [
+    `That prize is serious... someone's about to get paid!`,
+    `Real money sitting there... waiting for a name.`,
+    `This could pay someone's bills... just saying!`,
+    `Whoever wins this... is walking away happy!`,
+    `That amount is life-changing for someone in here!`,
+  ],
+  
+  // Milestone reached
+  milestone: (pool: number, isSponsored: boolean) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return [
+      `Woah! Prize pool just hit ${formattedPool} naira! This is getting BIG!`,
+      `${formattedPool} naira now! The stakes keep rising!`,
+      `We just crossed ${formattedPool} naira! The competition is heating up!`,
+    ];
+  },
+  
+  // Danger mode (last 5 minutes)
+  danger_mode: (pool: number) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return [
+      `Clock is running out... and ${formattedPool} naira is still unclaimed!`,
+      `Time is ticking! That ${formattedPool} naira could be yours!`,
+      `We're in danger mode now... ${formattedPool} naira waiting for a winner!`,
+      `Last stretch! Someone is about to walk away with ${formattedPool} naira!`,
+    ];
+  },
+  
+  // Leader change with prize context
+  leader_prize: (name: string, pool: number) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return [
+      `${name} is now holding onto ${formattedPool} naira! Can they keep it?`,
+      `New leader! ${name} has their eyes on that ${formattedPool} naira!`,
+      `${name} just took control of ${formattedPool} naira!`,
+    ];
+  },
+  
+  // Sponsored game hype
+  sponsored: (pool: number, sponsoredAmount: number) => {
+    const formattedSponsored = formatPoolForSpeech(sponsoredAmount);
+    return [
+      `This one is sponsored! ${formattedSponsored} naira... FREE ENTRY, REAL MONEY!`,
+      `Sponsored game alert! Someone is getting ${formattedSponsored} naira for FREE!`,
+      `No entry fee on this one... but the prize is REAL! ${formattedSponsored} naira!`,
+    ];
+  },
+  
+  // Silence breaker
+  silence_breaker: (pool: number) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return [
+      `It's quiet in here... but ${formattedPool} naira is still up for grabs!`,
+      `Hello? Is anyone going to fight for this ${formattedPool} naira?`,
+      `${formattedPool} naira just sitting there... who wants it?!`,
+    ];
+  },
+  
+  // Late game pressure
+  late_game: (pool: number, leader: string | null) => {
+    const formattedPool = formatPoolForSpeech(pool);
+    return leader ? [
+      `${leader} is this close to ${formattedPool} naira... will someone stop them?`,
+      `${formattedPool} naira is about to go to ${leader}!`,
+      `Someone better act fast... ${leader} is running away with ${formattedPool} naira!`,
+    ] : [
+      `${formattedPool} naira is waiting for a name!`,
+      `Someone is about to claim ${formattedPool} naira!`,
+      `The prize is right there... ${formattedPool} naira for the taking!`,
+    ];
+  },
+};
+
 // Game-aware phrases that reference actual game state
 const GAME_PHRASES = {
   welcome: (participants: number, pool: number) => [
-    `Welcome to the arena! We've got ${participants} players fighting for ${pool} naira! Let's get it!`,
-    `${participants} legends in the building! ${pool} naira on the line! This is gonna be EPIC!`,
-    `Crusader here! ${participants} players, ${pool} naira prize pool! Let the battle begin!`,
+    `Welcome to the arena! We've got ${participants} players fighting for ${formatPoolForSpeech(pool)} naira! Let's get it!`,
+    `${participants} legends in the building! ${formatPoolForSpeech(pool)} naira on the line! This is gonna be EPIC!`,
+    `Crusader here! ${participants} players, ${formatPoolForSpeech(pool)} naira prize pool! Let the battle begin!`,
   ],
   
   game_start: (participants: number) => [
@@ -76,9 +190,9 @@ const GAME_PHRASES = {
   ],
   
   game_over: (winner: string, prize: number) => [
-    `GAME OVER! ${winner} takes home ${prize} naira! What a BATTLE!`,
-    `AND THAT'S A WRAP! ${winner} is our champion with ${prize} naira!`,
-    `The dust has settled! ${winner} claims victory and ${prize} naira!`,
+    `GAME OVER! ${winner} takes home ${formatPoolForSpeech(prize)} naira! What a BATTLE!`,
+    `AND THAT'S A WRAP! ${winner} is our champion with ${formatPoolForSpeech(prize)} naira!`,
+    `The dust has settled! ${winner} claims victory and ${formatPoolForSpeech(prize)} naira!`,
   ],
   
   hype: (participants: number, comments: number) => [
@@ -106,23 +220,56 @@ export const useCrusaderHost = () => {
   const minIntervalRef = useRef(3000); // Minimum 3 seconds between announcements
   const audioQueueRef = useRef<HTMLAudioElement[]>([]);
   const isPlayingRef = useRef(false);
+  
+  // Prize callout tracking refs
+  const lastPrizeCalloutRef = useRef<number>(0);
+  const prizeCalloutCountRef = useRef<number>(0);
+  const lastMilestoneRef = useRef<number>(0);
+  const lastPrizeCalloutTypeRef = useRef<string>('');
+  const dangerModeAnnouncedRef = useRef<boolean>(false);
+  
+  // Minimum interval between prize callouts (45 seconds)
+  const PRIZE_CALLOUT_MIN_INTERVAL = 45000;
+  // Maximum prize callouts per game
+  const MAX_PRIZE_CALLOUTS_PER_GAME = 8;
+  
   const gameStateRef = useRef<GameState>({
     timer: 60,
+    gameTimeRemaining: 20 * 60,
     leader: null,
     participantCount: 0,
     poolValue: 0,
+    sponsoredAmount: 0,
+    isSponsored: false,
+    entryFee: 0,
     isLive: false,
     commentCount: 0,
+    chatIntensity: 'low',
   });
 
   useEffect(() => {
     enabledRef.current = settings.commentaryEnabled && isEnabled;
   }, [settings.commentaryEnabled, isEnabled]);
 
+  // Calculate chat intensity based on comment velocity
+  const calculateChatIntensity = useCallback((commentCount: number): 'low' | 'medium' | 'high' => {
+    // This is a simplified calculation - in reality you'd track velocity
+    if (commentCount > 50) return 'high';
+    if (commentCount > 20) return 'medium';
+    return 'low';
+  }, []);
+
   // Update game state
   const updateGameState = useCallback((state: Partial<GameState>) => {
-    gameStateRef.current = { ...gameStateRef.current, ...state };
-  }, []);
+    const newState = { ...gameStateRef.current, ...state };
+    
+    // Auto-calculate chat intensity
+    if (state.commentCount !== undefined) {
+      newState.chatIntensity = calculateChatIntensity(state.commentCount);
+    }
+    
+    gameStateRef.current = newState;
+  }, [calculateChatIntensity]);
 
   // Play next audio in queue
   const playNextInQueue = useCallback(() => {
@@ -225,6 +372,134 @@ export const useCrusaderHost = () => {
     return phrases[Math.floor(Math.random() * phrases.length)];
   };
 
+  // Check if prize callout is allowed (anti-spam)
+  const canCalloutPrize = useCallback((type: string): boolean => {
+    const now = Date.now();
+    const state = gameStateRef.current;
+    
+    // Check max callouts
+    if (prizeCalloutCountRef.current >= MAX_PRIZE_CALLOUTS_PER_GAME) {
+      return false;
+    }
+    
+    // Check interval (except for milestones which are event-driven)
+    if (type !== 'milestone' && now - lastPrizeCalloutRef.current < PRIZE_CALLOUT_MIN_INTERVAL) {
+      return false;
+    }
+    
+    // Don't callout if chat is very intense (let the action speak)
+    if (state.chatIntensity === 'high' && type !== 'milestone' && type !== 'danger_mode') {
+      return false;
+    }
+    
+    // Avoid repeating the same type consecutively
+    if (type === lastPrizeCalloutTypeRef.current && type !== 'danger_mode') {
+      return false;
+    }
+    
+    return true;
+  }, []);
+
+  // Record a prize callout
+  const recordPrizeCallout = useCallback((type: string) => {
+    lastPrizeCalloutRef.current = Date.now();
+    prizeCalloutCountRef.current += 1;
+    lastPrizeCalloutTypeRef.current = type;
+  }, []);
+
+  // Strategic prize callout function
+  const calloutPrize = useCallback((
+    reason: 'milestone' | 'danger_mode' | 'leader_change' | 'silence_breaker' | 'reminder' | 'sponsored' | 'late_game'
+  ) => {
+    if (!canCalloutPrize(reason)) return;
+    
+    const state = gameStateRef.current;
+    const { poolValue, isSponsored, sponsoredAmount, leader, participantCount, entryFee } = state;
+    
+    // Adapt intensity based on game size
+    const isSmallGame = participantCount < 10;
+    const isLargeGame = participantCount >= 50;
+    const isFreeGame = entryFee === 0 || isSponsored;
+    
+    let phrases: string[] = [];
+    
+    switch (reason) {
+      case 'milestone':
+        phrases = PRIZE_CALLOUT_PHRASES.milestone(poolValue, isSponsored);
+        break;
+        
+      case 'danger_mode':
+        phrases = PRIZE_CALLOUT_PHRASES.danger_mode(poolValue);
+        break;
+        
+      case 'leader_change':
+        if (leader) {
+          phrases = PRIZE_CALLOUT_PHRASES.leader_prize(leader, poolValue);
+        }
+        break;
+        
+      case 'silence_breaker':
+        phrases = PRIZE_CALLOUT_PHRASES.silence_breaker(poolValue);
+        break;
+        
+      case 'sponsored':
+        if (isSponsored) {
+          phrases = PRIZE_CALLOUT_PHRASES.sponsored(poolValue, sponsoredAmount || poolValue);
+        }
+        break;
+        
+      case 'late_game':
+        phrases = PRIZE_CALLOUT_PHRASES.late_game(poolValue, leader);
+        break;
+        
+      case 'reminder':
+      default:
+        // Alternate between specific and vague mentions for variety
+        if (Math.random() > 0.4) {
+          phrases = PRIZE_CALLOUT_PHRASES.value_highlight(poolValue, isSponsored);
+        } else {
+          phrases = PRIZE_CALLOUT_PHRASES.value_vague();
+        }
+        break;
+    }
+    
+    // For small games, tone down the hype
+    if (isSmallGame && reason !== 'milestone') {
+      // Use vague phrases more often for small games
+      if (Math.random() > 0.3) {
+        phrases = PRIZE_CALLOUT_PHRASES.value_vague();
+      }
+    }
+    
+    if (phrases.length > 0) {
+      speak(getRandomPhrase(phrases));
+      recordPrizeCallout(reason);
+    }
+  }, [canCalloutPrize, recordPrizeCallout, speak]);
+
+  // Check for prize milestones
+  const checkPrizeMilestone = useCallback((newPoolValue: number) => {
+    const crossedMilestone = PRIZE_MILESTONES.find(
+      milestone => newPoolValue >= milestone && lastMilestoneRef.current < milestone
+    );
+    
+    if (crossedMilestone) {
+      lastMilestoneRef.current = crossedMilestone;
+      calloutPrize('milestone');
+    }
+  }, [calloutPrize]);
+
+  // Check for danger mode entry (last 5 minutes)
+  const checkDangerMode = useCallback((gameTimeRemaining: number) => {
+    const isDangerMode = gameTimeRemaining <= 5 * 60 && gameTimeRemaining > 0;
+    
+    if (isDangerMode && !dangerModeAnnouncedRef.current) {
+      dangerModeAnnouncedRef.current = true;
+      // Slight delay to avoid overlap with other announcements
+      setTimeout(() => calloutPrize('danger_mode'), 2000);
+    }
+  }, [calloutPrize]);
+
   // Game-aware announcements
   const welcomeToArena = useCallback(() => {
     const { participantCount, poolValue } = gameStateRef.current;
@@ -233,19 +508,41 @@ export const useCrusaderHost = () => {
   }, [speak]);
 
   const announceGameStart = useCallback(() => {
-    const { participantCount } = gameStateRef.current;
+    const { participantCount, isSponsored } = gameStateRef.current;
     const phrases = GAME_PHRASES.game_start(participantCount);
     speak(getRandomPhrase(phrases));
-  }, [speak]);
+    
+    // Reset prize callout tracking for new game
+    prizeCalloutCountRef.current = 0;
+    lastPrizeCalloutRef.current = 0;
+    lastMilestoneRef.current = 0;
+    dangerModeAnnouncedRef.current = false;
+    
+    // If sponsored, announce it shortly after start
+    if (isSponsored) {
+      setTimeout(() => calloutPrize('sponsored'), 5000);
+    }
+  }, [speak, calloutPrize]);
 
   const announceLeaderChange = useCallback((leaderName: string) => {
-    const { timer } = gameStateRef.current;
+    const { timer, poolValue, participantCount } = gameStateRef.current;
     const phrases = GAME_PHRASES.leader_change(leaderName, timer);
     speak(getRandomPhrase(phrases));
-  }, [speak]);
+    
+    // Occasionally add prize context to leader changes (20% chance for large pools)
+    const isLargePool = poolValue >= 20000;
+    const isLateGame = timer <= 30;
+    
+    if (isLargePool && isLateGame && Math.random() < 0.3 && participantCount >= 10) {
+      setTimeout(() => calloutPrize('leader_change'), 3000);
+    }
+  }, [speak, calloutPrize]);
 
   const announceTimerLow = useCallback((seconds: number) => {
-    const { leader, commentCount } = gameStateRef.current;
+    const { leader, commentCount, gameTimeRemaining } = gameStateRef.current;
+    
+    // Check danger mode when timer warnings happen
+    checkDangerMode(gameTimeRemaining);
     
     let phrases: string[] = [];
     
@@ -257,6 +554,10 @@ export const useCrusaderHost = () => {
       phrases = GAME_PHRASES.timer_15(leader);
     } else if (seconds === 10) {
       phrases = GAME_PHRASES.timer_10(leader);
+      // Late game pressure callout
+      if (Math.random() < 0.4) {
+        setTimeout(() => calloutPrize('late_game'), 2000);
+      }
     } else if (seconds === 5) {
       phrases = GAME_PHRASES.timer_5();
     }
@@ -264,7 +565,7 @@ export const useCrusaderHost = () => {
     if (phrases.length > 0) {
       speak(getRandomPhrase(phrases));
     }
-  }, [speak]);
+  }, [speak, checkDangerMode, calloutPrize]);
 
   const announceCloseCall = useCallback((playerName?: string) => {
     const { leader } = gameStateRef.current;
@@ -282,17 +583,27 @@ export const useCrusaderHost = () => {
   }, [speak]);
 
   const randomHype = useCallback(() => {
-    const { participantCount, commentCount } = gameStateRef.current;
+    const { participantCount, commentCount, chatIntensity, poolValue, isSponsored } = gameStateRef.current;
     
-    // If game is quiet, encourage participation
+    // If game is quiet, sometimes use silence breaker with prize mention
     if (commentCount < 5 && gameStateRef.current.isLive) {
-      const phrases = GAME_PHRASES.quiet_game();
-      speak(getRandomPhrase(phrases));
+      // 30% chance to use prize-focused silence breaker
+      if (Math.random() < 0.3 && poolValue > 0) {
+        calloutPrize('silence_breaker');
+      } else {
+        const phrases = GAME_PHRASES.quiet_game();
+        speak(getRandomPhrase(phrases));
+      }
     } else {
-      const phrases = GAME_PHRASES.hype(participantCount, commentCount);
-      speak(getRandomPhrase(phrases));
+      // Regular hype, occasionally with prize reminder
+      if (chatIntensity !== 'high' && Math.random() < 0.15 && poolValue >= 10000) {
+        calloutPrize('reminder');
+      } else {
+        const phrases = GAME_PHRASES.hype(participantCount, commentCount);
+        speak(getRandomPhrase(phrases));
+      }
     }
-  }, [speak]);
+  }, [speak, calloutPrize]);
 
   const announceWinners = useCallback((winners: Array<{ name: string; position: number; prize: number }>) => {
     if (winners.length === 0) return;
@@ -302,7 +613,7 @@ export const useCrusaderHost = () => {
       setTimeout(() => {
         const positionText = winner.position === 1 ? 'first place' : 
                             winner.position === 2 ? 'second place' : 'third place';
-        speak(`${positionText} goes to ${winner.name} with ${winner.prize} naira!`);
+        speak(`${positionText} goes to ${winner.name} with ${formatPoolForSpeech(winner.prize)} naira!`);
       }, index * 3000);
     });
   }, [speak]);
@@ -340,6 +651,9 @@ export const useCrusaderHost = () => {
     announceGameOver,
     announceWinners,
     randomHype,
+    calloutPrize,
+    checkPrizeMilestone,
+    checkDangerMode,
     speak,
     stopSpeaking,
   };
