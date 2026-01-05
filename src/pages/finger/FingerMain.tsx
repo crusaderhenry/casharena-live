@@ -179,7 +179,7 @@ export const FingerMain = () => {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Swords className="w-5 h-5 text-primary" />
-              <h1 className="text-xl font-black text-foreground">Arena</h1>
+              <h1 className="text-xl font-black text-foreground">Crusader's Arena</h1>
             </div>
             <p className="text-sm text-muted-foreground">
               {liveGames.length} live • {scheduledGames.length} upcoming
@@ -207,11 +207,16 @@ export const FingerMain = () => {
         {/* No Games State */}
         {!hasGames && (
           <div className="card-panel text-center py-12">
-            <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
-              <Zap className="w-8 h-8 text-muted-foreground" />
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 relative">
+              <Swords className="w-8 h-8 text-primary animate-pulse" />
+              <div className="absolute inset-0 bg-primary/20 rounded-2xl animate-ping opacity-30" />
             </div>
-            <h3 className="font-bold text-foreground mb-2">No Games Available</h3>
-            <p className="text-sm text-muted-foreground">Check back soon for exciting new games!</p>
+            <h3 className="font-bold text-foreground mb-2">Crusader's Arena is Quiet</h3>
+            <p className="text-sm text-muted-foreground mb-4">No battles right now. New matches coming soon!</p>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
+              <Clock className="w-4 h-4 text-primary animate-pulse" />
+              <span className="text-sm font-medium text-primary">Next battle in ~5 mins</span>
+            </div>
           </div>
         )}
 
