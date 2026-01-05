@@ -106,9 +106,11 @@ export const FingerMain = () => {
 
   const liveGames = allGames.filter(g => g.status === 'live');
   const scheduledGames = allGames.filter(g => g.status === 'scheduled');
+  
+  // Only auto-select if user came from a specific game context, otherwise require manual selection
   const selectedGame = selectedGameId 
     ? allGames.find(g => g.id === selectedGameId) 
-    : (game || liveGames[0] || scheduledGames[0]);
+    : (game ? allGames.find(g => g.id === game.id) : null);
 
   const poolValue = selectedGame?.pool_value || 0;
   const entryFee = selectedGame?.entry_fee || 700;
