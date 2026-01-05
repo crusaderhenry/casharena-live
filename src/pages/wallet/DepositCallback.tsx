@@ -1,20 +1,38 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, Loader2, ArrowLeft, Home } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, ArrowLeft, Home, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { TransactionReceipt } from '@/components/wallet/TransactionReceipt';
+import { useReceiptDownload } from '@/hooks/useReceiptDownload';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 type CallbackStatus = 'loading' | 'success' | 'failed' | 'error';
+
+interface Transaction {
+  id: string;
+  type: string;
+  amount: number;
+  description: string | null;
+  reference: string | null;
+  status: string;
+  mode: string;
+  created_at: string;
+}
 
 export const DepositCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { refreshProfile } = useAuth();
+  const { platformName } = usePlatformSettings();
+  const { receiptRef, downloadReceipt } = useReceiptDownload();
   const [status, setStatus] = useState<CallbackStatus>('loading');
+  const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [amount, setAmount] = useState<number>(0);
   const [reference, setReference] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     const verifyTransaction = async () => {
@@ -30,13 +48,13 @@ export const DepositCallback = () => {
 
       try {
         // Check transaction status in our database
-        const { data: transaction, error } = await supabase
+        const { data: txData, error } = await supabase
           .from('wallet_transactions')
           .select('*')
           .eq('reference', ref)
           .single();
 
-        if (error || !transaction) {
+        if (error || !txData) {
           // Transaction not found - might be processing
           // Wait a bit and retry
           await new Promise(resolve => setTimeout(resolve, 2000));
@@ -57,7 +75,7 @@ export const DepositCallback = () => {
           return;
         }
 
-        handleTransactionStatus(transaction);
+        handleTransactionStatus(txData);
       } catch (err) {
         console.error('Verification error:', err);
         setStatus('error');
@@ -65,10 +83,11 @@ export const DepositCallback = () => {
       }
     };
 
-    const handleTransactionStatus = async (transaction: any) => {
-      setAmount(Math.abs(transaction.amount));
+    const handleTransactionStatus = async (txData: Transaction) => {
+      setAmount(Math.abs(txData.amount));
+      setTransaction(txData);
 
-      switch (transaction.status) {
+      switch (txData.status) {
         case 'completed':
           setStatus('success');
           await refreshProfile();
@@ -85,12 +104,13 @@ export const DepositCallback = () => {
           const { data: updatedTransaction } = await supabase
             .from('wallet_transactions')
             .select('*')
-            .eq('reference', transaction.reference)
+            .eq('reference', txData.reference)
             .single();
 
           if (updatedTransaction?.status === 'completed') {
             setStatus('success');
             setAmount(Math.abs(updatedTransaction.amount));
+            setTransaction(updatedTransaction);
             await refreshProfile();
           } else if (updatedTransaction?.status === 'failed') {
             setStatus('failed');
@@ -98,7 +118,7 @@ export const DepositCallback = () => {
           } else {
             // Still pending after wait
             setStatus('success');
-            setAmount(Math.abs(transaction.amount));
+            setAmount(Math.abs(txData.amount));
             await refreshProfile();
           }
           break;
@@ -110,6 +130,20 @@ export const DepositCallback = () => {
 
     verifyTransaction();
   }, [searchParams, refreshProfile]);
+
+  const handleDownloadReceipt = async () => {
+    if (!transaction) return;
+    
+    setDownloading(true);
+    try {
+      const filename = `${platformName.toLowerCase()}-deposit-${transaction.id.slice(0, 8)}`;
+      await downloadReceipt(filename);
+    } catch (error) {
+      console.error('Download failed:', error);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const formatMoney = (value: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -142,10 +176,25 @@ export const DepositCallback = () => {
               <p className="text-xs text-muted-foreground mb-8">Reference: {reference}</p>
               
               <div className="space-y-3">
+                {transaction && (
+                  <Button 
+                    onClick={handleDownloadReceipt} 
+                    variant="outline" 
+                    className="w-full"
+                    disabled={downloading}
+                  >
+                    {downloading ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-2" />
+                    )}
+                    Download Receipt
+                  </Button>
+                )}
                 <Button onClick={() => navigate('/wallet')} className="w-full" size="lg">
                   Go to Wallet
                 </Button>
-                <Button onClick={() => navigate('/home')} variant="outline" className="w-full">
+                <Button onClick={() => navigate('/home')} variant="ghost" className="w-full">
                   <Home className="w-4 h-4 mr-2" />
                   Back to Home
                 </Button>
@@ -166,7 +215,7 @@ export const DepositCallback = () => {
                 <Button onClick={() => navigate('/wallet')} className="w-full" size="lg">
                   Try Again
                 </Button>
-                <Button onClick={() => navigate('/home')} variant="outline" className="w-full">
+                <Button onClick={() => navigate('/home')} variant="ghost" className="w-full">
                   <Home className="w-4 h-4 mr-2" />
                   Back to Home
                 </Button>
@@ -192,6 +241,17 @@ export const DepositCallback = () => {
           )}
         </div>
       </div>
+
+      {/* Hidden receipt for download */}
+      {transaction && (
+        <div className="fixed -left-[9999px] top-0">
+          <TransactionReceipt
+            ref={receiptRef}
+            transaction={transaction}
+            platformName={platformName}
+          />
+        </div>
+      )}
     </div>
   );
 };

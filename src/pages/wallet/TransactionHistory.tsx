@@ -1,14 +1,37 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { useWalletTransactions } from '@/hooks/useWalletTransactions';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { TestModeBanner } from '@/components/wallet/TestModeBanner';
-import { ChevronLeft, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { TransactionReceiptModal } from '@/components/wallet/TransactionReceiptModal';
+import { ChevronLeft, ArrowUpRight, ArrowDownLeft, FileText } from 'lucide-react';
+
+interface Transaction {
+  id: string;
+  type: string;
+  amount: number;
+  description: string | null;
+  reference: string | null;
+  status: string;
+  mode: string;
+  created_at: string;
+  game_id: string | null;
+  user_id: string;
+  provider_reference: string | null;
+}
 
 export const TransactionHistory = () => {
   const navigate = useNavigate();
   const { transactions, loading } = useWalletTransactions();
   const { isTestMode } = usePlatformSettings();
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+
+  const handleViewReceipt = (tx: Transaction) => {
+    setSelectedTransaction(tx);
+    setReceiptOpen(true);
+  };
 
   const getTransactionIcon = (type: string) => {
     if (type.includes('win') || type === 'deposit') {
@@ -101,17 +124,17 @@ export const TransactionHistory = () => {
           ) : (
             transactions.map((tx) => (
               <div key={tx.id} className="card-game flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                     tx.amount >= 0 ? 'bg-primary/20' : 'bg-destructive/20'
                   }`}>
                     {getTransactionIcon(tx.type)}
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-foreground">{tx.description || tx.type}</p>
+                      <p className="font-medium text-foreground truncate">{tx.description || tx.type}</p>
                       {tx.status !== 'completed' && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase ${getStatusBadge(tx.status)}`}>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase flex-shrink-0 ${getStatusBadge(tx.status)}`}>
                           {tx.status}
                         </span>
                       )}
@@ -124,14 +147,29 @@ export const TransactionHistory = () => {
                     </div>
                   </div>
                 </div>
-                <p className={`font-bold ${getTransactionColor(tx.amount)}`}>
-                  {tx.amount >= 0 ? '+' : ''}₦{Math.abs(tx.amount).toLocaleString()}
-                </p>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <p className={`font-bold ${getTransactionColor(tx.amount)}`}>
+                    {tx.amount >= 0 ? '+' : ''}₦{Math.abs(tx.amount).toLocaleString()}
+                  </p>
+                  <button
+                    onClick={() => handleViewReceipt(tx)}
+                    className="w-8 h-8 rounded-lg bg-muted/50 hover:bg-muted flex items-center justify-center transition-colors"
+                    title="View Receipt"
+                  >
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
               </div>
             ))
           )}
         </div>
       </div>
+      
+      <TransactionReceiptModal
+        transaction={selectedTransaction}
+        open={receiptOpen}
+        onOpenChange={setReceiptOpen}
+      />
       
       <BottomNav />
     </div>

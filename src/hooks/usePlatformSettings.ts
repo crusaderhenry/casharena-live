@@ -85,6 +85,7 @@ export const usePlatformSettings = () => {
     loading,
     error,
     isTestMode: settings?.test_mode ?? true,
+    platformName: settings?.platform_name ?? 'FortunesHQ',
     updateSettings,
     toggleTestMode,
     refetch: fetchSettings,
