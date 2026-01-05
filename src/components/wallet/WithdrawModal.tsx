@@ -38,6 +38,7 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
   const [showKycModal, setShowKycModal] = useState(false);
   const [kycVerified, setKycVerified] = useState(false);
   const [kycName, setKycName] = useState({ firstName: '', lastName: '' });
+  const [nameMismatchError, setNameMismatchError] = useState(false);
 
   // Check KYC status on open
   useEffect(() => {
@@ -182,7 +183,6 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
     }
 
     // Verify account name matches KYC name
-    const fullKycName = `${kycName.firstName} ${kycName.lastName}`.toLowerCase();
     const normalizedAccountName = accountName.toLowerCase();
     
     // Check if account name contains the KYC name parts
@@ -190,7 +190,7 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
     const lastNameMatch = normalizedAccountName.includes(kycName.lastName.toLowerCase());
     
     if (!firstNameMatch || !lastNameMatch) {
-      toast.error('Bank account name must match your verified identity');
+      setNameMismatchError(true);
       return;
     }
 
@@ -422,6 +422,54 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
         onOpenChange={setShowKycModal}
         onVerified={handleKycVerified}
       />
+
+      {/* Name Mismatch Error Dialog */}
+      <Dialog open={nameMismatchError} onOpenChange={setNameMismatchError}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <XCircle className="w-5 h-5" />
+              Account Name Mismatch
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/30">
+              <p className="text-sm text-foreground font-medium mb-2">
+                Your bank account name does not match your verified identity.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                For security, withdrawals can only be made to bank accounts that match your KYC-verified name.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Your Verified Name</p>
+                <p className="font-medium text-primary">{kycName.firstName} {kycName.lastName}</p>
+              </div>
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Bank Account Name</p>
+                <p className="font-medium text-foreground">{accountName}</p>
+              </div>
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              <p className="font-medium mb-1">What you can do:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Use a bank account registered in your verified name</li>
+                <li>Contact support if you believe this is an error</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={() => setNameMismatchError(false)}>
+              Try Different Account
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };
