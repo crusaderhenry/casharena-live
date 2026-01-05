@@ -236,6 +236,7 @@ export type Database = {
           id: string
           platform_cut_percent: number
           platform_name: string
+          selected_host: string
           test_mode: boolean
           updated_at: string
         }
@@ -243,6 +244,7 @@ export type Database = {
           id?: string
           platform_cut_percent?: number
           platform_name?: string
+          selected_host?: string
           test_mode?: boolean
           updated_at?: string
         }
@@ -250,6 +252,7 @@ export type Database = {
           id?: string
           platform_cut_percent?: number
           platform_name?: string
+          selected_host?: string
           test_mode?: boolean
           updated_at?: string
         }

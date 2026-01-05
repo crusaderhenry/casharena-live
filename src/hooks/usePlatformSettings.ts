@@ -6,6 +6,7 @@ export interface PlatformSettings {
   test_mode: boolean;
   platform_name: string;
   platform_cut_percent: number;
+  selected_host: string;
   updated_at: string;
 }
 
@@ -92,6 +93,7 @@ export const usePlatformSettings = () => {
     error,
     isTestMode: settings?.test_mode ?? true,
     platformName: settings?.platform_name ?? 'FortunesHQ',
+    selectedHost: settings?.selected_host ?? 'crusader',
     updateSettings,
     toggleTestMode,
     refetch: fetchSettings,

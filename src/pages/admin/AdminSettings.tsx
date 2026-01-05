@@ -1,11 +1,12 @@
-import { Settings, Save, Zap, AlertTriangle, Users, Power } from 'lucide-react';
+import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAdmin } from '@/contexts/AdminContext';
+import { AVAILABLE_HOSTS, getHostById } from '@/hooks/useCrusaderHost';
 import { toast } from 'sonner';
 
 export const AdminSettings = () => {
-  const { settings: dbSettings, updateSettings: updateDbSettings, toggleTestMode, isTestMode, loading } = usePlatformSettings();
+  const { settings: dbSettings, updateSettings: updateDbSettings, toggleTestMode, isTestMode, selectedHost, loading } = usePlatformSettings();
   const { simulateHighTraffic } = useAdmin();
   
   const [localSettings, setLocalSettings] = useState({
@@ -13,6 +14,7 @@ export const AdminSettings = () => {
     platformCut: 10,
     testMode: true,
     maintenanceMode: false,
+    selectedHost: 'crusader',
   });
 
   useEffect(() => {
@@ -22,6 +24,7 @@ export const AdminSettings = () => {
         platformName: dbSettings.platform_name,
         platformCut: dbSettings.platform_cut_percent,
         testMode: dbSettings.test_mode,
+        selectedHost: dbSettings.selected_host || 'crusader',
       }));
     }
   }, [dbSettings]);
@@ -30,6 +33,7 @@ export const AdminSettings = () => {
     const success = await updateDbSettings({
       platform_name: localSettings.platformName,
       platform_cut_percent: localSettings.platformCut,
+      selected_host: localSettings.selectedHost,
     });
     
     if (success) {
@@ -130,6 +134,52 @@ export const AdminSettings = () => {
             <p className="text-[10px] text-muted-foreground mt-1">Percentage of pool taken as platform fee</p>
           </div>
         </div>
+      </div>
+
+      {/* Host Selection */}
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h2 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+          <Mic className="w-5 h-5 text-primary" />
+          Game Host Selection
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Choose the AI voice host for live game commentary
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {AVAILABLE_HOSTS.map((host) => {
+            const isSelected = localSettings.selectedHost === host.id;
+            return (
+              <button
+                key={host.id}
+                onClick={() => setLocalSettings(prev => ({ ...prev, selectedHost: host.id }))}
+                className={`p-4 rounded-xl border-2 transition-all text-left ${
+                  isSelected
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border bg-muted/30 hover:border-primary/50'
+                }`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-3xl">{host.emoji}</span>
+                  <div>
+                    <p className="font-bold text-foreground">{host.name}</p>
+                    <p className="text-xs text-muted-foreground">{host.description}</p>
+                  </div>
+                </div>
+                {isSelected && (
+                  <div className="mt-2 text-xs text-primary font-medium flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                    Currently Active
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        
+        <p className="text-[10px] text-muted-foreground mt-4">
+          Voice ID: {getHostById(localSettings.selectedHost).voiceId}
+        </p>
       </div>
 
       {/* Mode Toggles */}
