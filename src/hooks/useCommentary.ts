@@ -10,9 +10,14 @@ export const useCommentary = () => {
   const lastAnnouncementRef = useRef<number>(0);
   const synthRef = useRef<SpeechSynthesis | null>(null);
 
-  // Update enabledRef when host is muted
+  // Update enabledRef when host is muted and stop any playing speech
   useEffect(() => {
     enabledRef.current = settings.commentaryEnabled && !settings.hostMuted;
+    
+    // If muted, cancel any ongoing speech immediately
+    if (settings.hostMuted && synthRef.current) {
+      synthRef.current.cancel();
+    }
   }, [settings.commentaryEnabled, settings.hostMuted]);
 
   useEffect(() => {
@@ -25,7 +30,8 @@ export const useCommentary = () => {
   }, []);
 
   const speak = useCallback((text: string, rate = 1.1, pitch = 1.0) => {
-    if (!synthRef.current || !enabledRef.current) return;
+    // Double-check mute state when speaking
+    if (!synthRef.current || !enabledRef.current || settings.hostMuted) return;
     
     // Throttle announcements to prevent overlap
     const now = Date.now();
@@ -51,7 +57,7 @@ export const useCommentary = () => {
     }
 
     synthRef.current.speak(utterance);
-  }, []);
+  }, [settings.hostMuted]);
 
   const announceLeaderChange = useCallback((leaderName: string) => {
     const phrases = [
