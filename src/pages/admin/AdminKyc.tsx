@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface UserKycData {
   id: string;
@@ -35,6 +36,7 @@ interface UserKycData {
 }
 
 export const AdminKyc = () => {
+  const { user: adminUser } = useAuth();
   const [users, setUsers] = useState<UserKycData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -50,6 +52,23 @@ export const AdminKyc = () => {
 
   // Revoke dialog state
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+
+  // Log audit action
+  const logAuditAction = async (action: string, resourceId: string, details: object) => {
+    if (!adminUser) return;
+    
+    try {
+      await supabase.from('audit_logs').insert([{
+        user_id: adminUser.id,
+        action,
+        resource_type: 'kyc',
+        resource_id: resourceId,
+        details: JSON.parse(JSON.stringify(details)),
+      }]);
+    } catch (err) {
+      console.error('Failed to log audit action:', err);
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -93,6 +112,14 @@ export const AdminKyc = () => {
 
       if (error) throw error;
 
+      // Log audit action
+      await logAuditAction('kyc_manual_verify', selectedUser.id, {
+        target_user: selectedUser.username,
+        target_email: selectedUser.email,
+        kyc_type: verifyType,
+        kyc_name: `${verifyFirstName.trim()} ${verifyLastName.trim()}`,
+      });
+
       toast.success(`KYC verified for ${selectedUser.username}`);
       setVerifyDialogOpen(false);
       setSelectedUser(null);
@@ -112,6 +139,10 @@ export const AdminKyc = () => {
 
     setActionLoading(selectedUser.id);
     try {
+      // Store previous values for audit log
+      const previousKycName = `${selectedUser.kyc_first_name || ''} ${selectedUser.kyc_last_name || ''}`.trim();
+      const previousKycType = selectedUser.kyc_type;
+
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -124,6 +155,14 @@ export const AdminKyc = () => {
         .eq('id', selectedUser.id);
 
       if (error) throw error;
+
+      // Log audit action
+      await logAuditAction('kyc_revoke', selectedUser.id, {
+        target_user: selectedUser.username,
+        target_email: selectedUser.email,
+        previous_kyc_type: previousKycType,
+        previous_kyc_name: previousKycName,
+      });
 
       toast.success(`KYC revoked for ${selectedUser.username}`);
       setRevokeDialogOpen(false);
