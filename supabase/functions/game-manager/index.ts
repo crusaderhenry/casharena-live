@@ -35,10 +35,38 @@ async function isAdmin(supabase: any, userId: string): Promise<boolean> {
   return !!data;
 }
 
+// Helper to log admin actions
+async function logAuditAction(
+  supabase: any,
+  userId: string,
+  action: string,
+  resourceType: string,
+  resourceId: string | null,
+  details: Record<string, any> | null,
+  ipAddress: string | null
+) {
+  try {
+    await supabase.from('audit_logs').insert({
+      user_id: userId,
+      action,
+      resource_type: resourceType,
+      resource_id: resourceId,
+      details,
+      ip_address: ipAddress,
+    });
+  } catch (err) {
+    console.error('Failed to log audit action:', err);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Get client IP for audit logging
+  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                   req.headers.get('x-real-ip') || null;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -107,6 +135,10 @@ serve(async (req) => {
           .single();
 
         if (error) throw error;
+        
+        // Log audit action
+        await logAuditAction(supabase, authenticatedUser!.id, 'create_game', 'game', game.id, gameConfig, clientIp);
+        
         console.log('Game created by admin:', authenticatedUser?.id, game.id);
         return new Response(JSON.stringify({ success: true, game }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -223,6 +255,10 @@ serve(async (req) => {
           .eq('id', gameId);
 
         if (error) throw error;
+        
+        // Log audit action
+        await logAuditAction(supabase, authenticatedUser!.id, 'start_game', 'game', gameId, { participant_count: (game as any)?.participant_count }, clientIp);
+        
         console.log('Game started by admin:', authenticatedUser?.id, gameId);
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -355,6 +391,13 @@ serve(async (req) => {
           })
           .eq('id', gameId);
 
+        // Log audit action
+        await logAuditAction(supabase, authenticatedUser!.id, 'end_game', 'game', gameId, { 
+          winner_count: winners.length, 
+          pool_value: game.pool_value,
+          platform_cut: platformCut 
+        }, clientIp);
+
         console.log('Game ended by admin:', authenticatedUser?.id, gameId, 'Winners:', winners.length);
         return new Response(JSON.stringify({ success: true, winners, platformCut }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -381,6 +424,9 @@ serve(async (req) => {
         await supabase
           .from('profiles')
           .update({ rank_points: 0, weekly_rank: null });
+
+        // Log audit action
+        await logAuditAction(supabase, authenticatedUser!.id, 'reset_weekly_ranks', 'system', null, null, clientIp);
 
         console.log('Weekly ranks reset by admin:', authenticatedUser?.id);
         return new Response(JSON.stringify({ success: true }), {
