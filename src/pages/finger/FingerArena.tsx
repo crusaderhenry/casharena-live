@@ -89,6 +89,8 @@ export const FingerArena = () => {
   const [showMicCheck, setShowMicCheck] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const hasAnnouncedStart = useRef(false);
+  const hasNavigatedToResults = useRef(false);
+  const hasStartedAudio = useRef(false);
   const lastHypeRef = useRef(0);
 
   const currentUsername = profile?.username || userProfile.username;
@@ -218,27 +220,36 @@ export const FingerArena = () => {
     }
   }, [game?.status, topThree, game?.pool_value]);
 
-  // Navigate to results when winners are determined
+  // Navigate to results when the game is ended (even if winners insert is delayed)
   useEffect(() => {
-    if (winners.length > 0 && isGameOver) {
-      const timeout = setTimeout(() => {
-        const winnerNames = winners.sort((a, b) => a.position - b.position).map(w => w.profile?.username || 'Unknown');
-        const isWinner = winners.some(w => w.user_id === user?.id);
-        const userPosition = winners.find(w => w.user_id === user?.id)?.position || 0;
-        
-        navigate('/finger/results', {
-          state: {
-            winners: winnerNames,
-            totalPool: game?.pool_value || 0,
-            isWinner,
-            position: userPosition,
-          }
-        });
-      }, 5000);
-      
-      return () => clearTimeout(timeout);
-    }
-  }, [winners, isGameOver, navigate, user?.id, game?.pool_value]);
+    if (!isGameOver) return;
+    if (game?.status !== 'ended') return;
+    if (hasNavigatedToResults.current) return;
+
+    hasNavigatedToResults.current = true;
+
+    const timeout = setTimeout(() => {
+      const sortedWinners = [...winners].sort((a, b) => a.position - b.position);
+      const winnerNames =
+        sortedWinners.length > 0
+          ? sortedWinners.map((w) => w.profile?.username || 'Unknown')
+          : topThree.map((t) => t.name).slice(0, 3);
+
+      const isWinner = sortedWinners.some((w) => w.user_id === user?.id);
+      const userPosition = sortedWinners.find((w) => w.user_id === user?.id)?.position || 0;
+
+      navigate('/finger/results', {
+        state: {
+          winners: winnerNames,
+          totalPool: game?.pool_value || 0,
+          isWinner,
+          position: userPosition,
+        },
+      });
+    }, 2500);
+
+    return () => clearTimeout(timeout);
+  }, [winners, isGameOver, game?.status, navigate, user?.id, game?.pool_value, topThree]);
 
   // Combine real and mock comments based on test mode
   const displayComments = useMemo(() => {
@@ -270,17 +281,21 @@ export const FingerArena = () => {
     }
   }, [displayComments, lastLeader, crusader, play]);
 
-  // Start background music on mount
+  // Start background music on mount (guard against unstable context function identities)
   useEffect(() => {
+    if (hasStartedAudio.current) return;
+    hasStartedAudio.current = true;
+
     playBackgroundMusic('arena');
-    
+
     const micCheckDone = sessionStorage.getItem('micCheckComplete');
     if (!micCheckDone) {
       setTimeout(() => setShowMicCheck(true), 2000);
     }
 
     return () => stopBackgroundMusic();
-  }, [playBackgroundMusic, stopBackgroundMusic]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   // Welcome announcement (separate effect to avoid loops)
   useEffect(() => {

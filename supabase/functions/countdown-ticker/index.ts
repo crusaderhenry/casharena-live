@@ -93,16 +93,43 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check for games that ended
-    const endedGames = (tickResults || []).filter((r: any) => r.game_ended);
+    // Check for games that ended (or are stuck at 0)
+    const endedFromRpc = (tickResults || []).filter((r: any) => r.game_ended);
+    const endedGameIds = new Set<string>(endedFromRpc.map((r: any) => r.game_id));
 
-    for (const endedGame of endedGames) {
-      console.log(`[countdown-ticker] Game ${endedGame.game_id} countdown reached 0, triggering end`);
+    // Some games can get stuck at countdown=0 without being flagged by tick_game_countdowns.
+    // Catch those and force end-game logic.
+    const { data: stuckGames, error: stuckErr } = await supabase
+      .from('fastest_finger_games')
+      .select('id')
+      .eq('status', 'live')
+      .is('end_time', null)
+      .lte('countdown', 0);
 
-      // Trigger the game-timer to handle end-game logic
-      await supabase.functions.invoke('game-timer', {
-        body: { action: 'tick', gameId: endedGame.game_id },
+    if (stuckErr) {
+      console.error('[countdown-ticker] Error selecting stuck games:', stuckErr);
+    }
+
+    for (const g of (stuckGames || []) as any[]) {
+      endedGameIds.add(g.id);
+    }
+
+    const triggeredEndGames: string[] = [];
+
+    for (const gameId of endedGameIds) {
+      console.log(`[countdown-ticker] Game ${gameId} countdown reached 0, triggering end`);
+
+      // Trigger the game-timer to handle end-game logic (as cron)
+      const { error: invokeErr } = await supabase.functions.invoke('game-timer', {
+        body: { action: 'tick', gameId },
+        headers: cronSecret ? { 'x-cron-secret': cronSecret } : undefined,
       });
+
+      if (invokeErr) {
+        console.error('[countdown-ticker] Error invoking game-timer for game:', gameId, invokeErr);
+      } else {
+        triggeredEndGames.push(gameId);
+      }
     }
 
     return new Response(
@@ -110,7 +137,8 @@ Deno.serve(async (req) => {
         success: true,
         startedGames,
         tickedGames: tickResults?.length || 0,
-        endedGames: endedGames.length,
+        endedGames: triggeredEndGames.length,
+        triggeredEndGames,
         results: tickResults,
         timestamp: nowIso,
       }),
