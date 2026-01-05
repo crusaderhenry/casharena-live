@@ -116,11 +116,13 @@ export const FingerMain = () => {
   // Real-time countdown to next game
   const [timeToNext, setTimeToNext] = useState<string | null>(null);
   const [hasNotifiedZero, setHasNotifiedZero] = useState(false);
+  const [hasNotifiedTenSec, setHasNotifiedTenSec] = useState(false);
   
   useEffect(() => {
     if (!nextScheduledGame?.start_time) {
       setTimeToNext(null);
       setHasNotifiedZero(false);
+      setHasNotifiedTenSec(false);
       return;
     }
 
@@ -139,6 +141,13 @@ export const FingerMain = () => {
         return;
       }
 
+      // 10-second warning
+      if (diff <= 10000 && diff > 0 && !hasNotifiedTenSec) {
+        play('click');
+        buttonClick();
+        setHasNotifiedTenSec(true);
+      }
+
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const secs = Math.floor((diff % (1000 * 60)) / 1000);
@@ -155,7 +164,7 @@ export const FingerMain = () => {
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
-  }, [nextScheduledGame?.start_time, hasNotifiedZero, play, success]);
+  }, [nextScheduledGame?.start_time, hasNotifiedZero, hasNotifiedTenSec, play, success, buttonClick]);
   
   // Only auto-select if user came from a specific game context, otherwise require manual selection
   const selectedGame = selectedGameId 
