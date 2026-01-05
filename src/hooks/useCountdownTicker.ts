@@ -21,15 +21,22 @@ export const useCountdownTicker = (
     lastTickRef.current = now;
 
     try {
-      const { data, error } = await supabase.functions.invoke('countdown-ticker', {
+      // Check if user is authenticated before calling
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // Skip if not authenticated - the server will handle ticks via cron
+        return;
+      }
+      
+      const { error } = await supabase.functions.invoke('countdown-ticker', {
         body: {},
       });
 
-      if (error) {
+      if (error && !error.message?.includes('401')) {
         console.error('[useCountdownTicker] Error:', error);
       }
     } catch (err) {
-      console.error('[useCountdownTicker] Failed to tick:', err);
+      // Silently fail - server cron handles ticks as fallback
     }
   }, [isLiveGame, isTestMode, gameId]);
 
