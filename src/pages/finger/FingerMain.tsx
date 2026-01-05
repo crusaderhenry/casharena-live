@@ -214,7 +214,8 @@ export const FingerMain = () => {
     if (!hasJoined && profile) {
       await joinGame();
     }
-    navigate('/finger/arena');
+    // Go to lobby first, not directly to arena
+    navigate('/finger/lobby');
   };
 
   if (loading) {
