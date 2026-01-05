@@ -43,7 +43,7 @@ export const GameStatusHeader = ({
 
   useEffect(() => {
     const calculateTime = () => {
-      if (isLive) {
+      if (isLive && game.start_time) {
         const remaining = gameTimeRemaining(game.start_time, game.max_duration || 20);
         const isEndingSoon = remaining <= 300;
         setTimeDisplay({ 
@@ -51,14 +51,14 @@ export const GameStatusHeader = ({
           value: formatGameTime(remaining),
           isUrgent: isEndingSoon,
         });
-      } else if (isOpen) {
+      } else if (isOpen && game.start_time) {
         const remaining = secondsUntil(game.start_time);
         setTimeDisplay({ 
           label: 'Goes Live', 
           value: formatCountdown(remaining),
           isUrgent: remaining <= 60,
         });
-      } else if (isScheduled) {
+      } else if (isScheduled && game.scheduled_at) {
         const remaining = secondsUntil(game.scheduled_at);
         setTimeDisplay({ 
           label: 'Opens In', 
@@ -71,7 +71,8 @@ export const GameStatusHeader = ({
     calculateTime();
     const interval = setInterval(calculateTime, 1000);
     return () => clearInterval(interval);
-  }, [game, isLive, isOpen, isScheduled, gameTimeRemaining, secondsUntil, synced]);
+    // Only re-run when game identity/timing changes, not function refs
+  }, [game.id, game.status, game.start_time, game.scheduled_at, game.max_duration, isLive, isOpen, isScheduled]);
 
   const formatMoney = (amount: number) => {
     if (amount >= 1_000_000_000) return `₦${(amount / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;

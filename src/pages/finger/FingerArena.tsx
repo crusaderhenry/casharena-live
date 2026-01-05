@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { VoiceRoomLive } from '@/components/VoiceRoomLive';
 import { TestControls } from '@/components/TestControls';
@@ -13,6 +13,7 @@ import { useCrusaderHost } from '@/hooks/useCrusaderHost';
 import { useAudio } from '@/contexts/AudioContext';
 import { useToast } from '@/hooks/use-toast';
 import { useServerTime } from '@/hooks/useServerTime';
+import { useMockSimulation } from '@/hooks/useMockSimulation';
 import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, AlertTriangle, Zap, Trophy, Radio, Timer, Flame, Eye } from 'lucide-react';
 import {
   AlertDialog,
@@ -46,6 +47,7 @@ export const FingerArena = () => {
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { toast } = useToast();
   const { gameTimeRemaining, synced } = useServerTime();
+  const { mockComments, triggerCommentBurst } = useMockSimulation(isTestMode, game?.id);
   
   const [timer, setTimer] = useState(60);
   const [gameTime, setGameTime] = useState(20 * 60);
@@ -144,10 +146,15 @@ export const FingerArena = () => {
     }
   }, [winners, isGameOver, navigate, user?.id, game?.pool_value]);
 
+  // Combine real and mock comments based on test mode
+  const displayComments = useMemo(() => {
+    return isTestMode ? mockComments : comments;
+  }, [isTestMode, mockComments, comments]);
+
   // Update top 3 from comments
   useEffect(() => {
     const uniquePlayers = new Map<string, TopThree>();
-    comments.forEach(comment => {
+    displayComments.forEach(comment => {
       const username = comment.profile?.username || 'Unknown';
       if (!uniquePlayers.has(username)) {
         uniquePlayers.set(username, {
@@ -167,7 +174,7 @@ export const FingerArena = () => {
     if (top[0]) {
       setLastLeader(top[0].name);
     }
-  }, [comments, lastLeader, crusader, play]);
+  }, [displayComments, lastLeader, crusader, play]);
 
   // Start background music and welcome
   useEffect(() => {
@@ -299,8 +306,8 @@ export const FingerArena = () => {
     sessionStorage.setItem('micCheckComplete', 'true');
   };
 
-  // Loading state
-  if (loading) {
+  // Loading state (skip loading spinner in test mode)
+  if (loading && !isTestMode) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -366,18 +373,33 @@ export const FingerArena = () => {
     );
   }
 
+  // Mock game for test mode
+  const mockGame = {
+    id: 'test-game',
+    name: 'Test Game',
+    status: 'live' as const,
+    pool_value: 35000,
+    participant_count: 24,
+    countdown: 60,
+    entry_fee: 700,
+    max_duration: 20,
+    payout_type: 'top3',
+    start_time: new Date().toISOString(),
+  };
+
   // Construct a game object for the header component
-  const gameForHeader = game ? {
-    id: game.id,
-    name: game.name,
-    status: game.status,
-    pool_value: game.pool_value,
-    participant_count: game.participant_count,
-    countdown: game.countdown,
-    entry_fee: game.entry_fee,
-    max_duration: game.max_duration,
-    payout_type: game.payout_type,
-    start_time: game.start_time,
+  const effectiveGame = game || (isTestMode ? mockGame : null);
+  const gameForHeader = effectiveGame ? {
+    id: effectiveGame.id,
+    name: effectiveGame.name,
+    status: effectiveGame.status,
+    pool_value: effectiveGame.pool_value,
+    participant_count: effectiveGame.participant_count,
+    countdown: effectiveGame.countdown,
+    entry_fee: effectiveGame.entry_fee,
+    max_duration: effectiveGame.max_duration,
+    payout_type: effectiveGame.payout_type,
+    start_time: effectiveGame.start_time,
   } : null;
 
   return (
@@ -567,21 +589,29 @@ export const FingerArena = () => {
               onReset={handleTestReset}
               endLabel="End & Win"
             />
-            <button
-              onClick={() => setIsSpectator(!isSpectator)}
-              className="w-full text-xs py-2 rounded-xl bg-muted text-muted-foreground hover:bg-muted/80"
-            >
-              Toggle Spectator Mode
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsSpectator(!isSpectator)}
+                className="flex-1 text-xs py-2 rounded-xl bg-muted text-muted-foreground hover:bg-muted/80"
+              >
+                Toggle Spectator
+              </button>
+              <button
+                onClick={() => triggerCommentBurst(8)}
+                className="flex-1 text-xs py-2 rounded-xl bg-primary/20 text-primary hover:bg-primary/30"
+              >
+                ⚡ Comment Burst
+              </button>
+            </div>
           </div>
         )}
       </div>
 
       {/* Voice Room */}
       <div className="px-4 py-2">
-        {game?.id && (
+        {(game?.id || isTestMode) && (
           <VoiceRoomLive 
-            gameId={game.id}
+            gameId={game?.id || 'test-game'}
             onMicToggle={(enabled) => console.log('Mic:', enabled)}
             onSpeakerToggle={(enabled) => setAudienceMuted(!enabled)}
           />
@@ -594,7 +624,7 @@ export const FingerArena = () => {
         className="flex-1 overflow-y-auto p-4 flex flex-col-reverse"
       >
         <div className="space-y-2">
-          {comments.slice(0, 30).map((comment, index) => {
+          {displayComments.slice(0, 30).map((comment, index) => {
             const username = comment.profile?.username || 'Unknown';
             const avatar = comment.profile?.avatar || '🎮';
             const isLeader = username === topThree[0]?.name;
