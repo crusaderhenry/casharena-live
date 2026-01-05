@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { VoiceRoom } from '@/components/VoiceRoom';
+import { VoiceRoomLive } from '@/components/VoiceRoomLive';
 import { TestControls } from '@/components/TestControls';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useCrusader } from '@/hooks/useCrusader';
-import { useVoiceChat } from '@/hooks/useVoiceChat';
+import { useCrusaderHost } from '@/hooks/useCrusaderHost';
 import { useAudio } from '@/contexts/AudioContext';
 import { useToast } from '@/hooks/use-toast';
 import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut } from 'lucide-react';
@@ -37,8 +36,7 @@ export const FingerArena = () => {
   const { game, comments, participants, winners, sendComment, loading } = useLiveGame();
   const { play } = useSounds();
   const { vibrate, buttonClick } = useHaptics();
-  const crusader = useCrusader();
-  const { simulatePlayerVoice } = useVoiceChat();
+  const crusader = useCrusaderHost();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { toast } = useToast();
   
@@ -72,8 +70,18 @@ export const FingerArena = () => {
         const remaining = (game.max_duration * 60) - elapsed;
         setGameTime(Math.max(0, remaining));
       }
+
+      // Update Crusader with current game state
+      crusader.updateGameState({
+        timer: game.countdown || 60,
+        participantCount: game.participant_count || participants.length,
+        poolValue: game.pool_value || 0,
+        isLive: game.status === 'live',
+        leader: topThree[0]?.name || null,
+        commentCount: comments.length,
+      });
     }
-  }, [game?.countdown, game?.start_time, game?.max_duration]);
+  }, [game?.countdown, game?.start_time, game?.max_duration, game?.pool_value, game?.participant_count, participants.length, topThree, comments.length, crusader]);
 
   // Check for game ended
   useEffect(() => {
@@ -83,9 +91,13 @@ export const FingerArena = () => {
       stopBackgroundMusic();
       play('gameOver');
       vibrate('success');
-      crusader.announceGameOver();
+      
+      // Announce with winner info
+      const winner = topThree[0]?.name;
+      const prize = game?.pool_value ? Math.floor(game.pool_value * 0.45) : 0;
+      crusader.announceGameOver(winner, prize);
     }
-  }, [game?.status]);
+  }, [game?.status, topThree, game?.pool_value]);
 
   // Navigate to results when winners are determined
   useEffect(() => {
@@ -135,16 +147,22 @@ export const FingerArena = () => {
     }
   }, [comments, lastLeader, crusader, play]);
 
-  // Start background music
+  // Start background music and welcome
   useEffect(() => {
     playBackgroundMusic('arena');
-    if (!hasAnnouncedStart.current) {
+    if (!hasAnnouncedStart.current && game) {
       showSystemMessage('Game started! Be the last commenter!');
+      // Update game state first, then announce
+      crusader.updateGameState({
+        participantCount: game.participant_count || participants.length,
+        poolValue: game.pool_value || 0,
+        isLive: true,
+      });
       setTimeout(() => crusader.announceGameStart(), 500);
       hasAnnouncedStart.current = true;
     }
     return () => stopBackgroundMusic();
-  }, []);
+  }, [game?.id]);
 
   // Handle host mute
   useEffect(() => {
@@ -160,7 +178,7 @@ export const FingerArena = () => {
     }
   }, [timer, isGameOver]);
 
-  // Timer sound effects
+  // Timer sound effects and announcements
   useEffect(() => {
     if (isGameOver) return;
     
@@ -171,7 +189,11 @@ export const FingerArena = () => {
     } else if (timer <= 30) {
       play('tick');
     }
-    crusader.announceTimerLow(timer);
+    
+    // Announce at key timer milestones
+    if ([60, 30, 15, 10, 5].includes(timer)) {
+      crusader.announceTimerLow(timer);
+    }
   }, [timer]);
 
   // Random hype from Crusader
@@ -216,7 +238,7 @@ export const FingerArena = () => {
       buttonClick();
       
       if (timer < 10) {
-        crusader.announceCloseCall();
+        crusader.announceCloseCall(currentUsername);
       }
     }
     setSending(false);
@@ -499,17 +521,13 @@ export const FingerArena = () => {
 
       {/* Voice Room */}
       <div className="px-4 py-2">
-        <VoiceRoom 
-          players={participants.slice(0, 6).map(p => ({
-            id: p.user_id,
-            name: p.profile?.username || 'Player',
-            avatar: p.profile?.avatar || '🎮',
-          }))} 
-          audienceMuted={audienceMuted}
-          onAudienceMuteToggle={setAudienceMuted}
-          audienceCount={audienceCount}
-          isSpectator={isSpectator}
-        />
+        {game?.id && (
+          <VoiceRoomLive 
+            gameId={game.id}
+            onMicToggle={(enabled) => console.log('Mic:', enabled)}
+            onSpeakerToggle={(enabled) => setAudienceMuted(!enabled)}
+          />
+        )}
       </div>
 
       {/* Chat Feed */}
