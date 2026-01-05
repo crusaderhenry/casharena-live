@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { ShieldCheck, ShieldX, Search, RefreshCw, MoreHorizontal, UserCheck, UserX } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -220,11 +219,8 @@ export const AdminKyc = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <AdminSidebar />
-      
-      <main className="flex-1 p-6 overflow-auto">
-        <div className="max-w-7xl mx-auto space-y-6">
+    <div className="p-6 overflow-auto">
+      <div className="max-w-7xl mx-auto space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
@@ -399,7 +395,6 @@ export const AdminKyc = () => {
             )}
           </div>
         </div>
-      </main>
 
       {/* Manual Verify Dialog */}
       <Dialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen}>

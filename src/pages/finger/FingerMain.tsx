@@ -17,13 +17,7 @@ import { useServerTime } from '@/hooks/useServerTime';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Zap, Users, Clock, Trophy, ChevronRight, Play, Calendar, Swords, Radio, Sparkles, Gift, Eye, Lock } from 'lucide-react';
 
-// Mock games for test mode
-const mockGamesForTest = [
-  { id: 'mock-1', name: 'Fastest Finger', status: 'live', pool_value: 35000, effective_prize_pool: 35000, participant_count: 23, countdown: 45, entry_fee: 700, max_duration: 20, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2], start_time: new Date(Date.now() - 5 * 60 * 1000).toISOString() },
-  { id: 'mock-2', name: 'Speed Rush', status: 'live', pool_value: 18500, effective_prize_pool: 18500, participant_count: 15, countdown: 32, entry_fee: 500, max_duration: 15, payout_type: 'winner_takes_all', payout_distribution: [1.0], start_time: new Date(Date.now() - 3 * 60 * 1000).toISOString() },
-  { id: 'mock-3', name: 'Quick Draw', status: 'scheduled', pool_value: 0, effective_prize_pool: 50000, participant_count: 8, countdown: 180, entry_fee: 0, max_duration: 10, payout_type: 'top5', payout_distribution: [0.4, 0.25, 0.15, 0.12, 0.08], is_sponsored: true, sponsored_amount: 50000 },
-  { id: 'mock-4', name: 'Lightning Round', status: 'open', pool_value: 8000, effective_prize_pool: 8000, participant_count: 5, countdown: 30, entry_fee: 200, max_duration: 5, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2], start_time: new Date(Date.now() + 2 * 60 * 1000).toISOString() },
-];
+
 export const FingerMain = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -39,11 +33,6 @@ export const FingerMain = () => {
 
   // Fetch all active games
   useEffect(() => {
-    if (isTestMode) {
-      setAllGames(mockGamesForTest);
-      return;
-    }
-
     const loadGames = async () => {
       const games = await fetchAllActiveGames();
       setAllGames(games);
@@ -105,7 +94,7 @@ export const FingerMain = () => {
       supabase.removeChannel(gamesChannel);
       supabase.removeChannel(participantsChannel);
     };
-  }, [isTestMode, fetchAllActiveGames]);
+  }, [fetchAllActiveGames]);
 
   const liveGames = allGames.filter(g => g.status === 'live');
   const openGames = allGames.filter(g => g.status === 'open');

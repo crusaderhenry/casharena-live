@@ -16,18 +16,6 @@ import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
 
-// Mock games for test mode - Featured only
-const mockFeaturedGames = [
-  { id: 'mock-1', name: 'Fastest Finger', status: 'live', pool_value: 35000, effective_prize_pool: 35000, participant_count: 23, countdown: 45, entry_fee: 700, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2], max_duration: 20, start_time: new Date(Date.now() - 5 * 60 * 1000).toISOString() },
-  { id: 'mock-2', name: 'Quick Draw', status: 'scheduled', pool_value: 0, effective_prize_pool: 50000, participant_count: 8, countdown: 180, entry_fee: 0, payout_type: 'top5', payout_distribution: [0.4, 0.25, 0.15, 0.12, 0.08], max_duration: 10, is_sponsored: true, sponsored_amount: 50000 },
-];
-
-const mockTestWinners = [
-  { id: 'tw1', playerName: 'CryptoKing', playerAvatar: '👑', amount: 15750, position: 1 },
-  { id: 'tw2', playerName: 'LuckyAce', playerAvatar: '🎰', amount: 9450, position: 2 },
-  { id: 'tw3', playerName: 'FastHands', playerAvatar: '⚡', amount: 6300, position: 3 },
-];
-
 export const Home = () => {
   const { isTestMode } = useGame();
   const { profile } = useAuth();
@@ -47,11 +35,6 @@ export const Home = () => {
 
   // Fetch games and subscribe to updates
   useEffect(() => {
-    if (isTestMode) {
-      setAllGames(mockFeaturedGames);
-      return;
-    }
-
     const loadGames = async () => {
       const games = await fetchAllActiveGames();
       // Compute effective_prize_pool for display consistency
@@ -138,11 +121,10 @@ export const Home = () => {
       supabase.removeChannel(winnersChannel);
       supabase.removeChannel(participantsChannel);
     };
-  }, [isTestMode, fetchAllActiveGames]);
+  }, [fetchAllActiveGames]);
 
   // Fetch recent winners
   useEffect(() => {
-    if (isTestMode) return;
     const fetchRecentWinners = async () => {
       const { data } = await supabase.from('winners').select('*').order('created_at', { ascending: false }).limit(5);
       if (data) {
@@ -156,7 +138,7 @@ export const Home = () => {
       }
     };
     fetchRecentWinners();
-  }, [isTestMode]);
+  }, []);
 
   // Featured games: 1 live + 1 coming soon (max 2)
   const liveGames = allGames.filter(g => g.status === 'live');
@@ -192,15 +174,13 @@ export const Home = () => {
     navigate('/finger');
   };
 
-  const displayActivity = isTestMode
-    ? mockTestWinners
-    : recentWinners.map((w) => ({
-        id: w.id,
-        playerName: w.profile?.username || 'Unknown',
-        playerAvatar: w.profile?.avatar || '🎮',
-        amount: w.amount_won,
-        position: w.position,
-      }));
+  const displayActivity = recentWinners.map((w) => ({
+    id: w.id,
+    playerName: w.profile?.username || 'Unknown',
+    playerAvatar: w.profile?.avatar || '🎮',
+    amount: w.amount_won,
+    position: w.position,
+  }));
 
   const totalPool = allGames.reduce((sum, g) => sum + (g.pool_value || 0), 0);
 
