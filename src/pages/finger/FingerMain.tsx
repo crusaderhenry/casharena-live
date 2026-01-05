@@ -3,21 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { WalletCard } from '@/components/WalletCard';
 import { TestControls } from '@/components/TestControls';
-import { GameListCard, NoGamesCard } from '@/components/GameListCard';
-import { PrizeDistribution, getPayoutLabel } from '@/components/PrizeDistribution';
+import { PrizeDistribution, getPayoutLabel, getWinnerCount } from '@/components/PrizeDistribution';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGame } from '@/contexts/GameContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Zap, Users, Clock, Trophy, MessageSquare, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Zap, Users, Clock, Trophy, MessageSquare, ChevronRight, Play, Calendar, Timer, Coins } from 'lucide-react';
 
 // Mock games for test mode
 const mockGamesForTest = [
   { id: 'mock-1', name: 'Fastest Finger', status: 'live', pool_value: 35000, participant_count: 23, countdown: 45, entry_fee: 700, max_duration: 20, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2] },
   { id: 'mock-2', name: 'Speed Rush', status: 'live', pool_value: 18500, participant_count: 15, countdown: 32, entry_fee: 500, max_duration: 15, payout_type: 'winner_takes_all', payout_distribution: [1.0] },
-  { id: 'mock-3', name: 'Quick Draw', status: 'scheduled', pool_value: 12000, participant_count: 8, countdown: 60, entry_fee: 300, max_duration: 10, payout_type: 'top5', payout_distribution: [0.4, 0.25, 0.15, 0.12, 0.08] },
+  { id: 'mock-3', name: 'Quick Draw', status: 'scheduled', pool_value: 12000, participant_count: 8, countdown: 180, entry_fee: 300, max_duration: 10, payout_type: 'top5', payout_distribution: [0.4, 0.25, 0.15, 0.12, 0.08] },
 ];
 
 export const FingerMain = () => {
@@ -28,10 +27,10 @@ export const FingerMain = () => {
   const { play } = useSounds();
   const { buttonClick, success } = useHaptics();
   
-  const [countdown, setCountdown] = useState(300);
   const [joining, setJoining] = useState(false);
   const [allGames, setAllGames] = useState<any[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [showPrizeInfo, setShowPrizeInfo] = useState(false);
 
   // Fetch all active games
   useEffect(() => {
@@ -46,26 +45,15 @@ export const FingerMain = () => {
     };
     loadGames();
 
-    // Subscribe to real-time updates
     const channel = supabase
       .channel('finger-games-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'fastest_finger_games',
-        },
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fastest_finger_games' },
         (payload) => {
-          console.log('[FingerMain] Game update:', payload.eventType);
           if (payload.eventType === 'INSERT') {
             setAllGames(prev => [payload.new as any, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
             const updated = payload.new as any;
-            setAllGames(prev => 
-              prev.map(g => g.id === updated.id ? { ...g, ...updated } : g)
-                .filter(g => g.status === 'live' || g.status === 'scheduled')
-            );
+            setAllGames(prev => prev.map(g => g.id === updated.id ? { ...g, ...updated } : g).filter(g => g.status === 'live' || g.status === 'scheduled'));
           } else if (payload.eventType === 'DELETE') {
             setAllGames(prev => prev.filter(g => g.id !== (payload.old as any).id));
           }
@@ -78,40 +66,23 @@ export const FingerMain = () => {
     };
   }, [isTestMode, fetchAllActiveGames]);
 
-  // Get the selected game or the first available
   const liveGames = allGames.filter(g => g.status === 'live');
   const scheduledGames = allGames.filter(g => g.status === 'scheduled');
   const selectedGame = selectedGameId 
     ? allGames.find(g => g.id === selectedGameId) 
     : (game || liveGames[0] || scheduledGames[0]);
 
-  // Calculate countdown to game start
-  useEffect(() => {
-    if (!selectedGame || selectedGame.status !== 'scheduled') return;
-    setCountdown(selectedGame.countdown || 60);
-  }, [selectedGame]);
+  const poolValue = selectedGame?.pool_value || 0;
+  const entryFee = selectedGame?.entry_fee || 700;
+  const balance = profile?.wallet_balance || 0;
+  const hasGames = allGames.length > 0;
 
-  // Local countdown until next server update
-  useEffect(() => {
-    if (!selectedGame || selectedGame.status !== 'scheduled') return;
-    
-    const timer = setInterval(() => {
-      setCountdown(prev => prev > 0 ? prev - 1 : 0);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [selectedGame]);
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
+  const formatMoney = (amount: number) => `₦${amount.toLocaleString()}`;
 
   const handleJoin = async () => {
     if (!profile || joining) return;
     
-    const entryFee = selectedGame?.entry_fee || 700;
-    if (profile.wallet_balance < entryFee) {
+    if (balance < entryFee) {
       play('error');
       return;
     }
@@ -142,16 +113,6 @@ export const FingerMain = () => {
     navigate('/finger/arena');
   };
 
-  const handleTestReset = () => {
-    resetFingerGame();
-  };
-
-  const poolValue = selectedGame?.pool_value || 0;
-  const playerCount = participants.length || selectedGame?.participant_count || 0;
-  const entryFee = selectedGame?.entry_fee || 700;
-  const balance = profile?.wallet_balance || 0;
-  const hasGames = allGames.length > 0;
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -165,27 +126,30 @@ export const FingerMain = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="p-4 space-y-5">
+      <div className="p-4 space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3 pt-2">
           <button 
             onClick={handleBack}
-            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
+            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50 hover:border-primary/50 transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
-          <div>
-            <h1 className="text-xl font-black text-foreground">Fastest Finger</h1>
-            <p className="text-sm text-muted-foreground">Last comment standing wins</p>
+          <div className="flex-1">
+            <h1 className="text-xl font-black text-foreground">Play Games</h1>
+            <p className="text-sm text-muted-foreground">
+              {liveGames.length} live • {scheduledGames.length} upcoming
+            </p>
           </div>
         </div>
 
+        {/* Wallet */}
         <WalletCard compact />
 
         {/* Test Controls */}
         <TestControls
           onStart={handleTestStart}
-          onReset={handleTestReset}
+          onReset={resetFingerGame}
           startLabel="Start Live Game"
         />
 
@@ -196,119 +160,216 @@ export const FingerMain = () => {
           </div>
         )}
 
-        {/* No Games Available */}
-        {!hasGames && <NoGamesCard />}
+        {/* No Games State */}
+        {!hasGames && (
+          <div className="card-panel text-center py-12">
+            <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+              <Zap className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="font-bold text-foreground mb-2">No Games Available</h3>
+            <p className="text-sm text-muted-foreground">Check back soon for exciting new games!</p>
+          </div>
+        )}
 
-        {/* All Games List */}
+        {/* Games List */}
         {hasGames && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {/* Live Games */}
             {liveGames.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  Live Games ({liveGames.length})
-                </h3>
-                {liveGames.map((g) => (
-                  <div key={g.id} onClick={() => setSelectedGameId(g.id)}>
-                    <GameListCard game={g} />
-                  </div>
-                ))}
+                <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <Play className="w-4 h-4 text-green-400" fill="currentColor" />
+                  Live Games
+                </h2>
+                
+                {liveGames.map((g) => {
+                  const isSelected = selectedGame?.id === g.id;
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => setSelectedGameId(g.id)}
+                      className={`w-full relative overflow-hidden rounded-2xl p-4 text-left transition-all active:scale-[0.98] ${
+                        isSelected 
+                          ? 'bg-gradient-to-br from-green-500/20 via-card to-card border-2 border-green-500/50' 
+                          : 'bg-card border border-border/50 hover:border-green-500/30'
+                      }`}
+                    >
+                      {isSelected && <div className="absolute top-0 right-0 w-40 h-40 bg-green-500/10 rounded-full blur-3xl" />}
+                      
+                      <div className="relative z-10">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${isSelected ? 'bg-green-500/30' : 'bg-green-500/15'}`}>
+                              <Zap className="w-5 h-5 text-green-400" />
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-foreground">{g.name || 'Fastest Finger'}</h3>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                <Trophy className="w-3 h-3 text-gold" />
+                                <span>{getPayoutLabel(g.payout_type || 'top3')}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/20 text-xs font-bold text-green-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                            LIVE
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-4 gap-2">
+                          <div className="bg-background/50 rounded-lg p-2 text-center">
+                            <Coins className="w-4 h-4 text-primary mx-auto mb-1" />
+                            <p className="text-xs text-muted-foreground">Pool</p>
+                            <p className="font-bold text-primary text-sm">{formatMoney(g.pool_value)}</p>
+                          </div>
+                          <div className="bg-background/50 rounded-lg p-2 text-center">
+                            <Users className="w-4 h-4 text-muted-foreground mx-auto mb-1" />
+                            <p className="text-xs text-muted-foreground">Players</p>
+                            <p className="font-bold text-foreground text-sm">{g.participant_count}</p>
+                          </div>
+                          <div className="bg-background/50 rounded-lg p-2 text-center">
+                            <Timer className="w-4 h-4 text-muted-foreground mx-auto mb-1" />
+                            <p className="text-xs text-muted-foreground">Timer</p>
+                            <p className="font-bold text-foreground text-sm">{g.countdown}s</p>
+                          </div>
+                          <div className="bg-background/50 rounded-lg p-2 text-center">
+                            <Trophy className="w-4 h-4 text-gold mx-auto mb-1" />
+                            <p className="text-xs text-muted-foreground">Entry</p>
+                            <p className="font-bold text-foreground text-sm">₦{g.entry_fee}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
             {/* Scheduled Games */}
             {scheduledGames.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mt-4">
-                  <span className="w-2 h-2 rounded-full bg-yellow-500" />
-                  Coming Soon ({scheduledGames.length})
-                </h3>
-                {scheduledGames.map((g) => (
-                  <div key={g.id} onClick={() => setSelectedGameId(g.id)}>
-                    <GameListCard game={g} variant="compact" />
-                  </div>
-                ))}
+              <div className="space-y-3">
+                <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-yellow-400" />
+                  Coming Soon
+                </h2>
+                
+                {scheduledGames.map((g) => {
+                  const isSelected = selectedGame?.id === g.id;
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => setSelectedGameId(g.id)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all active:scale-[0.98] ${
+                        isSelected 
+                          ? 'bg-yellow-500/10 border-2 border-yellow-500/40' 
+                          : 'bg-card border border-border/50 hover:border-yellow-500/30'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isSelected ? 'bg-yellow-500/25' : 'bg-yellow-500/15'}`}>
+                        <Zap className="w-5 h-5 text-yellow-400" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <h4 className="font-semibold text-foreground text-sm">{g.name || 'Fastest Finger'}</h4>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          <span>{g.participant_count} joined</span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Trophy className="w-3 h-3 text-gold" />
+                            {getPayoutLabel(g.payout_type || 'top3')}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-primary text-sm">{formatMoney(g.pool_value)}</p>
+                        <p className="text-xs text-muted-foreground">₦{g.entry_fee} entry</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         )}
 
-        {/* Selected Game Join Section */}
+        {/* Selected Game Action Panel */}
         {hasGames && selectedGame && (
-          <div className="card-panel border-primary/30">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-bold text-foreground">{(selectedGame as any).name || 'Fastest Finger'}</h3>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                  <span className="flex items-center gap-1">
-                    <Trophy className="w-4 h-4 text-gold" /> 
-                    {getPayoutLabel((selectedGame as any).payout_type || 'top3')}
-                  </span>
-                  <span>•</span>
-                  <span>{selectedGame.max_duration || 20} min max</span>
+          <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
+            <div className="card-panel border-primary/30 bg-card/95 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="font-bold text-foreground">{(selectedGame as any).name || 'Fastest Finger'}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedGame.status === 'live' ? 'Game in progress' : 'Waiting to start'} • {getPayoutLabel((selectedGame as any).payout_type || 'top3')}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-black text-primary">{formatMoney(poolValue)}</p>
+                  <p className="text-xs text-muted-foreground">prize pool</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-xs text-muted-foreground">Entry Fee</p>
-                <p className="font-bold text-primary">₦{entryFee}</p>
-              </div>
-            </div>
 
-            {/* CTA */}
-            {hasJoined ? (
-              <button
-                onClick={() => navigate(selectedGame.status === 'live' ? '/finger/arena' : '/finger/lobby')}
-                className="w-full btn-primary flex items-center justify-center gap-2"
-              >
-                {selectedGame.status === 'live' ? 'Enter Arena' : 'Go to Lobby'}
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            ) : (
-              <button
-                onClick={handleJoin}
-                disabled={balance < entryFee || joining || !selectedGame}
-                className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Zap className="w-5 h-5" />
-                {joining ? 'Joining...' : balance < entryFee ? 'Insufficient Balance' : `Join Game — ₦${entryFee}`}
-              </button>
-            )}
+              {hasJoined ? (
+                <button
+                  onClick={() => navigate(selectedGame.status === 'live' ? '/finger/arena' : '/finger/lobby')}
+                  className="w-full btn-primary flex items-center justify-center gap-2"
+                >
+                  {selectedGame.status === 'live' ? 'Enter Arena' : 'Go to Lobby'}
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              ) : (
+                <button
+                  onClick={handleJoin}
+                  disabled={balance < entryFee || joining || !selectedGame}
+                  className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Zap className="w-5 h-5" />
+                  {joining ? 'Joining...' : balance < entryFee ? `Need ₦${entryFee - balance} more` : `Join Game — ₦${entryFee}`}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {/* How to Play */}
-        <div className="card-panel">
-          <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-primary" />
-            How to Win
-          </h3>
-          <ul className="text-sm text-muted-foreground space-y-3">
+        {/* How to Play - Collapsible */}
+        <details className="card-panel group">
+          <summary className="font-bold text-foreground flex items-center justify-between cursor-pointer list-none">
+            <span className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-primary" />
+              How to Win
+            </span>
+            <ChevronRight className="w-5 h-5 text-muted-foreground transition-transform group-open:rotate-90" />
+          </summary>
+          <ul className="text-sm text-muted-foreground space-y-3 mt-4">
             <li className="flex items-start gap-3">
               <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">1</span>
-              <span>Join the lobby and wait for the live game to start</span>
+              <span>Pay the entry fee to join the game lobby</span>
             </li>
             <li className="flex items-start gap-3">
               <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">2</span>
-              <span>Send comments — each comment resets the 60s timer</span>
+              <span>When live, send comments to reset the 60s countdown timer</span>
             </li>
             <li className="flex items-start gap-3">
               <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">3</span>
-              <span>If no one comments for 60 seconds, {getPayoutLabel((selectedGame as any)?.payout_type || 'top3').toLowerCase()}!</span>
+              <span>If no one comments for 60 seconds, the last commenter(s) win!</span>
             </li>
             <li className="flex items-start gap-3">
               <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">4</span>
-              <span>Max game time: {selectedGame?.max_duration || 20} minutes — then it auto-ends</span>
+              <span>Game auto-ends after max duration ({selectedGame?.max_duration || 20} min)</span>
             </li>
           </ul>
-        </div>
+        </details>
 
-        {/* Prize Distribution - Dynamic based on game settings */}
-        <PrizeDistribution
-          payoutType={(selectedGame as any)?.payout_type || 'top3'}
-          payoutDistribution={(selectedGame as any)?.payout_distribution || [0.5, 0.3, 0.2]}
-          poolValue={selectedGame?.pool_value}
-        />
+        {/* Prize Distribution - Only show if game selected */}
+        {selectedGame && (
+          <PrizeDistribution
+            payoutType={(selectedGame as any)?.payout_type || 'top3'}
+            payoutDistribution={(selectedGame as any)?.payout_distribution || [0.5, 0.3, 0.2]}
+            poolValue={poolValue}
+          />
+        )}
+
+        {/* Extra padding for fixed action panel */}
+        {hasGames && selectedGame && <div className="h-24" />}
       </div>
       
       <BottomNav />
