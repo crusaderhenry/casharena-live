@@ -92,8 +92,8 @@ serve(async (req) => {
     console.log(`Game action: ${action}`, { gameId, userId, config });
 
     // Actions that require authentication
-    const authRequiredActions = ['join', 'create_game', 'open_game', 'start_game', 'end_game', 'delete_game', 'reset_weekly_ranks'];
-    const adminRequiredActions = ['create_game', 'open_game', 'start_game', 'end_game', 'delete_game', 'reset_weekly_ranks'];
+    const authRequiredActions = ['join', 'create_game', 'start_game', 'end_game', 'reset_weekly_ranks'];
+    const adminRequiredActions = ['create_game', 'start_game', 'end_game', 'reset_weekly_ranks'];
 
     let authenticatedUser = null;
 
@@ -127,22 +127,16 @@ serve(async (req) => {
         
         // Calculate scheduled_at based on go_live_type
         let scheduledAt = null;
-        let initialStatus = 'scheduled';
-        
         if (gameConfig.go_live_type === 'scheduled' && gameConfig.scheduled_at) {
           scheduledAt = gameConfig.scheduled_at;
-        } else if (gameConfig.go_live_type === 'immediate') {
-          // For immediate games, set status to 'open' directly
-          initialStatus = 'open';
         }
         
         const { data: game, error } = await supabase
           .from('fastest_finger_games')
           .insert({
-            status: initialStatus,
+            status: 'scheduled',
             name: gameConfig.name || 'Fastest Finger',
-            description: gameConfig.description || null,
-            entry_fee: gameConfig.entry_fee ?? 700,
+            entry_fee: gameConfig.entry_fee || 700,
             max_duration: gameConfig.max_duration || 20,
             pool_value: 0,
             participant_count: 0,
@@ -156,13 +150,6 @@ serve(async (req) => {
             scheduled_at: scheduledAt,
             recurrence_type: gameConfig.recurrence_type || null,
             recurrence_interval: gameConfig.recurrence_interval || null,
-            // New fields for sponsored games and visibility
-            is_sponsored: gameConfig.is_sponsored || false,
-            sponsored_amount: gameConfig.sponsored_amount || 0,
-            visibility: gameConfig.visibility || 'public',
-            entry_cutoff_minutes: gameConfig.entry_cutoff_minutes || 10,
-            // Set start_time for immediate games
-            start_time: initialStatus === 'open' ? new Date().toISOString() : null,
           })
           .select()
           .single();
@@ -172,7 +159,7 @@ serve(async (req) => {
         // Log audit action
         await logAuditAction(supabase, authenticatedUser!.id, 'create_game', 'game', game.id, gameConfig, clientIp);
         
-        console.log('Game created by admin:', authenticatedUser?.id, game.id, 'status:', initialStatus);
+        console.log('Game created by admin:', authenticatedUser?.id, game.id);
         return new Response(JSON.stringify({ success: true, game }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -188,47 +175,6 @@ serve(async (req) => {
         }
 
         if (!gameId) throw new Error('Missing gameId');
-
-        // Check if game is accepting entries
-        const { data: gameCheck, error: gameCheckError } = await supabase
-          .from('fastest_finger_games')
-          .select('status, start_time, max_duration')
-          .eq('id', gameId)
-          .single();
-
-        if (gameCheckError || !gameCheck) {
-          return new Response(JSON.stringify({ error: 'Game not found' }), {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        // Allow joining 'open' games OR 'live' games if more than 10 minutes remain
-        let canJoin = false;
-        
-        if (gameCheck.status === 'open') {
-          canJoin = true;
-        } else if (gameCheck.status === 'live' && gameCheck.start_time) {
-          // Calculate time remaining in game
-          const startTime = new Date(gameCheck.start_time).getTime();
-          const maxDurationMs = (gameCheck.max_duration || 20) * 60 * 1000;
-          const endTime = startTime + maxDurationMs;
-          const now = Date.now();
-          const timeRemainingMs = endTime - now;
-          const tenMinutesMs = 10 * 60 * 1000;
-          
-          // Allow joining if more than 10 minutes remain
-          if (timeRemainingMs > tenMinutesMs) {
-            canJoin = true;
-          }
-        }
-
-        if (!canJoin) {
-          return new Response(JSON.stringify({ error: 'Game is not accepting entries' }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
 
         // Use atomic database function to prevent race conditions
         // This wraps all operations (check, deduct, insert, update) in a single transaction
@@ -262,60 +208,8 @@ serve(async (req) => {
         });
       }
 
-      case 'open_game': {
-        // Admin only - open game for entries
-        if (!gameId) throw new Error('Missing gameId');
-
-        console.log('Attempting to open game:', gameId);
-        
-        const { data: game, error: fetchError } = await supabase
-          .from('fastest_finger_games')
-          .select('*')
-          .eq('id', gameId)
-          .single();
-
-        if (fetchError) {
-          console.error('Error fetching game:', fetchError.message);
-          throw new Error(`Failed to fetch game: ${fetchError.message}`);
-        }
-
-        if (!game) {
-          return new Response(JSON.stringify({ error: 'Game not found' }), {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        if (game.status !== 'scheduled') {
-          return new Response(JSON.stringify({ error: 'Can only open scheduled games' }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        const { error: updateError } = await supabase
-          .from('fastest_finger_games')
-          .update({
-            status: 'open',
-            start_time: new Date().toISOString(),
-          })
-          .eq('id', gameId);
-
-        if (updateError) {
-          console.error('Error updating game status:', updateError.message);
-          throw new Error(`Failed to update game: ${updateError.message}`);
-        }
-        
-        await logAuditAction(supabase, authenticatedUser!.id, 'open_game', 'game', gameId, null, clientIp);
-        
-        console.log('Game opened for entries by admin:', authenticatedUser?.id, gameId);
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
       case 'start_game': {
-        // Admin only - start game (must be 'open' status with entries)
+        // Admin only - already verified above
         if (!gameId) throw new Error('Missing gameId');
 
         const { data: game } = await supabase
@@ -324,19 +218,13 @@ serve(async (req) => {
           .eq('id', gameId)
           .single();
 
-        if (!game || game.status !== 'open') {
-          return new Response(JSON.stringify({ error: 'Can only start games that are open for entries' }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
         const commentTimer = (game as any)?.comment_timer || 60;
 
         const { error } = await supabase
           .from('fastest_finger_games')
           .update({
             status: 'live',
+            start_time: new Date().toISOString(),
             countdown: commentTimer,
           })
           .eq('id', gameId);
@@ -347,46 +235,6 @@ serve(async (req) => {
         await logAuditAction(supabase, authenticatedUser!.id, 'start_game', 'game', gameId, { participant_count: (game as any)?.participant_count }, clientIp);
         
         console.log('Game started by admin:', authenticatedUser?.id, gameId);
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      case 'delete_game': {
-        // Admin only - delete scheduled games only
-        if (!gameId) throw new Error('Missing gameId');
-
-        const { data: game } = await supabase
-          .from('fastest_finger_games')
-          .select('*')
-          .eq('id', gameId)
-          .single();
-
-        if (!game) {
-          return new Response(JSON.stringify({ error: 'Game not found' }), {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        // Only allow deleting scheduled games (not open, live, or ended)
-        if (game.status !== 'scheduled') {
-          return new Response(JSON.stringify({ error: 'Can only delete scheduled games' }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        const { error } = await supabase
-          .from('fastest_finger_games')
-          .delete()
-          .eq('id', gameId);
-
-        if (error) throw error;
-        
-        await logAuditAction(supabase, authenticatedUser!.id, 'delete_game', 'game', gameId, { name: (game as any).name }, clientIp);
-        
-        console.log('Game deleted by admin:', authenticatedUser?.id, gameId);
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

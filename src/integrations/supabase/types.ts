@@ -85,14 +85,10 @@ export type Database = {
           countdown: number
           created_at: string
           created_by: string | null
-          description: string | null
           end_time: string | null
-          entry_cutoff_minutes: number | null
           entry_fee: number
           go_live_type: string
           id: string
-          is_sponsored: boolean | null
-          lobby_opens_at: string | null
           max_duration: number
           min_participants: number | null
           name: string | null
@@ -103,24 +99,18 @@ export type Database = {
           recurrence_interval: number | null
           recurrence_type: string | null
           scheduled_at: string | null
-          sponsored_amount: number | null
           start_time: string | null
           status: string
-          visibility: string | null
         }
         Insert: {
           comment_timer?: number | null
           countdown?: number
           created_at?: string
           created_by?: string | null
-          description?: string | null
           end_time?: string | null
-          entry_cutoff_minutes?: number | null
           entry_fee?: number
           go_live_type?: string
           id?: string
-          is_sponsored?: boolean | null
-          lobby_opens_at?: string | null
           max_duration?: number
           min_participants?: number | null
           name?: string | null
@@ -131,24 +121,18 @@ export type Database = {
           recurrence_interval?: number | null
           recurrence_type?: string | null
           scheduled_at?: string | null
-          sponsored_amount?: number | null
           start_time?: string | null
           status?: string
-          visibility?: string | null
         }
         Update: {
           comment_timer?: number | null
           countdown?: number
           created_at?: string
           created_by?: string | null
-          description?: string | null
           end_time?: string | null
-          entry_cutoff_minutes?: number | null
           entry_fee?: number
           go_live_type?: string
           id?: string
-          is_sponsored?: boolean | null
-          lobby_opens_at?: string | null
           max_duration?: number
           min_participants?: number | null
           name?: string | null
@@ -159,10 +143,8 @@ export type Database = {
           recurrence_interval?: number | null
           recurrence_type?: string | null
           scheduled_at?: string | null
-          sponsored_amount?: number | null
           start_time?: string | null
           status?: string
-          visibility?: string | null
         }
         Relationships: []
       }
@@ -514,70 +496,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      calculate_prize_pool: { Args: { game_id: string }; Returns: number }
-      get_active_games: {
-        Args: never
-        Returns: {
-          comment_timer: number
-          countdown: number
-          description: string
-          effective_prize_pool: number
-          entry_cutoff_minutes: number
-          entry_fee: number
-          id: string
-          is_ending_soon: boolean
-          is_sponsored: boolean
-          lobby_opens_at: string
-          max_duration: number
-          name: string
-          participant_count: number
-          payout_distribution: number[]
-          payout_type: string
-          pool_value: number
-          recurrence_interval: number
-          recurrence_type: string
-          scheduled_at: string
-          seconds_remaining: number
-          seconds_until_live: number
-          seconds_until_open: number
-          sponsored_amount: number
-          start_time: string
-          status: string
-          visibility: string
-        }[]
-      }
-      get_game_state: {
-        Args: { game_id: string }
-        Returns: {
-          comment_timer: number
-          countdown: number
-          description: string
-          effective_prize_pool: number
-          end_time: string
-          entry_cutoff_minutes: number
-          entry_fee: number
-          id: string
-          is_ending_soon: boolean
-          is_sponsored: boolean
-          lobby_opens_at: string
-          max_duration: number
-          name: string
-          participant_count: number
-          payout_distribution: number[]
-          payout_type: string
-          pool_value: number
-          recurrence_interval: number
-          recurrence_type: string
-          scheduled_at: string
-          seconds_remaining: number
-          seconds_until_live: number
-          seconds_until_open: number
-          sponsored_amount: number
-          start_time: string
-          status: string
-          visibility: string
-        }[]
-      }
       get_leaderboard: {
         Args: { limit_count?: number }
         Returns: {
@@ -603,7 +521,6 @@ export type Database = {
           weekly_rank: number
         }[]
       }
-      get_server_time: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

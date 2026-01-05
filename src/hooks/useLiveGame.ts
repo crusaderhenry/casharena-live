@@ -6,7 +6,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 interface Game {
   id: string;
   name: string;
-  status: 'scheduled' | 'open' | 'live' | 'ended';
+  status: 'scheduled' | 'live' | 'ended';
   entry_fee: number;
   pool_value: number;
   participant_count: number;
@@ -19,7 +19,6 @@ interface Game {
   payout_distribution: number[];
   min_participants: number;
   created_at: string;
-  scheduled_at: string | null;
 }
 
 interface Comment {
@@ -66,12 +65,12 @@ export const useLiveGame = (gameId?: string) => {
   const [error, setError] = useState<string | null>(null);
   const [hasJoined, setHasJoined] = useState(false);
 
-  // Fetch current live, open, or scheduled game
+  // Fetch current live or scheduled game
   const fetchCurrentGame = useCallback(async () => {
     const { data, error } = await supabase
       .from('fastest_finger_games')
       .select('*')
-      .in('status', ['scheduled', 'open', 'live'])
+      .in('status', ['scheduled', 'live'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -89,7 +88,6 @@ export const useLiveGame = (gameId?: string) => {
         payout_type: (data as any).payout_type || 'top3',
         payout_distribution: (data as any).payout_distribution || [0.5, 0.3, 0.2],
         min_participants: (data as any).min_participants || 3,
-        scheduled_at: (data as any).scheduled_at || null,
       } as Game;
     }
     return null;
@@ -100,7 +98,7 @@ export const useLiveGame = (gameId?: string) => {
     const { data, error } = await supabase
       .from('fastest_finger_games')
       .select('*')
-      .in('status', ['scheduled', 'open', 'live'])
+      .in('status', ['scheduled', 'live'])
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -115,7 +113,6 @@ export const useLiveGame = (gameId?: string) => {
       payout_type: (g as any).payout_type || 'top3',
       payout_distribution: (g as any).payout_distribution || [0.5, 0.3, 0.2],
       min_participants: (g as any).min_participants || 3,
-      scheduled_at: (g as any).scheduled_at || null,
     })) as Game[];
   }, []);
 
@@ -139,7 +136,6 @@ export const useLiveGame = (gameId?: string) => {
       payout_type: (data as any).payout_type || 'top3',
       payout_distribution: (data as any).payout_distribution || [0.5, 0.3, 0.2],
       min_participants: (data as any).min_participants || 3,
-      scheduled_at: (data as any).scheduled_at || null,
     } as Game;
   }, []);
 

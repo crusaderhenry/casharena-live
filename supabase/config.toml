@@ -1,11 +1,5 @@
 project_id = "ojstmxvlvrgwyquofuhb"
 
-[functions.game-lifecycle]
-verify_jwt = false
-
-[functions.auto-start-games]
-verify_jwt = false
-
 [functions.crusader-tts]
 verify_jwt = false
 

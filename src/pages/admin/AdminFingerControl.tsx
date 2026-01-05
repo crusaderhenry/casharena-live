@@ -38,7 +38,6 @@ const RECURRENCE_OPTIONS = [
 
 interface GameFormData {
   name: string;
-  description: string;
   entryFee: number;
   maxDuration: number;
   commentTimer: number;
@@ -52,13 +51,6 @@ interface GameFormData {
   // Recurrence
   recurrenceType: string;
   recurrenceInterval: number;
-  // Sponsored
-  isSponsored: boolean;
-  sponsoredAmount: number;
-  // Visibility
-  visibility: 'public' | 'private';
-  // Entry cutoff
-  entryCutoffMinutes: number;
 }
 
 export const AdminFingerControl = () => {
@@ -67,10 +59,8 @@ export const AdminFingerControl = () => {
     games,
     settings, 
     createGameWithConfig, 
-    openGame,
     startGame, 
     endGame, 
-    deleteGame,
     resetGame,
     updateSettings,
     refreshData,
@@ -90,7 +80,6 @@ export const AdminFingerControl = () => {
 
   const [formData, setFormData] = useState<GameFormData>({
     name: 'Fastest Finger',
-    description: '',
     entryFee: 700,
     maxDuration: 20,
     commentTimer: 60,
@@ -102,10 +91,6 @@ export const AdminFingerControl = () => {
     scheduledTime: getDefaultDateTime().time,
     recurrenceType: 'none',
     recurrenceInterval: 1,
-    isSponsored: false,
-    sponsoredAmount: 0,
-    visibility: 'public',
-    entryCutoffMinutes: 10,
   });
 
   const [localSettings, setLocalSettings] = useState({
@@ -132,8 +117,7 @@ export const AdminFingerControl = () => {
 
     await createGameWithConfig({
       name: formData.name,
-      description: formData.description || null,
-      entry_fee: formData.isSponsored ? 0 : formData.entryFee,
+      entry_fee: formData.entryFee,
       max_duration: formData.maxDuration,
       comment_timer: formData.commentTimer,
       payout_type: formData.payoutType,
@@ -144,18 +128,13 @@ export const AdminFingerControl = () => {
       scheduled_at: scheduledAt,
       recurrence_type: formData.recurrenceType === 'none' ? null : formData.recurrenceType,
       recurrence_interval: formData.recurrenceType === 'none' ? null : formData.recurrenceInterval,
-      is_sponsored: formData.isSponsored,
-      sponsored_amount: formData.isSponsored ? formData.sponsoredAmount : 0,
-      visibility: formData.visibility,
-      entry_cutoff_minutes: formData.entryCutoffMinutes,
-    } as any);
+    });
     setShowCreateDialog(false);
     
     // Reset form
     const defaults = getDefaultDateTime();
     setFormData({
       name: 'Fastest Finger',
-      description: '',
       entryFee: 700,
       maxDuration: 20,
       commentTimer: 60,
@@ -167,18 +146,11 @@ export const AdminFingerControl = () => {
       scheduledTime: defaults.time,
       recurrenceType: 'none',
       recurrenceInterval: 1,
-      isSponsored: false,
-      sponsoredAmount: 0,
-      visibility: 'public',
-      entryCutoffMinutes: 10,
     });
   };
 
-  // Get active games by status
-  const scheduledGames = games.filter(g => g.status === 'scheduled');
-  const openGames = games.filter(g => g.status === 'open');
-  const liveGames = games.filter(g => g.status === 'live');
-  const activeGames = [...scheduledGames, ...openGames, ...liveGames];
+  // Get active games
+  const activeGames = games.filter(g => g.status === 'live' || g.status === 'scheduled');
   const recentEndedGames = games.filter(g => g.status === 'ended').slice(0, 5);
 
   return (
@@ -202,7 +174,7 @@ export const AdminFingerControl = () => {
               <DialogTitle>Create New Game</DialogTitle>
             </DialogHeader>
             
-            <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+            <div className="space-y-4 py-4">
               {/* Game Name */}
               <div className="space-y-2">
                 <Label htmlFor="name">Game Name</Label>
@@ -213,62 +185,17 @@ export const AdminFingerControl = () => {
                   placeholder="e.g., High Rollers, Beginner's Arena"
                 />
               </div>
-
-              {/* Description */}
+              
+              {/* Entry Fee */}
               <div className="space-y-2">
-                <Label htmlFor="description">Description (Optional)</Label>
+                <Label htmlFor="entryFee">Entry Fee (₦)</Label>
                 <Input
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Brief description of this game"
+                  id="entryFee"
+                  type="number"
+                  value={formData.entryFee}
+                  onChange={(e) => setFormData(prev => ({ ...prev, entryFee: parseInt(e.target.value) || 0 }))}
                 />
               </div>
-
-              {/* Sponsored Game Toggle */}
-              <div className="space-y-3 p-3 bg-gold/5 border border-gold/20 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-gold">🎁 Sponsored Game</Label>
-                    <p className="text-xs text-muted-foreground">Free entry with admin-funded prize</p>
-                  </div>
-                  <Switch
-                    checked={formData.isSponsored}
-                    onCheckedChange={(checked) => setFormData(prev => ({ 
-                      ...prev, 
-                      isSponsored: checked,
-                      entryFee: checked ? 0 : 700,
-                    }))}
-                  />
-                </div>
-                
-                {formData.isSponsored && (
-                  <div className="space-y-2">
-                    <Label htmlFor="sponsoredAmount">Sponsored Prize (₦)</Label>
-                    <Input
-                      id="sponsoredAmount"
-                      type="number"
-                      value={formData.sponsoredAmount}
-                      onChange={(e) => setFormData(prev => ({ ...prev, sponsoredAmount: parseInt(e.target.value) || 0 }))}
-                      placeholder="e.g., 50000"
-                    />
-                    <p className="text-xs text-gold">This amount will be added to the prize pool</p>
-                  </div>
-                )}
-              </div>
-              
-              {/* Entry Fee - Only show if not sponsored */}
-              {!formData.isSponsored && (
-                <div className="space-y-2">
-                  <Label htmlFor="entryFee">Entry Fee (₦)</Label>
-                  <Input
-                    id="entryFee"
-                    type="number"
-                    value={formData.entryFee}
-                    onChange={(e) => setFormData(prev => ({ ...prev, entryFee: parseInt(e.target.value) || 0 }))}
-                  />
-                </div>
-              )}
               
               {/* Payout Type */}
               <div className="space-y-2">
@@ -422,37 +349,6 @@ export const AdminFingerControl = () => {
                   </p>
                 )}
               </div>
-
-              {/* Entry Cutoff */}
-              <div className="space-y-2 pt-4 border-t border-border">
-                <Label htmlFor="entryCutoff">Entry Cutoff (minutes before end)</Label>
-                <Input
-                  id="entryCutoff"
-                  type="number"
-                  value={formData.entryCutoffMinutes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, entryCutoffMinutes: parseInt(e.target.value) || 10 }))}
-                  min={0}
-                  max={30}
-                />
-                <p className="text-xs text-muted-foreground">Players cannot join within this time before game ends</p>
-              </div>
-
-              {/* Visibility */}
-              <div className="space-y-2">
-                <Label>Visibility</Label>
-                <Select
-                  value={formData.visibility}
-                  onValueChange={(value: 'public' | 'private') => setFormData(prev => ({ ...prev, visibility: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">🌍 Public (visible to all)</SelectItem>
-                    <SelectItem value="private">🔒 Private (invite only)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             
             <DialogFooter>
@@ -497,11 +393,9 @@ export const AdminFingerControl = () => {
                   <div className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
                     game.status === 'live' 
                       ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                      : game.status === 'open'
-                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                       : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                   }`}>
-                    {game.status === 'scheduled' ? 'Coming Soon' : game.status === 'open' ? 'Accepting Entries' : game.status}
+                    {game.status}
                   </div>
                 </div>
                 
@@ -525,35 +419,15 @@ export const AdminFingerControl = () => {
                 </div>
                 
                 <div className="flex gap-2">
-                  {/* Scheduled: Can Open Entries or Delete */}
                   {game.status === 'scheduled' && (
-                    <>
-                      <button
-                        onClick={() => openGame(game.id)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-medium hover:bg-blue-500/30 transition-colors"
-                      >
-                        <Users className="w-4 h-4" />
-                        Open Entries
-                      </button>
-                      <button
-                        onClick={() => deleteGame(game.id)}
-                        className="flex items-center justify-center gap-2 px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </>
-                  )}
-                  {/* Open: Can Start Game */}
-                  {game.status === 'open' && (
                     <button
                       onClick={() => startGame(game.id)}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-medium hover:bg-green-500/30 transition-colors"
                     >
                       <Play className="w-4 h-4" />
-                      Go Live
+                      Start
                     </button>
                   )}
-                  {/* Live: Can End Game */}
                   {game.status === 'live' && (
                     <button
                       onClick={() => endGame(game.id)}

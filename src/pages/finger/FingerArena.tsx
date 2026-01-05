@@ -6,14 +6,12 @@ import { MicCheckModal } from '@/components/MicCheckModal';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
-import { useGameTimer } from '@/hooks/useServerTime';
-import { useRealtimeLeaderboard } from '@/hooks/useRealtimeLeaderboard';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useCrusaderHost } from '@/hooks/useCrusaderHost';
 import { useAudio } from '@/contexts/AudioContext';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,18 +35,14 @@ export const FingerArena = () => {
   const { isTestMode, resetFingerGame, userProfile } = useGame();
   const { profile, user } = useAuth();
   const { game, comments, participants, winners, sendComment, loading } = useLiveGame();
-  const { commentTimer, gameTimeRemaining, synced } = useGameTimer(game);
-  const { topThree: leaderboardTop, entries: leaderboardEntries } = useRealtimeLeaderboard(game?.id || null);
   const { play } = useSounds();
   const { vibrate, buttonClick } = useHaptics();
   const crusader = useCrusaderHost();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { toast } = useToast();
   
-  // Use server-synced timers
-  const timer = commentTimer;
-  const gameTime = gameTimeRemaining;
-  
+  const [timer, setTimer] = useState(60);
+  const [gameTime, setGameTime] = useState(20 * 60);
   const [inputValue, setInputValue] = useState('');
   const [isGameOver, setIsGameOver] = useState(false);
   const [showFreezeScreen, setShowFreezeScreen] = useState(false);
@@ -65,16 +59,21 @@ export const FingerArena = () => {
   const hasAnnouncedStart = useRef(false);
   const lastHypeRef = useRef(0);
 
-  // Update top 3 from real-time leaderboard
+  // Sync with server game state
   useEffect(() => {
-    if (leaderboardTop.length > 0) {
-      setTopThree(leaderboardTop.map(entry => ({
-        name: entry.username,
-        avatar: entry.avatar,
-        comment: `${entry.comment_count} comments`,
-      })));
+    if (game) {
+      setTimer(game.countdown || 60);
+      
+      // Calculate remaining game time
+      if (game.start_time) {
+        const startTime = new Date(game.start_time).getTime();
+        const now = Date.now();
+        const elapsed = Math.floor((now - startTime) / 1000);
+        const remaining = (game.max_duration * 60) - elapsed;
+        setGameTime(Math.max(0, remaining));
+      }
     }
-  }, [leaderboardTop]);
+  }, [game?.countdown, game?.start_time, game?.max_duration]);
 
   // Update Crusader with game state (separate effect to avoid loops)
   useEffect(() => {
@@ -129,16 +128,31 @@ export const FingerArena = () => {
     }
   }, [winners, isGameOver, navigate, user?.id, game?.pool_value]);
 
-  // Announce leader changes from real-time leaderboard
+  // Update top 3 from comments
   useEffect(() => {
-    if (topThree[0] && topThree[0].name !== lastLeader && lastLeader !== '') {
-      crusader.announceLeaderChange(topThree[0].name);
+    const uniquePlayers = new Map<string, TopThree>();
+    comments.forEach(comment => {
+      const username = comment.profile?.username || 'Unknown';
+      if (!uniquePlayers.has(username)) {
+        uniquePlayers.set(username, {
+          name: username,
+          avatar: comment.profile?.avatar || '🎮',
+          comment: comment.content,
+        });
+      }
+    });
+    const top = Array.from(uniquePlayers.values()).slice(0, 3);
+    setTopThree(top);
+
+    // Announce leader changes
+    if (top[0] && top[0].name !== lastLeader && lastLeader !== '') {
+      crusader.announceLeaderChange(top[0].name);
       play('leaderChange');
     }
-    if (topThree[0]) {
-      setLastLeader(topThree[0].name);
+    if (top[0]) {
+      setLastLeader(top[0].name);
     }
-  }, [topThree, lastLeader, crusader, play]);
+  }, [comments, lastLeader, crusader, play]);
 
   // Start background music and welcome
   useEffect(() => {
@@ -216,8 +230,7 @@ export const FingerArena = () => {
     setTimeout(() => setSystemMessage(''), 3000);
   };
 
-  const isGameTimeDanger = gameTime <= 5 * 60; // Last 5 minutes = "Ending Soon" mode
-  const isEndingSoon = isGameTimeDanger;
+  const isGameTimeDanger = gameTime <= 5 * 60;
   const audienceCount = participants.length || game?.participant_count || 0;
 
   const formatGameTime = (seconds: number) => {
@@ -263,6 +276,8 @@ export const FingerArena = () => {
 
   const handleTestReset = () => {
     resetFingerGame();
+    setTimer(60);
+    setGameTime(20 * 60);
     setIsGameOver(false);
     setShowFreezeScreen(false);
     setTopThree([]);
@@ -343,18 +358,9 @@ export const FingerArena = () => {
   }
 
   return (
-    <div className={`min-h-screen flex flex-col ${isShaking ? 'animate-intense-shake' : ''} ${isEndingSoon ? 'bg-gradient-to-b from-red-950/30 to-background' : 'bg-background'}`}>
-      {/* ENDING SOON WARNING BANNER */}
-      {isEndingSoon && (
-        <div className="bg-red-500/90 text-white py-2 px-4 flex items-center justify-center gap-2 animate-pulse">
-          <AlertTriangle className="w-4 h-4" />
-          <span className="font-bold text-sm uppercase tracking-wider">⚡ DANGER ZONE - Game Ending Soon! ⚡</span>
-          <AlertTriangle className="w-4 h-4" />
-        </div>
-      )}
-      
+    <div className={`min-h-screen bg-background flex flex-col ${isShaking ? 'animate-intense-shake' : ''}`}>
       {/* Header */}
-      <div className={`backdrop-blur-xl border-b p-4 sticky top-0 z-10 ${isEndingSoon ? 'bg-red-900/50 border-red-500/50' : 'bg-card/98 border-border/50'}`}>
+      <div className="bg-card/98 backdrop-blur-xl border-b border-border/50 p-4 sticky top-0 z-10">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             {/* Leave Button */}
@@ -422,35 +428,23 @@ export const FingerArena = () => {
         </div>
 
         {/* Pool Display */}
-        <div className={`rounded-xl p-3 mb-3 border ${isEndingSoon ? 'bg-red-500/20 border-red-500/50' : 'bg-gradient-to-r from-primary/20 to-secondary/20 border-primary/30'}`}>
+        <div className="bg-gradient-to-r from-primary/20 to-secondary/20 rounded-xl p-3 mb-3 border border-primary/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-lg">💰</span>
               <span className="text-sm text-muted-foreground">Prize Pool</span>
             </div>
             <div className="text-right">
-              <p className={`font-black text-xl ${isEndingSoon ? 'text-red-400' : 'text-primary'}`}>₦{poolValue.toLocaleString()}</p>
+              <p className="font-black text-xl text-primary">₦{poolValue.toLocaleString()}</p>
               <p className="text-[10px] text-muted-foreground">{audienceCount} players</p>
             </div>
           </div>
         </div>
-
-        {/* Game Time Remaining - Prominent when ending soon */}
-        {isEndingSoon && (
-          <div className="bg-red-500/30 border-2 border-red-500 rounded-xl p-3 mb-3 animate-pulse">
-            <div className="flex items-center justify-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
-              <span className="text-sm font-bold text-red-400 uppercase">Game Ends In</span>
-              <AlertTriangle className="w-5 h-5 text-red-400" />
-            </div>
-            <p className="text-3xl font-black text-center text-red-400">{formatGameTime(gameTime)}</p>
-          </div>
-        )}
         
         {/* Timer */}
-        <div className={`text-center py-3 rounded-xl transition-all ${isEndingSoon ? 'bg-red-500/20 border-2 border-red-500/50' : timer < 15 ? 'bg-destructive/20 border-2 border-destructive/50' : timer < 30 ? 'bg-orange-500/20 border border-orange-500/50' : 'bg-primary/10 border border-primary/30'}`}>
+        <div className={`text-center py-3 rounded-xl transition-all ${timer < 15 ? 'bg-destructive/20 border-2 border-destructive/50' : timer < 30 ? 'bg-orange-500/20 border border-orange-500/50' : 'bg-primary/10 border border-primary/30'}`}>
           <p className="text-xs text-muted-foreground mb-1">Time Until Winner</p>
-          <p className={`timer-display ${isEndingSoon || timer < 15 ? 'timer-urgent animate-pulse' : timer < 30 ? 'text-orange-400' : ''}`}>{timer}s</p>
+          <p className={`timer-display ${timer < 15 ? 'timer-urgent animate-pulse' : timer < 30 ? 'text-orange-400' : ''}`}>{timer}s</p>
         </div>
 
         {/* Live Top 3 Podium */}
