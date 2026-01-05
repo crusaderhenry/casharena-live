@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { TestControls } from '@/components/TestControls';
 import { CrusaderHost } from '@/components/CrusaderHost';
+import { MicCheckModal } from '@/components/MicCheckModal';
 import { useGame } from '@/contexts/GameContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
 import { useCrusader } from '@/hooks/useCrusader';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ChevronLeft, Zap, Lock, Users } from 'lucide-react';
+import { ChevronLeft, Zap, Lock, Users, Mic } from 'lucide-react';
 
 const CRUSADER_LOBBY_MESSAGES = [
   "What's good everyone! Get ready for some ACTION! 🔥",
@@ -30,6 +31,8 @@ export const FingerLobby = () => {
   const [countdown, setCountdown] = useState(60);
   const [entryClosed, setEntryClosed] = useState(false);
   const [crusaderMessage, setCrusaderMessage] = useState(CRUSADER_LOBBY_MESSAGES[0]);
+  const [showMicCheck, setShowMicCheck] = useState(false);
+  const [micCheckComplete, setMicCheckComplete] = useState(false);
 
   // Sync with server countdown
   useEffect(() => {
@@ -52,6 +55,14 @@ export const FingerLobby = () => {
   useEffect(() => {
     playBackgroundMusic('lobby');
     crusader.welcomeLobby();
+    
+    // Show mic check if not done before
+    const micCheckDone = sessionStorage.getItem('micCheckComplete');
+    if (!micCheckDone) {
+      setTimeout(() => setShowMicCheck(true), 1500);
+    } else {
+      setMicCheckComplete(true);
+    }
     
     // Rotate Crusader messages
     const messageInterval = setInterval(() => {
@@ -105,6 +116,11 @@ export const FingerLobby = () => {
     play('click');
     buttonClick();
     navigate('/finger');
+  };
+
+  const handleMicCheckComplete = () => {
+    setMicCheckComplete(true);
+    sessionStorage.setItem('micCheckComplete', 'true');
   };
 
   const poolValue = game?.pool_value || 0;
@@ -223,9 +239,40 @@ export const FingerLobby = () => {
             <li>• Stay calm when others are spamming!</li>
           </ul>
         </div>
+
+        {/* Mic Check Button */}
+        {!micCheckComplete && (
+          <button
+            onClick={() => setShowMicCheck(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-primary/10 border border-primary/30 text-primary font-medium transition-all hover:bg-primary/20"
+          >
+            <Mic className="w-4 h-4" />
+            Test Your Microphone
+          </button>
+        )}
+        
+        {micCheckComplete && (
+          <div className="flex items-center justify-center gap-2 py-2 text-sm text-primary">
+            <Mic className="w-4 h-4" />
+            <span>Mic ready!</span>
+            <button 
+              onClick={() => setShowMicCheck(true)}
+              className="text-muted-foreground hover:text-primary underline"
+            >
+              Test again
+            </button>
+          </div>
+        )}
       </div>
       
       <BottomNav />
+
+      {/* Mic Check Modal */}
+      <MicCheckModal 
+        open={showMicCheck}
+        onOpenChange={setShowMicCheck}
+        onComplete={handleMicCheckComplete}
+      />
     </div>
   );
 };
