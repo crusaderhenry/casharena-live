@@ -3,46 +3,41 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { WalletCard } from '@/components/WalletCard';
 import { TestControls } from '@/components/TestControls';
-import { useWallet } from '@/contexts/WalletContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useGame } from '@/contexts/GameContext';
+import { useLiveGame } from '@/hooks/useLiveGame';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { ArrowLeft, Zap, Users, Clock, Trophy, MessageSquare, ChevronRight } from 'lucide-react';
 
 export const FingerMain = () => {
   const navigate = useNavigate();
-  const { balance, deductFunds } = useWallet();
-  const { hasJoinedFinger, joinFinger, resetFingerGame, isTestMode, fingerPoolValue, addFingerPlayer } = useGame();
+  const { profile } = useAuth();
+  const { isTestMode, resetFingerGame } = useGame();
+  const { game, participants, loading, hasJoined, joinGame, error } = useLiveGame();
   const { play } = useSounds();
   const { buttonClick, success } = useHaptics();
   
   const [countdown, setCountdown] = useState(300);
-  const [playerCount, setPlayerCount] = useState(23);
+  const [joining, setJoining] = useState(false);
 
-  // Countdown timer
+  // Calculate countdown to game start
   useEffect(() => {
+    if (!game || game.status !== 'scheduled') return;
+    
+    // Use server countdown directly
+    setCountdown(game.countdown || 60);
+  }, [game]);
+
+  // Local countdown until next server update
+  useEffect(() => {
+    if (!game || game.status !== 'scheduled') return;
+    
     const timer = setInterval(() => {
-      setCountdown(prev => prev > 0 ? prev - 1 : 300);
+      setCountdown(prev => prev > 0 ? prev - 1 : 0);
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
-
-  // Simulate players joining in real-time
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.6) {
-        const mockPlayer = {
-          id: `sim_${Date.now()}`,
-          name: `Player${Math.floor(Math.random() * 1000)}`,
-          avatar: ['🎮', '🎯', '⚡', '🔥', '💎', '🚀'][Math.floor(Math.random() * 6)],
-        };
-        addFingerPlayer(mockPlayer);
-        setPlayerCount(prev => prev + 1);
-      }
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [addFingerPlayer]);
+  }, [game]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -50,13 +45,25 @@ export const FingerMain = () => {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleJoin = () => {
-    if (deductFunds(700, 'finger_entry', 'Fastest Finger Entry')) {
+  const handleJoin = async () => {
+    if (!profile || joining) return;
+    
+    if (profile.wallet_balance < 700) {
+      play('error');
+      return;
+    }
+
+    setJoining(true);
+    const success_result = await joinGame();
+    
+    if (success_result) {
       play('success');
       success();
-      joinFinger();
       navigate('/finger/lobby');
+    } else {
+      play('error');
     }
+    setJoining(false);
   };
 
   const handleBack = () => {
@@ -65,19 +72,32 @@ export const FingerMain = () => {
     navigate('/home');
   };
 
-  const handleTestStart = () => {
-    if (!hasJoinedFinger) {
-      deductFunds(700, 'finger_entry', 'Fastest Finger Entry');
-      joinFinger();
+  const handleTestStart = async () => {
+    if (!hasJoined && profile) {
+      await joinGame();
     }
     navigate('/finger/arena');
   };
 
   const handleTestReset = () => {
     resetFingerGame();
-    setCountdown(300);
-    setPlayerCount(23);
   };
+
+  const poolValue = game?.pool_value || 0;
+  const playerCount = participants.length || game?.participant_count || 0;
+  const entryFee = game?.entry_fee || 700;
+  const balance = profile?.wallet_balance || 0;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading game...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -105,6 +125,13 @@ export const FingerMain = () => {
           startLabel="Start Live Game"
         />
 
+        {/* Error Message */}
+        {error && (
+          <div className="bg-destructive/20 border border-destructive/50 rounded-xl p-4 text-center">
+            <p className="text-sm text-destructive">{error}</p>
+          </div>
+        )}
+
         {/* Hero Card */}
         <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-card via-card to-primary/10">
           {/* Background effects */}
@@ -116,11 +143,13 @@ export const FingerMain = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/20 rounded-full border border-red-500/30">
                 <span className="live-dot" />
-                <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Live</span>
+                <span className="text-xs font-bold text-red-400 uppercase tracking-wider">
+                  {game?.status === 'live' ? 'Live Now' : 'Upcoming'}
+                </span>
               </div>
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Users className="w-4 h-4" />
-                <span className="text-sm font-medium">{playerCount} waiting</span>
+                <span className="text-sm font-medium">{playerCount} {game?.status === 'live' ? 'playing' : 'waiting'}</span>
               </div>
             </div>
 
@@ -139,10 +168,12 @@ export const FingerMain = () => {
             <div className="grid grid-cols-2 gap-3 mb-5">
               <div className="bg-background/60 backdrop-blur-sm rounded-xl p-4 border border-border/30">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Prize Pool</p>
-                <p className="text-2xl font-black text-primary">₦{fingerPoolValue.toLocaleString()}</p>
+                <p className="text-2xl font-black text-primary">₦{poolValue.toLocaleString()}</p>
               </div>
               <div className="bg-background/60 backdrop-blur-sm rounded-xl p-4 border border-border/30">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Starts In</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+                  {game?.status === 'live' ? 'Game Timer' : 'Starts In'}
+                </p>
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-primary" />
                   <p className="text-2xl font-black text-foreground">{formatTime(countdown)}</p>
@@ -154,7 +185,7 @@ export const FingerMain = () => {
             <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-xl border border-border/30 mb-5">
               <div className="text-center">
                 <p className="text-[10px] text-muted-foreground uppercase">Entry</p>
-                <p className="font-bold text-primary">₦700</p>
+                <p className="font-bold text-primary">₦{entryFee}</p>
               </div>
               <div className="w-px h-8 bg-border/50" />
               <div className="text-center">
@@ -166,27 +197,27 @@ export const FingerMain = () => {
               <div className="w-px h-8 bg-border/50" />
               <div className="text-center">
                 <p className="text-[10px] text-muted-foreground uppercase">Game Time</p>
-                <p className="font-bold text-foreground">30 min</p>
+                <p className="font-bold text-foreground">{game?.max_duration || 20} min</p>
               </div>
             </div>
 
             {/* CTA */}
-            {hasJoinedFinger ? (
+            {hasJoined ? (
               <button
-                onClick={() => navigate('/finger/lobby')}
+                onClick={() => navigate(game?.status === 'live' ? '/finger/arena' : '/finger/lobby')}
                 className="w-full btn-primary flex items-center justify-center gap-2 text-lg"
               >
-                Go to Lobby
+                {game?.status === 'live' ? 'Enter Arena' : 'Go to Lobby'}
                 <ChevronRight className="w-5 h-5" />
               </button>
             ) : (
               <button
                 onClick={handleJoin}
-                disabled={balance < 700}
+                disabled={balance < entryFee || joining || !game}
                 className="w-full btn-primary flex items-center justify-center gap-2 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Zap className="w-5 h-5" />
-                {balance < 700 ? 'Insufficient Balance' : 'Join Lobby — ₦700'}
+                {joining ? 'Joining...' : balance < entryFee ? 'Insufficient Balance' : `Join Lobby — ₦${entryFee}`}
               </button>
             )}
           </div>
@@ -213,7 +244,7 @@ export const FingerMain = () => {
             </li>
             <li className="flex items-start gap-3">
               <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold shrink-0">4</span>
-              <span>Max game time: 30 minutes — then it auto-ends</span>
+              <span>Max game time: {game?.max_duration || 20} minutes — then it auto-ends</span>
             </li>
           </ul>
         </div>

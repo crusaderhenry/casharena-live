@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { TestControls } from '@/components/TestControls';
 import { CrusaderHost } from '@/components/CrusaderHost';
-import { useGame, mockPlayers } from '@/contexts/GameContext';
+import { useGame } from '@/contexts/GameContext';
+import { useLiveGame } from '@/hooks/useLiveGame';
 import { useCrusader } from '@/hooks/useCrusader';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
@@ -20,15 +21,32 @@ const CRUSADER_LOBBY_MESSAGES = [
 export const FingerLobby = () => {
   const navigate = useNavigate();
   const { isTestMode, resetFingerGame } = useGame();
+  const { game, participants, loading } = useLiveGame();
   const crusader = useCrusader();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
+  
   const [countdown, setCountdown] = useState(60);
   const [entryClosed, setEntryClosed] = useState(false);
   const [crusaderMessage, setCrusaderMessage] = useState(CRUSADER_LOBBY_MESSAGES[0]);
 
-  const poolValue = mockPlayers.length * 700;
+  // Sync with server countdown
+  useEffect(() => {
+    if (game) {
+      setCountdown(game.countdown || 60);
+    }
+  }, [game?.countdown]);
+
+  // Redirect if game is live
+  useEffect(() => {
+    if (game?.status === 'live') {
+      navigate('/finger/arena');
+    }
+    if (game?.status === 'ended') {
+      navigate('/finger/results');
+    }
+  }, [game?.status, navigate]);
 
   // Start lobby music and Crusader welcome
   useEffect(() => {
@@ -46,6 +64,7 @@ export const FingerLobby = () => {
     };
   }, []);
 
+  // Local countdown with sync from server
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown(prev => {
@@ -87,6 +106,20 @@ export const FingerLobby = () => {
     buttonClick();
     navigate('/finger');
   };
+
+  const poolValue = game?.pool_value || 0;
+  const playerCount = participants.length || game?.participant_count || 0;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading lobby...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -142,7 +175,7 @@ export const FingerLobby = () => {
             <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Participants</p>
             <p className="text-2xl font-black text-foreground flex items-center justify-center gap-2">
               <Users className="w-5 h-5 text-primary" />
-              {mockPlayers.length}
+              {playerCount}
             </p>
           </div>
           <div className="card-panel text-center">
@@ -157,16 +190,24 @@ export const FingerLobby = () => {
             Players in Lobby
           </h3>
           <div className="grid grid-cols-4 gap-3">
-            {mockPlayers.map((player, index) => (
-              <div key={index} className="flex flex-col items-center animate-scale-in" style={{ animationDelay: `${index * 30}ms` }}>
+            {participants.slice(0, 12).map((participant, index) => (
+              <div key={participant.id} className="flex flex-col items-center animate-scale-in" style={{ animationDelay: `${index * 30}ms` }}>
                 <div className="w-12 h-12 rounded-full bg-card-elevated flex items-center justify-center text-xl border border-border/50">
-                  {player.avatar}
+                  {participant.profile?.avatar || '🎮'}
                 </div>
                 <p className="text-xs mt-1.5 truncate w-full text-center font-medium text-muted-foreground">
-                  {player.name.split(' ')[0]}
+                  {participant.profile?.username?.split(' ')[0] || 'Player'}
                 </p>
               </div>
             ))}
+            {playerCount > 12 && (
+              <div className="flex flex-col items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-sm border border-border/50">
+                  +{playerCount - 12}
+                </div>
+                <p className="text-xs mt-1.5 text-muted-foreground">more</p>
+              </div>
+            )}
           </div>
         </div>
 
