@@ -232,16 +232,29 @@ export const useLiveGame = (gameId?: string) => {
     }
   }, [game, user, refreshProfile]);
 
-  // Send comment
+  // Send comment with sanitization
   const sendComment = useCallback(async (content: string) => {
     if (!game || !user) return false;
+
+    // Validate length
+    if (!content || content.length === 0 || content.length > 200) {
+      return false;
+    }
+
+    // Sanitize: remove HTML tags and control characters
+    const sanitized = content
+      .replace(/<[^>]*>/g, '') // Remove HTML tags
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control chars
+      .trim();
+
+    if (!sanitized) return false;
 
     const { error } = await supabase
       .from('comments')
       .insert({
         game_id: game.id,
         user_id: user.id,
-        content,
+        content: sanitized,
       });
 
     if (error) {
