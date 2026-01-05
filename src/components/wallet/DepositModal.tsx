@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,16 +12,24 @@ interface DepositModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  defaultAmount?: number | null;
 }
 
 const QUICK_AMOUNTS = [1000, 2000, 5000, 10000];
 
-export const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
+export const DepositModal = ({ open, onOpenChange, onSuccess, defaultAmount }: DepositModalProps) => {
   const { user, profile, refreshProfile } = useAuth();
   const { isTestMode } = usePlatformSettings();
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(defaultAmount?.toString() || '');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Update amount when defaultAmount changes
+  React.useEffect(() => {
+    if (defaultAmount) {
+      setAmount(defaultAmount.toString());
+    }
+  }, [defaultAmount]);
 
   const handleDeposit = async () => {
     const depositAmount = parseInt(amount);
