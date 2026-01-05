@@ -238,12 +238,39 @@ export const FingerLobby = () => {
     entry_cutoff_minutes: game.entry_cutoff_minutes,
   } : null;
 
-  if (loading) {
+  if (loading && !game) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-14 h-14 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground font-medium">Entering lobby...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!game) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="text-center space-y-3 max-w-sm">
+          <p className="text-lg font-bold text-foreground">Lobby unavailable</p>
+          <p className="text-sm text-muted-foreground">
+            We couldn’t load the game details. Please go back and select a game again.
+          </p>
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <button
+              onClick={() => navigate('/finger')}
+              className="px-4 py-2 rounded-xl bg-card border border-border text-foreground hover:border-primary/50 transition-colors"
+            >
+              Back
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );
