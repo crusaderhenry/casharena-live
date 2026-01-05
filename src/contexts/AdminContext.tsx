@@ -80,6 +80,7 @@ interface AdminStats {
 
 interface CreateGameConfig {
   name: string;
+  description?: string | null;
   entry_fee: number;
   max_duration: number;
   comment_timer: number;
@@ -92,6 +93,12 @@ interface CreateGameConfig {
   scheduled_at?: string | null;
   recurrence_type?: string | null;
   recurrence_interval?: number | null;
+  // Sponsored
+  is_sponsored?: boolean;
+  sponsored_amount?: number;
+  // Visibility
+  visibility?: 'public' | 'private';
+  entry_cutoff_minutes?: number;
 }
 
 interface AdminContextType {

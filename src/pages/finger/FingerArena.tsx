@@ -422,23 +422,35 @@ export const FingerArena = () => {
         </div>
 
         {/* Pool Display */}
-        <div className="bg-gradient-to-r from-primary/20 to-secondary/20 rounded-xl p-3 mb-3 border border-primary/30">
+        <div className={`rounded-xl p-3 mb-3 border ${isEndingSoon ? 'bg-red-500/20 border-red-500/50' : 'bg-gradient-to-r from-primary/20 to-secondary/20 border-primary/30'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-lg">💰</span>
               <span className="text-sm text-muted-foreground">Prize Pool</span>
             </div>
             <div className="text-right">
-              <p className="font-black text-xl text-primary">₦{poolValue.toLocaleString()}</p>
+              <p className={`font-black text-xl ${isEndingSoon ? 'text-red-400' : 'text-primary'}`}>₦{poolValue.toLocaleString()}</p>
               <p className="text-[10px] text-muted-foreground">{audienceCount} players</p>
             </div>
           </div>
         </div>
+
+        {/* Game Time Remaining - Prominent when ending soon */}
+        {isEndingSoon && (
+          <div className="bg-red-500/30 border-2 border-red-500 rounded-xl p-3 mb-3 animate-pulse">
+            <div className="flex items-center justify-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+              <span className="text-sm font-bold text-red-400 uppercase">Game Ends In</span>
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+            </div>
+            <p className="text-3xl font-black text-center text-red-400">{formatGameTime(gameTime)}</p>
+          </div>
+        )}
         
         {/* Timer */}
-        <div className={`text-center py-3 rounded-xl transition-all ${timer < 15 ? 'bg-destructive/20 border-2 border-destructive/50' : timer < 30 ? 'bg-orange-500/20 border border-orange-500/50' : 'bg-primary/10 border border-primary/30'}`}>
+        <div className={`text-center py-3 rounded-xl transition-all ${isEndingSoon ? 'bg-red-500/20 border-2 border-red-500/50' : timer < 15 ? 'bg-destructive/20 border-2 border-destructive/50' : timer < 30 ? 'bg-orange-500/20 border border-orange-500/50' : 'bg-primary/10 border border-primary/30'}`}>
           <p className="text-xs text-muted-foreground mb-1">Time Until Winner</p>
-          <p className={`timer-display ${timer < 15 ? 'timer-urgent animate-pulse' : timer < 30 ? 'text-orange-400' : ''}`}>{timer}s</p>
+          <p className={`timer-display ${isEndingSoon || timer < 15 ? 'timer-urgent animate-pulse' : timer < 30 ? 'text-orange-400' : ''}`}>{timer}s</p>
         </div>
 
         {/* Live Top 3 Podium */}
