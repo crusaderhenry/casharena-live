@@ -54,7 +54,14 @@ export const Home = () => {
 
     const loadGames = async () => {
       const games = await fetchAllActiveGames();
-      setAllGames(games);
+      // Compute effective_prize_pool for display consistency
+      const gamesWithPool = games.map(g => ({
+        ...g,
+        effective_prize_pool: g.is_sponsored && g.sponsored_amount 
+          ? (g.pool_value || 0) + g.sponsored_amount 
+          : (g.pool_value || 0),
+      }));
+      setAllGames(gamesWithPool);
     };
     loadGames();
 
@@ -63,10 +70,28 @@ export const Home = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fastest_finger_games' },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setAllGames(prev => [payload.new as any, ...prev]);
+            const newGame = payload.new as any;
+            const withPool = {
+              ...newGame,
+              effective_prize_pool: newGame.is_sponsored && newGame.sponsored_amount 
+                ? (newGame.pool_value || 0) + newGame.sponsored_amount 
+                : (newGame.pool_value || 0),
+            };
+            setAllGames(prev => [withPool, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
             const updated = payload.new as any;
-            setAllGames(prev => prev.map(g => g.id === updated.id ? { ...g, ...updated } : g).filter(g => ['live', 'scheduled', 'open'].includes(g.status)));
+            setAllGames(prev => prev.map(g => {
+              if (g.id === updated.id) {
+                return { 
+                  ...g, 
+                  ...updated,
+                  effective_prize_pool: updated.is_sponsored && updated.sponsored_amount 
+                    ? (updated.pool_value || 0) + updated.sponsored_amount 
+                    : (updated.pool_value || 0),
+                };
+              }
+              return g;
+            }).filter(g => ['live', 'scheduled', 'open'].includes(g.status)));
           } else if (payload.eventType === 'DELETE') {
             setAllGames(prev => prev.filter(g => g.id !== (payload.old as any).id));
           }
