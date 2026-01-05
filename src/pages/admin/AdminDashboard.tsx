@@ -1,65 +1,48 @@
 import { useAdmin } from '@/contexts/AdminContext';
+import { useAdminStats } from '@/hooks/useAdminStats';
 import { StatCard } from '@/components/admin/StatCard';
 import { MiniChart } from '@/components/admin/MiniChart';
-import { Zap, Users, Wallet, TrendingUp, Trophy, Clock, Activity } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Zap, Users, Wallet, TrendingUp, Trophy, Clock, Activity, UserPlus } from 'lucide-react';
+import { useRealtimeActivity } from '@/hooks/useRealtimeActivity';
 
 export const AdminDashboard = () => {
-  const { stats, currentGame, games, transactions } = useAdmin();
-  const [recentActivity, setRecentActivity] = useState<{ id: string; type: string; message: string; time: string }[]>([]);
+  const { currentGame, games } = useAdmin();
+  const { stats, weeklyStats, loading } = useAdminStats();
+  const { activities } = useRealtimeActivity(6);
 
-  // Generate chart data
-  const dailyGamesData = [
-    { name: 'Mon', value: 12 },
-    { name: 'Tue', value: 18 },
-    { name: 'Wed', value: 15 },
-    { name: 'Thu', value: 22 },
-    { name: 'Fri', value: 28 },
-    { name: 'Sat', value: 35 },
-    { name: 'Sun', value: 30 },
-  ];
-
-  const dailyRevenueData = [
-    { name: 'Mon', value: 12500 },
-    { name: 'Tue', value: 18200 },
-    { name: 'Wed', value: 15800 },
-    { name: 'Thu', value: 22400 },
-    { name: 'Fri', value: 28900 },
-    { name: 'Sat', value: 35600 },
-    { name: 'Sun', value: 31200 },
-  ];
-
-  const activeUsersData = [
-    { name: '6am', value: 45 },
-    { name: '9am', value: 89 },
-    { name: '12pm', value: 156 },
-    { name: '3pm', value: 178 },
-    { name: '6pm', value: 234 },
-    { name: '9pm', value: 198 },
-    { name: '12am', value: 87 },
-  ];
-
-  useEffect(() => {
-    // Generate recent activity from games and transactions
-    const activities = [
-      { id: '1', type: 'game_start', message: 'Game #1234 started with 23 players', time: '2 min ago' },
-      { id: '2', type: 'game_end', message: 'Game #1233 ended - CryptoKing won ₦7,245', time: '15 min ago' },
-      { id: '3', type: 'payout', message: 'Payout of ₦4,347 sent to LuckyAce', time: '18 min ago' },
-      { id: '4', type: 'user_join', message: 'New user SwiftNinja joined', time: '25 min ago' },
-      { id: '5', type: 'game_end', message: 'Game #1232 ended - NightOwl took 1st place', time: '45 min ago' },
-      { id: '6', type: 'payout', message: 'Large payout ₦12,500 to GoldRush', time: '1 hr ago' },
-    ];
-    setRecentActivity(activities);
-  }, []);
+  // Transform weekly stats for charts
+  const dailyGamesData = weeklyStats.map(d => ({ name: d.date, value: d.games }));
+  const dailyRevenueData = weeklyStats.map(d => ({ name: d.date, value: d.revenue }));
+  const dailyEntriesData = weeklyStats.map(d => ({ name: d.date, value: d.entries }));
 
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'game_start': return <Zap className="w-4 h-4 text-primary" />;
-      case 'game_end': return <Trophy className="w-4 h-4 text-gold" />;
-      case 'payout': return <Wallet className="w-4 h-4 text-green-400" />;
-      case 'user_join': return <Users className="w-4 h-4 text-blue-400" />;
+      case 'game_end': return <Trophy className="w-4 h-4 text-secondary" />;
+      case 'finger_win': return <Trophy className="w-4 h-4 text-gold" />;
       default: return <Activity className="w-4 h-4 text-muted-foreground" />;
     }
+  };
+
+  const getActivityMessage = (activity: typeof activities[0]) => {
+    switch (activity.type) {
+      case 'finger_win':
+        return `${activity.playerName} won ₦${(activity.amount || 0).toLocaleString()}`;
+      case 'game_start':
+        return `${activity.gameName || 'Game'} is now LIVE`;
+      case 'game_end':
+        return `${activity.gameName || 'Game'} ended`;
+      default:
+        return activity.gameName || 'Activity';
+    }
+  };
+
+  const formatTimeAgo = (date: Date) => {
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
   };
 
   return (
@@ -126,10 +109,10 @@ export const AdminDashboard = () => {
           <MiniChart data={dailyRevenueData} color="#E6C87A" height={160} showAxis />
         </div>
 
-        {/* Active Users */}
+        {/* Daily Entries */}
         <div className="bg-card rounded-xl border border-border p-4">
-          <h3 className="text-sm font-bold text-foreground mb-4">Active Users Today</h3>
-          <MiniChart data={activeUsersData} color="#0FB9B1" height={160} showAxis />
+          <h3 className="text-sm font-bold text-foreground mb-4">Daily Entries</h3>
+          <MiniChart data={dailyEntriesData} color="#0FB9B1" height={160} showAxis />
         </div>
       </div>
 
@@ -138,21 +121,30 @@ export const AdminDashboard = () => {
         {/* Recent Activity */}
         <div className="bg-card rounded-xl border border-border p-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-foreground">Recent Activity</h3>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Live Feed</span>
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+              </span>
+              Live Activity
+            </h3>
           </div>
           <div className="space-y-3">
-            {recentActivity.map((activity) => (
-              <div key={activity.id} className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
-                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-                  {getActivityIcon(activity.type)}
+            {activities.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
+            ) : (
+              activities.map((activity) => (
+                <div key={activity.id} className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
+                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                    {getActivityIcon(activity.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground truncate">{getActivityMessage(activity)}</p>
+                    <p className="text-[10px] text-muted-foreground">{formatTimeAgo(activity.timestamp)}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground truncate">{activity.message}</p>
-                  <p className="text-[10px] text-muted-foreground">{activity.time}</p>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -161,20 +153,20 @@ export const AdminDashboard = () => {
           <h3 className="text-sm font-bold text-foreground mb-4">Platform Health</h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="p-3 bg-muted/30 rounded-lg">
-              <p className="text-[10px] text-muted-foreground uppercase mb-1">Total Games Today</p>
-              <p className="text-xl font-black text-foreground">{games.length + 12}</p>
+              <p className="text-[10px] text-muted-foreground uppercase mb-1">Games Today</p>
+              <p className="text-xl font-black text-foreground">{stats.gamesPlayedToday}</p>
             </div>
             <div className="p-3 bg-muted/30 rounded-lg">
-              <p className="text-[10px] text-muted-foreground uppercase mb-1">Avg Game Duration</p>
-              <p className="text-xl font-black text-foreground">18 min</p>
+              <p className="text-[10px] text-muted-foreground uppercase mb-1">Avg Duration</p>
+              <p className="text-xl font-black text-foreground">{stats.avgGameDuration || '--'} min</p>
             </div>
             <div className="p-3 bg-muted/30 rounded-lg">
               <p className="text-[10px] text-muted-foreground uppercase mb-1">DAU</p>
               <p className="text-xl font-black text-foreground">{stats.dau}</p>
             </div>
             <div className="p-3 bg-muted/30 rounded-lg">
-              <p className="text-[10px] text-muted-foreground uppercase mb-1">MAU</p>
-              <p className="text-xl font-black text-foreground">{stats.mau.toLocaleString()}</p>
+              <p className="text-[10px] text-muted-foreground uppercase mb-1">Total Users</p>
+              <p className="text-xl font-black text-foreground">{stats.totalUsers.toLocaleString()}</p>
             </div>
           </div>
 
@@ -182,8 +174,8 @@ export const AdminDashboard = () => {
           <div className="mt-4 p-4 bg-primary/10 rounded-xl border border-primary/30">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] text-muted-foreground uppercase mb-1">Platform Balance</p>
-                <p className="text-2xl font-black text-primary">₦{stats.totalPlatformBalance.toLocaleString()}</p>
+                <p className="text-[10px] text-muted-foreground uppercase mb-1">User Balances Total</p>
+                <p className="text-2xl font-black text-primary">₦{stats.totalUserBalances.toLocaleString()}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-primary/50" />
             </div>

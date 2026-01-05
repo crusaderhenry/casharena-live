@@ -249,7 +249,11 @@ export type Database = {
           kyc_type: string | null
           kyc_verified: boolean
           kyc_verified_at: string | null
+          last_active_at: string | null
           rank_points: number
+          status: string
+          suspended_at: string | null
+          suspended_reason: string | null
           total_wins: number
           updated_at: string
           username: string
@@ -271,7 +275,11 @@ export type Database = {
           kyc_type?: string | null
           kyc_verified?: boolean
           kyc_verified_at?: string | null
+          last_active_at?: string | null
           rank_points?: number
+          status?: string
+          suspended_at?: string | null
+          suspended_reason?: string | null
           total_wins?: number
           updated_at?: string
           username: string
@@ -293,7 +301,11 @@ export type Database = {
           kyc_type?: string | null
           kyc_verified?: boolean
           kyc_verified_at?: string | null
+          last_active_at?: string | null
           rank_points?: number
+          status?: string
+          suspended_at?: string | null
+          suspended_reason?: string | null
           total_wins?: number
           updated_at?: string
           username?: string
