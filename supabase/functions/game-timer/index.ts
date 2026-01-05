@@ -8,9 +8,11 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+const cronSecret = Deno.env.get('CRON_SECRET');
+
 // This function is designed to be called by:
-// 1. Internal cron job (no auth needed - uses service key internally)
-// 2. Admin for manual operations (requires admin auth)
+// 1. Cron job (uses CRON_SECRET for authentication)
+// 2. Admin for manual operations (requires admin auth via JWT)
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -23,12 +25,22 @@ Deno.serve(async (req) => {
 
     console.log(`[game-timer] Action: ${action}, Game: ${gameId}`);
 
-    // Verify this is either a cron job or an authenticated admin
-    // Cron jobs include the service role key in auth header
+    // Check for cron secret in header (for cron job calls)
+    const cronHeader = req.headers.get('x-cron-secret');
+    const isCronJob = cronSecret && cronHeader === cronSecret;
+
+    // Check for JWT auth (for admin calls)
     const authHeader = req.headers.get('Authorization');
-    const isCronJob = authHeader?.includes(supabaseServiceKey.substring(0, 20));
     
-    if (!isCronJob && authHeader) {
+    if (!isCronJob) {
+      if (!authHeader) {
+        console.log('[game-timer] Unauthorized: No cron secret or auth header');
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // Verify admin role for manual calls
       const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
       const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
@@ -36,6 +48,7 @@ Deno.serve(async (req) => {
       const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
       
       if (error || !user) {
+        console.log('[game-timer] Unauthorized: Invalid JWT');
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -51,12 +64,15 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!roleData) {
+        console.log('[game-timer] Forbidden: User is not admin');
         return new Response(JSON.stringify({ error: 'Admin access required' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
     }
+    
+    console.log(`[game-timer] Authenticated via ${isCronJob ? 'cron secret' : 'admin JWT'}`);
 
     if (action === 'tick') {
       const { data: game, error: gameError } = await supabase
