@@ -47,9 +47,44 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Call the tick function
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    // 1) Start OPEN games whose start_time has passed (auto-go-live)
+    const { data: openGames, error: openErr } = await supabase
+      .from('fastest_finger_games')
+      .select('id, comment_timer')
+      .eq('status', 'open')
+      .not('start_time', 'is', null)
+      .lte('start_time', nowIso);
+
+    if (openErr) {
+      console.error('[countdown-ticker] Error selecting open games:', openErr);
+    }
+
+    let startedGames = 0;
+    for (const g of (openGames || []) as any[]) {
+      const commentTimer = Number(g.comment_timer ?? 60);
+      const { error: startErr } = await supabase
+        .from('fastest_finger_games')
+        .update({
+          status: 'live',
+          start_time: nowIso,
+          countdown: commentTimer,
+        })
+        .eq('id', g.id)
+        .eq('status', 'open');
+
+      if (startErr) {
+        console.error('[countdown-ticker] Error starting game:', g.id, startErr);
+      } else {
+        startedGames += 1;
+      }
+    }
+
+    // 2) Tick down countdowns for LIVE games
     const { data: tickResults, error } = await supabase.rpc('tick_game_countdowns');
-    
+
     if (error) {
       console.error('[countdown-ticker] Error ticking:', error);
       return new Response(JSON.stringify({ error: error.message }), {
@@ -60,24 +95,29 @@ Deno.serve(async (req) => {
 
     // Check for games that ended
     const endedGames = (tickResults || []).filter((r: any) => r.game_ended);
-    
+
     for (const endedGame of endedGames) {
       console.log(`[countdown-ticker] Game ${endedGame.game_id} countdown reached 0, triggering end`);
-      
+
       // Trigger the game-timer to handle end-game logic
       await supabase.functions.invoke('game-timer', {
         body: { action: 'tick', gameId: endedGame.game_id },
       });
     }
 
-    return new Response(JSON.stringify({ 
-      success: true,
-      tickedGames: tickResults?.length || 0,
-      endedGames: endedGames.length,
-      results: tickResults,
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        startedGames,
+        tickedGames: tickResults?.length || 0,
+        endedGames: endedGames.length,
+        results: tickResults,
+        timestamp: nowIso,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
 
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
