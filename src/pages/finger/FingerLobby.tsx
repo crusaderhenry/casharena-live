@@ -4,6 +4,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { TestControls } from '@/components/TestControls';
 import { CrusaderHost } from '@/components/CrusaderHost';
 import { MicCheckModal } from '@/components/MicCheckModal';
+import { GameStatusHeader } from '@/components/GameStatusHeader';
 import { useGame } from '@/contexts/GameContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
 import { useCrusader } from '@/hooks/useCrusader';
@@ -11,7 +12,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useServerTime, formatCountdown } from '@/hooks/useServerTime';
-import { ChevronLeft, Zap, Lock, Users, Mic, Trophy, Clock, Play, Sparkles, Radio } from 'lucide-react';
+import { ChevronLeft, Zap, Lock, Users, Mic, Trophy, Clock, Play, Sparkles, Radio, Eye } from 'lucide-react';
 
 const CRUSADER_LOBBY_MESSAGES = [
   "What's good everyone! Get ready for some ACTION! 🔥",
@@ -25,9 +26,10 @@ export const FingerLobby = () => {
   const location = useLocation();
   const preferLobby = Boolean((location.state as any)?.preferLobby);
   const gameIdFromState = (location.state as any)?.gameId;
+  const isSpectatorFromState = Boolean((location.state as any)?.isSpectator);
 
   const { isTestMode, resetFingerGame } = useGame();
-  const { game, participants, loading } = useLiveGame();
+  const { game, participants, loading } = useLiveGame(gameIdFromState);
   const crusader = useCrusader();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { play } = useSounds();
@@ -39,6 +41,7 @@ export const FingerLobby = () => {
   const [crusaderMessage, setCrusaderMessage] = useState(CRUSADER_LOBBY_MESSAGES[0]);
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [micCheckComplete, setMicCheckComplete] = useState(false);
+  const [isSpectator, setIsSpectator] = useState(isSpectatorFromState);
 
   // Sync with server countdown using server time
   useEffect(() => {
@@ -137,7 +140,7 @@ export const FingerLobby = () => {
   const handleEnterArena = () => {
     play('click');
     buttonClick();
-    navigate('/finger/arena');
+    navigate('/finger/arena', { state: { isSpectator } });
   };
 
   const handleMicCheckComplete = () => {
@@ -149,6 +152,20 @@ export const FingerLobby = () => {
   const playerCount = participants.length || game?.participant_count || 0;
   const gameName = game?.name || 'Fastest Finger';
   const isGameLive = game?.status === 'live';
+  
+  // Construct a game object for the header component
+  const gameForHeader = game ? {
+    id: game.id,
+    name: game.name,
+    status: game.status,
+    pool_value: game.pool_value,
+    participant_count: game.participant_count,
+    countdown: game.countdown,
+    entry_fee: game.entry_fee,
+    max_duration: game.max_duration,
+    payout_type: game.payout_type,
+    start_time: game.start_time,
+  } : null;
 
   if (loading) {
     return (
@@ -181,12 +198,27 @@ export const FingerLobby = () => {
                   LIVE
                 </span>
               )}
+              {isSpectator && (
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/20 text-xs font-bold text-orange-400">
+                  <Eye className="w-3 h-3" />
+                  SPECTATOR
+                </span>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
-              {isGameLive ? 'Game is live! Jump in now' : 'Waiting for game to start'}
+              {isSpectator ? 'Watching as spectator' : isGameLive ? 'Game is live! Jump in now' : 'Waiting for game to start'}
             </p>
           </div>
         </div>
+
+        {/* Game Status Header - Shared Component */}
+        {gameForHeader && (
+          <GameStatusHeader 
+            game={gameForHeader} 
+            participantCount={playerCount}
+            isSpectator={isSpectator}
+          />
+        )}
 
         {/* Crusader Host */}
         <CrusaderHost isLive message={crusaderMessage} />
@@ -198,7 +230,7 @@ export const FingerLobby = () => {
           startLabel="Start Game Now"
         />
 
-        {/* Game Status Card */}
+        {/* Action Card */}
         <div className={`relative overflow-hidden rounded-2xl border-2 p-5 text-center ${
           isGameLive 
             ? 'bg-gradient-to-br from-green-500/10 via-card to-card border-green-500/50' 
@@ -217,15 +249,28 @@ export const FingerLobby = () => {
                 <div className="flex items-center justify-center gap-2 mb-3">
                   <Radio className="w-6 h-6 text-green-400 animate-pulse" />
                   <span className="text-sm text-green-400 font-bold uppercase tracking-wider">
-                    Game is Live!
+                    {isSpectator ? 'Watching Live' : 'Game is Live!'}
                   </span>
                 </div>
                 <button
                   onClick={handleEnterArena}
-                  className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                  className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity ${
+                    isSpectator 
+                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white' 
+                      : 'bg-gradient-to-r from-green-500 to-green-600 text-white'
+                  }`}
                 >
-                  <Play className="w-5 h-5" fill="currentColor" />
-                  Enter Arena Now
+                  {isSpectator ? (
+                    <>
+                      <Eye className="w-5 h-5" />
+                      Watch Arena
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-5 h-5" fill="currentColor" />
+                      Enter Arena Now
+                    </>
+                  )}
                 </button>
               </>
             ) : (
@@ -251,8 +296,6 @@ export const FingerLobby = () => {
             )}
           </div>
         </div>
-
-        {/* Pool Info */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-border bg-card p-4 text-center">
             <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-2">

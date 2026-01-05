@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { VoiceRoomLive } from '@/components/VoiceRoomLive';
 import { TestControls } from '@/components/TestControls';
 import { MicCheckModal } from '@/components/MicCheckModal';
+import { GameStatusHeader } from '@/components/GameStatusHeader';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
@@ -12,7 +13,7 @@ import { useCrusaderHost } from '@/hooks/useCrusaderHost';
 import { useAudio } from '@/contexts/AudioContext';
 import { useToast } from '@/hooks/use-toast';
 import { useServerTime } from '@/hooks/useServerTime';
-import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, AlertTriangle, Zap, Trophy, Radio, Timer, Flame } from 'lucide-react';
+import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, AlertTriangle, Zap, Trophy, Radio, Timer, Flame, Eye } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +34,9 @@ interface TopThree {
 
 export const FingerArena = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isSpectatorFromState = Boolean((location.state as any)?.isSpectator);
+  
   const { isTestMode, resetFingerGame, userProfile } = useGame();
   const { profile, user } = useAuth();
   const { game, comments, participants, winners, sendComment, loading } = useLiveGame();
@@ -53,7 +57,7 @@ export const FingerArena = () => {
   const [topThree, setTopThree] = useState<TopThree[]>([]);
   const [lastLeader, setLastLeader] = useState('');
   const [isShaking, setIsShaking] = useState(false);
-  const [isSpectator, setIsSpectator] = useState(false);
+  const [isSpectator, setIsSpectator] = useState(isSpectatorFromState);
   const [hostMuted, setHostMuted] = useState(false);
   const [audienceMuted, setAudienceMuted] = useState(false);
   const [sending, setSending] = useState(false);
@@ -362,6 +366,20 @@ export const FingerArena = () => {
     );
   }
 
+  // Construct a game object for the header component
+  const gameForHeader = game ? {
+    id: game.id,
+    name: game.name,
+    status: game.status,
+    pool_value: game.pool_value,
+    participant_count: game.participant_count,
+    countdown: game.countdown,
+    entry_fee: game.entry_fee,
+    max_duration: game.max_duration,
+    payout_type: game.payout_type,
+    start_time: game.start_time,
+  } : null;
+
   return (
     <div className={`min-h-screen flex flex-col ${isShaking ? 'animate-intense-shake' : ''} ${isGameTimeDanger ? 'bg-gradient-to-b from-background via-destructive/5 to-background' : 'bg-background'}`}>
       {/* Header */}
@@ -411,9 +429,14 @@ export const FingerArena = () => {
               <h1 className="font-bold text-foreground flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${isGameTimeDanger ? 'bg-destructive' : 'bg-green-500'} animate-pulse`} />
                 {isGameTimeDanger ? 'DANGER ZONE' : 'Live Arena'}
+                {isSpectator && (
+                  <span className="ml-1 px-2 py-0.5 text-[10px] font-bold uppercase bg-orange-500/20 text-orange-400 rounded-full flex items-center gap-1">
+                    <Eye className="w-3 h-3" /> Spectator
+                  </span>
+                )}
               </h1>
               <p className="text-xs text-muted-foreground flex items-center gap-2">
-                <span>Last comment wins!</span>
+                <span>{isSpectator ? 'Watching only' : 'Last comment wins!'}</span>
                 <span className="inline-flex items-center gap-1 text-primary">
                   <Users className="w-3 h-3" />
                   {audienceCount}
@@ -434,31 +457,18 @@ export const FingerArena = () => {
           </div>
         </div>
 
-        {/* Prize Pool Display */}
-        <div className={`rounded-2xl p-4 mb-3 border ${isGameTimeDanger ? 'bg-gradient-to-r from-destructive/10 via-primary/10 to-destructive/10 border-destructive/30' : 'bg-gradient-to-r from-primary/15 to-gold/10 border-primary/30'}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isGameTimeDanger ? 'bg-destructive/20' : 'bg-primary/20'}`}>
-                <Trophy className={`w-6 h-6 ${isGameTimeDanger ? 'text-destructive' : 'text-primary'}`} />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Prize Pool</p>
-                <p className="font-black text-2xl text-primary">₦{poolValue.toLocaleString()}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">{audienceCount} players</p>
-              {isGameTimeDanger && (
-                <span className="inline-flex items-center gap-1 text-xs text-destructive font-bold">
-                  <AlertTriangle className="w-3 h-3" /> ENDING SOON
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+        {/* Game Status Header - Shared Component */}
+        {gameForHeader && (
+          <GameStatusHeader 
+            game={gameForHeader} 
+            participantCount={audienceCount}
+            isSpectator={isSpectator}
+            compact
+          />
+        )}
         
         {/* Timer */}
-        <div className={`text-center py-4 rounded-2xl transition-all border-2 ${
+        <div className={`mt-3 text-center py-4 rounded-2xl transition-all border-2 ${
           timer <= 10 ? 'bg-destructive/20 border-destructive/50 animate-pulse' : 
           timer <= 30 ? 'bg-orange-500/20 border-orange-500/30' : 
           'bg-primary/10 border-primary/20'
