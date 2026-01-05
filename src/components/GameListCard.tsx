@@ -1,4 +1,4 @@
-import { Zap, Users, Clock, ChevronRight, Trophy } from 'lucide-react';
+import { Zap, Users, Clock, ChevronRight, Trophy, Swords } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -150,11 +150,12 @@ export const GameListCard = ({ game, variant = 'default' }: GameListCardProps) =
 export const NoGamesCard = () => {
   return (
     <div className="card-panel text-center py-8">
-      <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
-        <Zap className="w-8 h-8 text-muted-foreground" />
+      <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 relative">
+        <Swords className="w-8 h-8 text-primary" />
+        <div className="absolute inset-0 bg-primary/5 rounded-2xl animate-pulse" />
       </div>
-      <h3 className="font-bold text-foreground mb-2">No Games Available</h3>
-      <p className="text-sm text-muted-foreground">Check back soon for upcoming games!</p>
+      <h3 className="font-bold text-foreground mb-2">Arena is Quiet</h3>
+      <p className="text-sm text-muted-foreground">No battles right now. New matches coming soon!</p>
     </div>
   );
 };
