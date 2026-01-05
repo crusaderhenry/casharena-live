@@ -10,6 +10,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Shield,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,7 @@ const navItems = [
   { label: 'Wallet & Payouts', icon: Wallet, path: '/admin/wallet' },
   { label: 'Rank & Rewards', icon: Trophy, path: '/admin/rank' },
   { label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
+  { label: 'Audit Logs', icon: Shield, path: '/admin/audit-logs' },
   { label: 'Settings', icon: Settings, path: '/admin/settings' },
 ];
 
