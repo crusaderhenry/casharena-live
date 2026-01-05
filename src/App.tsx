@@ -9,6 +9,7 @@ import { AudioProvider } from "@/contexts/AudioContext";
 import { NotificationProvider } from "@/components/PushNotification";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
+import { TestModeBanner } from "@/components/wallet/TestModeBanner";
 
 // Auth
 import { AuthPage } from "@/pages/AuthPage";
@@ -236,6 +237,7 @@ const App = () => (
                 <Toaster />
                 <Sonner />
                 <BrowserRouter>
+                  <TestModeBanner />
                   <AppRoutes />
                 </BrowserRouter>
               </NotificationProvider>

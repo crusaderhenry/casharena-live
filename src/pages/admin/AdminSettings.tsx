@@ -1,13 +1,56 @@
+import { Settings, Save, Zap, AlertTriangle, Users, Power } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAdmin } from '@/contexts/AdminContext';
-import { Settings, Save, Zap, AlertTriangle, Users } from 'lucide-react';
-import { useState } from 'react';
+import { toast } from 'sonner';
 
 export const AdminSettings = () => {
-  const { settings, updateSettings, simulateHighTraffic } = useAdmin();
-  const [localSettings, setLocalSettings] = useState(settings);
+  const { settings: dbSettings, updateSettings: updateDbSettings, toggleTestMode, isTestMode, loading } = usePlatformSettings();
+  const { simulateHighTraffic } = useAdmin();
+  
+  const [localSettings, setLocalSettings] = useState({
+    platformName: 'FortunesHQ',
+    platformCut: 10,
+    testMode: true,
+    maintenanceMode: false,
+  });
 
-  const handleSave = () => {
-    updateSettings(localSettings);
+  useEffect(() => {
+    if (dbSettings) {
+      setLocalSettings(prev => ({
+        ...prev,
+        platformName: dbSettings.platform_name,
+        platformCut: dbSettings.platform_cut_percent,
+        testMode: dbSettings.test_mode,
+      }));
+    }
+  }, [dbSettings]);
+
+  const handleSave = async () => {
+    const success = await updateDbSettings({
+      platform_name: localSettings.platformName,
+      platform_cut_percent: localSettings.platformCut,
+    });
+    
+    if (success) {
+      toast.success('Settings saved');
+    } else {
+      toast.error('Failed to save settings');
+    }
+  };
+
+  const handleTestModeToggle = async () => {
+    const newValue = !localSettings.testMode;
+    setLocalSettings(prev => ({ ...prev, testMode: newValue }));
+    
+    const success = await toggleTestMode();
+    if (!success) {
+      // Revert on failure
+      setLocalSettings(prev => ({ ...prev, testMode: !newValue }));
+      toast.error('Failed to toggle test mode');
+    } else {
+      toast.success(newValue ? 'Test Mode enabled' : 'Live Mode enabled - Real payments active!');
+    }
   };
 
   return (
@@ -16,6 +59,45 @@ export const AdminSettings = () => {
       <div>
         <h1 className="text-2xl font-black text-foreground">System Settings</h1>
         <p className="text-sm text-muted-foreground">Platform configuration and controls</p>
+      </div>
+
+      {/* Test Mode Toggle - Prominent */}
+      <div className={`rounded-xl border-2 p-6 ${isTestMode ? 'bg-yellow-500/10 border-yellow-500/50' : 'bg-green-500/10 border-green-500/50'}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isTestMode ? 'bg-yellow-500/20' : 'bg-green-500/20'}`}>
+              <Power className={`w-7 h-7 ${isTestMode ? 'text-yellow-500' : 'text-green-500'}`} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">
+                {isTestMode ? 'Test Mode' : 'Live Mode'}
+              </h2>
+              <p className={`text-sm ${isTestMode ? 'text-yellow-500' : 'text-green-500'}`}>
+                {isTestMode ? 'Using mock payments and simulated transactions' : 'Real Paystack payments active'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleTestModeToggle}
+            disabled={loading}
+            className={`relative w-20 h-10 rounded-full transition-colors ${
+              isTestMode ? 'bg-yellow-500' : 'bg-green-500'
+            }`}
+          >
+            <div className={`absolute top-1 w-8 h-8 rounded-full bg-white shadow transition-transform ${
+              isTestMode ? 'translate-x-1' : 'translate-x-10'
+            }`} />
+          </button>
+        </div>
+        
+        {!isTestMode && (
+          <div className="mt-4 flex items-center gap-2 p-3 bg-red-500/10 rounded-lg border border-red-500/30">
+            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
+            <span className="text-sm text-red-400">
+              Live Mode is active! All deposits and withdrawals will use real money via Paystack.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* General Settings */}
@@ -55,32 +137,9 @@ export const AdminSettings = () => {
 
       {/* Mode Toggles */}
       <div className="bg-card rounded-xl border border-border p-6">
-        <h2 className="text-lg font-bold text-foreground mb-6">Mode Controls</h2>
+        <h2 className="text-lg font-bold text-foreground mb-6">Other Controls</h2>
 
         <div className="space-y-4">
-          {/* Test Mode */}
-          <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                <Zap className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">Test Mode</p>
-                <p className="text-sm text-muted-foreground">Enable testing features and simulations</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setLocalSettings(prev => ({ ...prev, testMode: !prev.testMode }))}
-              className={`relative w-14 h-8 rounded-full transition-colors ${
-                localSettings.testMode ? 'bg-primary' : 'bg-muted'
-              }`}
-            >
-              <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-transform ${
-                localSettings.testMode ? 'translate-x-7' : 'translate-x-1'
-              }`} />
-            </button>
-          </div>
-
           {/* Maintenance Mode */}
           <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
             <div className="flex items-center gap-3">
@@ -150,7 +209,10 @@ export const AdminSettings = () => {
       <div className="bg-muted/30 rounded-xl p-4">
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Current Configuration</p>
         <pre className="text-xs text-foreground overflow-auto">
-          {JSON.stringify(settings, null, 2)}
+          {JSON.stringify({
+            ...localSettings,
+            mode: isTestMode ? 'test' : 'live',
+          }, null, 2)}
         </pre>
       </div>
     </div>
