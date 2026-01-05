@@ -119,6 +119,7 @@ interface AdminContextType {
   startGame: (gameId?: string) => Promise<void>;
   endGame: (gameId?: string) => Promise<void>;
   cancelGame: (gameId: string, reason: string) => Promise<void>;
+  deleteGame: (gameId: string) => Promise<void>;
   resetGame: () => void;
   pauseSimulation: () => void;
   resumeSimulation: () => void;
@@ -506,6 +507,28 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [currentGame, refreshData, toast]);
 
+  const deleteGame = useCallback(async (gameId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('game-manager', {
+        body: { action: 'delete_game', gameId },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (gameId === currentGame?.id) {
+        setCurrentGame(null);
+        setIsSimulating(false);
+        setLiveComments([]);
+      }
+      toast({ title: 'Game Deleted', description: 'Game has been permanently deleted' });
+      refreshData();
+    } catch (error: any) {
+      console.error('Delete game error:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  }, [currentGame, refreshData, toast]);
+
   const pauseSimulation = useCallback(() => setIsSimulating(false), []);
   const resumeSimulation = useCallback(() => setIsSimulating(true), []);
 
@@ -558,7 +581,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AdminContext.Provider value={{
       users, transactions, games, currentGame, liveComments, settings, stats, isSimulating, loading,
-      createGame, createGameWithConfig, startGame, endGame, cancelGame, resetGame, pauseSimulation, resumeSimulation,
+      createGame, createGameWithConfig, startGame, endGame, cancelGame, deleteGame, resetGame, pauseSimulation, resumeSimulation,
       updateSettings, suspendUser, flagUser, activateUser, approvePayout, triggerWeeklyReset, simulateHighTraffic, refreshData,
     }}>
       {children}

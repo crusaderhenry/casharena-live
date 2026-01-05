@@ -92,8 +92,8 @@ serve(async (req) => {
     console.log(`Game action: ${action}`, { gameId, userId, config, reason });
 
     // Actions that require authentication
-    const authRequiredActions = ['join', 'create_game', 'start_game', 'end_game', 'cancel_game', 'reset_weekly_ranks'];
-    const adminRequiredActions = ['create_game', 'start_game', 'end_game', 'cancel_game', 'reset_weekly_ranks'];
+    const authRequiredActions = ['join', 'create_game', 'start_game', 'end_game', 'cancel_game', 'delete_game', 'reset_weekly_ranks'];
+    const adminRequiredActions = ['create_game', 'start_game', 'end_game', 'cancel_game', 'delete_game', 'reset_weekly_ranks'];
 
     let authenticatedUser = null;
 
@@ -496,6 +496,52 @@ serve(async (req) => {
         await logAuditAction(supabase, authenticatedUser!.id, 'reset_weekly_ranks', 'system', null, null, clientIp);
 
         console.log('Weekly ranks reset by admin:', authenticatedUser?.id);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'delete_game': {
+        // Admin only - already verified above
+        if (!gameId) throw new Error('Missing gameId');
+
+        const { data: game, error: gameError } = await supabase
+          .from('fastest_finger_games')
+          .select('status, name')
+          .eq('id', gameId)
+          .single();
+
+        if (gameError || !game) throw new Error('Game not found');
+        
+        // Only allow deleting ended or cancelled games
+        if (game.status === 'live' || game.status === 'open' || game.status === 'scheduled') {
+          return new Response(JSON.stringify({ error: 'Cannot delete active games. Cancel the game first.' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Delete related records first (in order of dependencies)
+        await supabase.from('comments').delete().eq('game_id', gameId);
+        await supabase.from('winners').delete().eq('game_id', gameId);
+        await supabase.from('fastest_finger_participants').delete().eq('game_id', gameId);
+        await supabase.from('voice_room_participants').delete().eq('game_id', gameId);
+        // Note: wallet_transactions and rank_history have game_id but we keep them for audit
+        
+        // Delete the game
+        const { error: deleteError } = await supabase
+          .from('fastest_finger_games')
+          .delete()
+          .eq('id', gameId);
+
+        if (deleteError) throw deleteError;
+
+        // Log audit action
+        await logAuditAction(supabase, authenticatedUser!.id, 'delete_game', 'game', gameId, { 
+          game_name: game.name 
+        }, clientIp);
+
+        console.log('Game deleted by admin:', authenticatedUser?.id, gameId);
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

@@ -81,6 +81,7 @@ export const AdminFingerControl = () => {
     startGame, 
     endGame, 
     cancelGame,
+    deleteGame,
     resetGame,
     updateSettings,
     refreshData,
@@ -88,8 +89,20 @@ export const AdminFingerControl = () => {
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [cancelGameId, setCancelGameId] = useState<string | null>(null);
-  const [cancelReason, setCancelReason] = useState('');
+  const [deleteGameId, setDeleteGameId] = useState<string | null>(null);
+  const [cancelReasonType, setCancelReasonType] = useState('');
+  const [cancelReasonCustom, setCancelReasonCustom] = useState('');
+
+  const CANCEL_REASONS = [
+    { value: 'not_enough_players', label: 'Not enough players' },
+    { value: 'technical_issues', label: 'Technical issues' },
+    { value: 'scheduling_conflict', label: 'Scheduling conflict' },
+    { value: 'duplicate_game', label: 'Duplicate game created' },
+    { value: 'testing', label: 'Test game - cleanup' },
+    { value: 'other', label: 'Other (specify below)' },
+  ];
   
   // Get default date/time for scheduling
   const getDefaultDateTime = () => {
@@ -204,16 +217,39 @@ export const AdminFingerControl = () => {
   // Handle cancel game
   const handleOpenCancelDialog = (gameId: string) => {
     setCancelGameId(gameId);
-    setCancelReason('');
+    setCancelReasonType('');
+    setCancelReasonCustom('');
     setShowCancelDialog(true);
   };
 
+  const getCancelReason = () => {
+    if (cancelReasonType === 'other') {
+      return cancelReasonCustom.trim();
+    }
+    return CANCEL_REASONS.find(r => r.value === cancelReasonType)?.label || '';
+  };
+
   const handleCancelGame = async () => {
-    if (!cancelGameId || !cancelReason.trim()) return;
-    await cancelGame(cancelGameId, cancelReason.trim());
+    const reason = getCancelReason();
+    if (!cancelGameId || !reason) return;
+    await cancelGame(cancelGameId, reason);
     setShowCancelDialog(false);
     setCancelGameId(null);
-    setCancelReason('');
+    setCancelReasonType('');
+    setCancelReasonCustom('');
+  };
+
+  // Handle delete game
+  const handleOpenDeleteDialog = (gameId: string) => {
+    setDeleteGameId(gameId);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteGame = async () => {
+    if (!deleteGameId) return;
+    await deleteGame(deleteGameId);
+    setShowDeleteDialog(false);
+    setDeleteGameId(null);
   };
 
   // Helper to format recurrence description
@@ -584,15 +620,30 @@ export const AdminFingerControl = () => {
                 This will cancel the game and refund all participants. Please provide a reason that will be shown to affected users.
               </p>
               
-              <div className="space-y-2">
-                <Label htmlFor="cancelReason">Cancellation Reason</Label>
-                <Textarea
-                  id="cancelReason"
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="e.g., Technical issues, Not enough participants, Scheduling conflict..."
-                  rows={3}
-                />
+              <div className="space-y-3">
+                <Label>Cancellation Reason</Label>
+                <Select
+                  value={cancelReasonType}
+                  onValueChange={setCancelReasonType}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a reason..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CANCEL_REASONS.map(r => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {cancelReasonType === 'other' && (
+                  <Textarea
+                    value={cancelReasonCustom}
+                    onChange={(e) => setCancelReasonCustom(e.target.value)}
+                    placeholder="Enter custom reason..."
+                    rows={2}
+                  />
+                )}
               </div>
 
               <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
@@ -612,10 +663,50 @@ export const AdminFingerControl = () => {
               </button>
               <button
                 onClick={handleCancelGame}
-                disabled={!cancelReason.trim()}
+                disabled={!cancelReasonType || (cancelReasonType === 'other' && !cancelReasonCustom.trim())}
                 className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel Game
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Game Dialog */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="w-5 h-5" />
+                Delete Game
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to permanently delete this game? This action cannot be undone.
+              </p>
+
+              <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                <p className="text-xs text-destructive flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  This will permanently remove the game and all associated data.
+                </p>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <button
+                onClick={() => setShowDeleteDialog(false)}
+                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteGame}
+                className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg font-medium hover:bg-destructive/90 transition-colors"
+              >
+                Delete Permanently
               </button>
             </DialogFooter>
           </DialogContent>
@@ -734,6 +825,7 @@ export const AdminFingerControl = () => {
                   <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Pool</th>
                   <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Players</th>
                   <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Status</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -747,9 +839,22 @@ export const AdminFingerControl = () => {
                     <td className="px-4 py-3 text-primary font-bold">₦{game.poolValue.toLocaleString()}</td>
                     <td className="px-4 py-3 text-foreground">{game.participants}</td>
                     <td className="px-4 py-3">
-                      <span className="px-2 py-1 text-xs rounded-full bg-muted text-muted-foreground">
-                        Ended
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        game.status === 'cancelled' 
+                          ? 'bg-destructive/20 text-destructive' 
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {game.status === 'cancelled' ? 'Cancelled' : 'Ended'}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleOpenDeleteDialog(game.id)}
+                        className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                        title="Delete game"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))}
