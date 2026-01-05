@@ -1,7 +1,8 @@
-import { Zap, Users, Clock, ChevronRight } from 'lucide-react';
+import { Zap, Users, Clock, ChevronRight, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
+import { getPayoutLabel } from '@/components/PrizeDistribution';
 
 interface GameListCardProps {
   game: {
@@ -13,6 +14,8 @@ interface GameListCardProps {
     countdown: number;
     entry_fee: number;
     max_duration?: number;
+    payout_type?: string;
+    payout_distribution?: number[];
   };
   variant?: 'default' | 'compact';
 }
@@ -112,7 +115,14 @@ export const GameListCard = ({ game, variant = 'default' }: GameListCardProps) =
           </div>
           <div>
             <h3 className="font-bold text-foreground">{game.name || 'Fastest Finger'}</h3>
-            <p className="text-xs text-muted-foreground">Entry: ₦{game.entry_fee}</p>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>₦{game.entry_fee}</span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <Trophy className="w-3 h-3 text-gold" />
+                {getPayoutLabel(game.payout_type || 'top3')}
+              </span>
+            </div>
           </div>
         </div>
 

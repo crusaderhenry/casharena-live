@@ -15,9 +15,10 @@ import { supabase } from '@/integrations/supabase/client';
 
 // Mock games for test mode
 const mockActiveGames = [
-  { id: 'mock-1', name: 'Fastest Finger', status: 'live', pool_value: 35000, participant_count: 23, countdown: 45, entry_fee: 700 },
-  { id: 'mock-2', name: 'Speed Rush', status: 'live', pool_value: 18500, participant_count: 15, countdown: 32, entry_fee: 500 },
-  { id: 'mock-3', name: 'Quick Draw', status: 'scheduled', pool_value: 12000, participant_count: 8, countdown: 60, entry_fee: 300 },
+  { id: 'mock-1', name: 'Fastest Finger', status: 'live', pool_value: 35000, participant_count: 23, countdown: 45, entry_fee: 700, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2] },
+  { id: 'mock-2', name: 'Speed Rush', status: 'live', pool_value: 18500, participant_count: 15, countdown: 32, entry_fee: 500, payout_type: 'winner_takes_all', payout_distribution: [1.0] },
+  { id: 'mock-3', name: 'Quick Draw', status: 'scheduled', pool_value: 12000, participant_count: 8, countdown: 60, entry_fee: 300, payout_type: 'top5', payout_distribution: [0.4, 0.25, 0.15, 0.12, 0.08] },
+  { id: 'mock-4', name: 'Lightning Round', status: 'scheduled', pool_value: 8000, participant_count: 5, countdown: 120, entry_fee: 200, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2] },
 ];
 
 const mockTestWinners = [
