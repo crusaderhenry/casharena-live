@@ -214,7 +214,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
         const mappedGames: AdminGame[] = gamesData.map(g => ({
           id: g.id,
           name: (g as any).name || 'Fastest Finger',
-          status: g.status as 'scheduled' | 'live' | 'ended',
+          status: g.status as AdminGame['status'],
           poolValue: g.pool_value,
           participants: g.participant_count,
           entryFee: g.entry_fee,
