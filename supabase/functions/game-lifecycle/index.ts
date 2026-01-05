@@ -125,6 +125,16 @@ Deno.serve(async (req) => {
         })
         .eq('id', game.id);
       
+      // Trigger mock users to join when game opens
+      try {
+        await supabase.functions.invoke('mock-user-service', {
+          body: { action: 'trigger_joins', gameId: game.id },
+        });
+        console.log(`[game-lifecycle] Triggered mock user joins for game ${game.id}`);
+      } catch (mockError) {
+        console.error(`[game-lifecycle] Mock user trigger error:`, mockError);
+      }
+      
       results.opened++;
     }
 
@@ -270,6 +280,22 @@ Deno.serve(async (req) => {
         .eq('id', game.id);
       
       results.immediate++;
+    }
+
+    // 5. Periodically trigger mock user joins for all OPEN games
+    const { data: allOpenGames } = await supabase
+      .from('fastest_finger_games')
+      .select('id')
+      .eq('status', 'open');
+
+    for (const game of (allOpenGames || [])) {
+      try {
+        await supabase.functions.invoke('mock-user-service', {
+          body: { action: 'trigger_joins', gameId: game.id },
+        });
+      } catch (mockError) {
+        // Silent fail - mock joins are optional
+      }
     }
 
     return new Response(JSON.stringify({ 
