@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useServerTime } from '@/hooks/useServerTime';
 import { useMockSimulation } from '@/hooks/useMockSimulation';
 import { useCountdownTicker } from '@/hooks/useCountdownTicker';
-import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, AlertTriangle, Zap, Trophy, Radio, Timer, Flame, Eye } from 'lucide-react';
+import { Send, Crown, Clock, Mic, Volume2, VolumeX, Users, LogOut, AlertTriangle, Zap, Trophy, Radio, Timer, Flame, Eye, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,6 +77,7 @@ export const FingerArena = () => {
   const [inputValue, setInputValue] = useState('');
   const [isGameOver, setIsGameOver] = useState(false);
   const [isEndingSoon, setIsEndingSoon] = useState(false);
+  const [awaitingServerEnd, setAwaitingServerEnd] = useState(false);
   const [showFreezeScreen, setShowFreezeScreen] = useState(false);
   const [systemMessage, setSystemMessage] = useState('');
   const [topThree, setTopThree] = useState<TopThree[]>([]);
@@ -131,8 +132,10 @@ export const FingerArena = () => {
             stopBackgroundMusic();
             play('gameOver');
             vibrate('success');
+          } else {
+            // In live mode, show waiting indicator
+            setAwaitingServerEnd(true);
           }
-          // In live mode, don't end locally - wait for server status change
           return 0;
         }
         return prev - 1;
@@ -206,6 +209,7 @@ export const FingerArena = () => {
   // Check for game ended
   useEffect(() => {
     if (game?.status === 'ended' && !isGameOver) {
+      setAwaitingServerEnd(false);
       setIsGameOver(true);
       setShowFreezeScreen(true);
       stopBackgroundMusic();
@@ -471,9 +475,12 @@ export const FingerArena = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-muted-foreground animate-pulse">
-          <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <span className="text-sm">Calculating prizes...</span>
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-10 h-10 text-primary animate-spin" />
+          <span className="text-sm text-muted-foreground">Calculating prizes...</span>
+          <div className="w-48 h-2 bg-muted rounded-full overflow-hidden">
+            <div className="h-full w-full bg-gradient-to-r from-primary/50 via-primary to-primary/50 animate-pulse" />
+          </div>
         </div>
       </div>
     );
@@ -509,7 +516,18 @@ export const FingerArena = () => {
   } : null;
 
   return (
-    <div className={`min-h-screen flex flex-col ${isShaking ? 'animate-intense-shake' : ''} ${isGameTimeDanger ? 'bg-gradient-to-b from-background via-destructive/5 to-background' : 'bg-background'}`}>
+    <div className={`min-h-screen flex flex-col relative ${isShaking ? 'animate-intense-shake' : ''} ${isGameTimeDanger ? 'bg-gradient-to-b from-background via-destructive/5 to-background' : 'bg-background'}`}>
+      {/* Awaiting Server Overlay */}
+      {awaitingServerEnd && !isGameOver && (
+        <div className="absolute inset-0 z-50 bg-background/90 backdrop-blur-sm flex flex-col items-center justify-center">
+          <div className="text-center">
+            <div className="text-5xl mb-4 animate-pulse">⏳</div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Time's Up!</h2>
+            <p className="text-muted-foreground mb-6">Confirming winner with server...</p>
+            <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto" />
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className={`backdrop-blur-xl border-b p-4 sticky top-0 z-10 ${isGameTimeDanger ? 'bg-destructive/5 border-destructive/30' : 'bg-card/95 border-border/50'}`}>
         <div className="flex items-center justify-between mb-3">
