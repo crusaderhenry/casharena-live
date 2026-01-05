@@ -298,9 +298,15 @@ export const useLiveGame = (gameId?: string) => {
     }
   }, [game, user, refreshProfile]);
 
-  // Send comment with sanitization
+  // Send comment with sanitization - REQUIRES being a participant
   const sendComment = useCallback(async (content: string) => {
     if (!game || !user) return false;
+
+    // CRITICAL: Verify user is a participant before allowing comment
+    if (!hasJoined) {
+      console.error('[sendComment] User is not a participant, cannot comment');
+      return false;
+    }
 
     // Validate length
     if (!content || content.length === 0 || content.length > 200) {
@@ -329,7 +335,7 @@ export const useLiveGame = (gameId?: string) => {
     }
 
     return true;
-  }, [game, user]);
+  }, [game, user, hasJoined]);
 
   // Initial load
   useEffect(() => {

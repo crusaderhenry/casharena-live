@@ -14,7 +14,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useServerTime, formatCountdown } from '@/hooks/useServerTime';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, Zap, Lock, Users, Mic, Trophy, Clock, Play, Sparkles, Radio, Eye, Gift } from 'lucide-react';
+import { ChevronLeft, Zap, Lock, Users, Mic, Trophy, Clock, Play, Sparkles, Radio, Eye, Gift, Timer, ChevronDown, ChevronUp, Settings, DollarSign, Award } from 'lucide-react';
 
 const CRUSADER_LOBBY_MESSAGES = [
   "What's good everyone! Get ready for some ACTION! 🔥",
@@ -43,6 +43,7 @@ export const FingerLobby = () => {
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [micCheckComplete, setMicCheckComplete] = useState(false);
   const [isSpectator, setIsSpectator] = useState(isSpectatorFromState);
+  const [showGameSettings, setShowGameSettings] = useState(false);
   const [joining, setJoining] = useState(false);
   
   // Derive entryClosed from gameJoinStatus
@@ -473,6 +474,120 @@ export const FingerLobby = () => {
             <p className="text-2xl font-black text-primary">₦{poolValue.toLocaleString()}</p>
           </div>
         </div>
+
+        {/* Game Settings Preview Panel */}
+        {game && (
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <button
+              onClick={() => setShowGameSettings(!showGameSettings)}
+              className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Settings className="w-5 h-5 text-primary" />
+                <span className="font-bold text-foreground">Game Rules</span>
+              </div>
+              {showGameSettings ? (
+                <ChevronUp className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-muted-foreground" />
+              )}
+            </button>
+            
+            {showGameSettings && (
+              <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
+                {/* Comment Timer */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                      <Timer className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Comment Timer</p>
+                      <p className="text-xs text-muted-foreground">Time after last comment to win</p>
+                    </div>
+                  </div>
+                  <span className="text-lg font-black text-primary">{game.comment_timer || 60}s</span>
+                </div>
+                
+                {/* Max Duration */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Game Duration</p>
+                      <p className="text-xs text-muted-foreground">Maximum time until game ends</p>
+                    </div>
+                  </div>
+                  <span className="text-lg font-bold text-foreground">{game.max_duration || 20} min</span>
+                </div>
+                
+                {/* Entry Cutoff */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                      <Lock className="w-4 h-4 text-orange-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Entry Cutoff</p>
+                      <p className="text-xs text-muted-foreground">No joins when less than this remains</p>
+                    </div>
+                  </div>
+                  <span className="text-lg font-bold text-orange-400">{game.entry_cutoff_minutes || 10} min</span>
+                </div>
+                
+                {/* Entry Fee */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                      <DollarSign className="w-4 h-4 text-green-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Entry Fee</p>
+                      <p className="text-xs text-muted-foreground">{game.is_sponsored ? 'Sponsored - FREE entry!' : 'Cost to join'}</p>
+                    </div>
+                  </div>
+                  <span className={`text-lg font-bold ${game.is_sponsored ? 'text-green-400' : 'text-foreground'}`}>
+                    {game.is_sponsored ? 'FREE' : `₦${(game.entry_fee || 700).toLocaleString()}`}
+                  </span>
+                </div>
+                
+                {/* Payout Type */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gold/20 flex items-center justify-center">
+                      <Award className="w-4 h-4 text-gold" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Payout Type</p>
+                      <p className="text-xs text-muted-foreground">How prizes are distributed</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-gold capitalize">
+                    {(game.payout_type || 'top3').replace('_', ' ').replace('top', 'Top ')}
+                  </span>
+                </div>
+                
+                {/* Min Participants */}
+                {game.min_participants && game.min_participants > 0 && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Min Players</p>
+                        <p className="text-xs text-muted-foreground">Required to start</p>
+                      </div>
+                    </div>
+                    <span className="text-lg font-bold text-foreground">{game.min_participants}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Participants Grid */}
         <div className="space-y-3">

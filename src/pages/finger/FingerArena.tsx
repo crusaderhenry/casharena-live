@@ -42,7 +42,7 @@ export const FingerArena = () => {
   
   const { isTestMode, resetFingerGame, userProfile } = useGame();
   const { profile, user } = useAuth();
-  const { game, comments, participants, winners, sendComment, loading, joinGame, canJoinGame } = useLiveGame();
+  const { game, comments, participants, winners, sendComment, loading, joinGame, canJoinGame, hasJoined } = useLiveGame();
   const { play } = useSounds();
   const { vibrate, buttonClick } = useHaptics();
   const crusader = useCrusaderHost();
@@ -554,6 +554,16 @@ export const FingerArena = () => {
   const handleSend = async () => {
     if (!inputValue.trim() || isGameOver || isSpectator || sending) return;
 
+    // CRITICAL: Double-check hasJoined status before allowing comment
+    if (!hasJoined && !isTestMode) {
+      toast({
+        title: 'Cannot comment',
+        description: 'You must join the pool to comment',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSending(true);
     
     // In test mode, simulate successful comment and reset timer
@@ -578,6 +588,12 @@ export const FingerArena = () => {
       if (timer < 10) {
         crusader.announceCloseCall(currentUsername);
       }
+    } else {
+      toast({
+        title: 'Comment failed',
+        description: 'Could not send your comment',
+        variant: 'destructive',
+      });
     }
     setSending(false);
   };

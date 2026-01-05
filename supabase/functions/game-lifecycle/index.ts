@@ -296,6 +296,32 @@ async function endGame(supabase: any, game: GameRow, now: Date) {
   const winnerCount = payoutDistribution.length;
   const platformCut = game.platform_cut_percentage || 10;
 
+  // CRITICAL: Check for edge case - no participants means no valid game
+  if (game.participant_count === 0) {
+    console.warn(`[game-lifecycle] WARNING: Game ${game.id} has 0 participants - ending without winners`);
+    
+    // Just mark as ended with no winners
+    await supabase
+      .from('fastest_finger_games')
+      .update({
+        status: 'ended',
+        end_time: now.toISOString(),
+        countdown: 0,
+      })
+      .eq('id', game.id);
+
+    // Handle auto-restart or recurrence even for empty games
+    if (game.auto_restart || game.recurrence_type) {
+      await createNextGame(supabase, game, now);
+    }
+    return;
+  }
+
+  // Check for edge case - pool_value is 0 but has participants (entry wasn't deducted)
+  if (game.pool_value === 0 && !game.is_sponsored) {
+    console.warn(`[game-lifecycle] WARNING: Game ${game.id} has ${game.participant_count} participants but pool_value is 0 - this indicates join_game_atomic may have failed`);
+  }
+
   // Fetch rank points configuration from platform_settings
   const { data: platformSettings } = await supabase
     .from('platform_settings')
