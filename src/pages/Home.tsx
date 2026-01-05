@@ -297,50 +297,48 @@ export const Home = () => {
         {/* Winner Stories - Instagram style */}
         <WinnerStories winners={displayActivity} />
 
-        {/* Featured Live Game */}
-        {featuredLive.length > 0 && (
+        {/* Live Games Only */}
+        {liveGames.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <div className="w-6 h-6 rounded-lg bg-green-500/20 flex items-center justify-center">
                   <Radio className="w-3.5 h-3.5 text-green-400" />
                 </div>
-                Featured Live
+                Live Now
               </h2>
-              {liveGames.length > 1 && (
+              {liveGames.length > 2 && (
                 <button onClick={handleViewAllGames} className="text-xs text-primary font-medium flex items-center gap-1">
-                  +{liveGames.length - 1} more <ChevronRight className="w-3 h-3" />
+                  +{liveGames.length - 2} more <ChevronRight className="w-3 h-3" />
                 </button>
               )}
             </div>
             
-            {featuredLive.map((g) => (
+            {liveGames.slice(0, 2).map((g) => (
               <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
             ))}
           </div>
         )}
 
-        {/* Featured Upcoming Game */}
-        {featuredUpcoming.length > 0 && (
-          <div className="space-y-3">
+        {/* Coming Soon Teaser */}
+        {upcomingGames.length > 0 && (
+          <button
+            onClick={handleViewAllGames}
+            className="w-full rounded-2xl border border-yellow-500/30 bg-gradient-to-r from-yellow-500/10 via-yellow-500/5 to-transparent p-4 text-left hover:border-yellow-500/50 transition-all group"
+          >
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-yellow-500/20 flex items-center justify-center">
-                  <Calendar className="w-3.5 h-3.5 text-yellow-400" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-yellow-400" />
                 </div>
-                Coming Soon
-              </h2>
-              {upcomingGames.length > 1 && (
-                <button onClick={handleViewAllGames} className="text-xs text-primary font-medium flex items-center gap-1">
-                  +{upcomingGames.length - 1} more <ChevronRight className="w-3 h-3" />
-                </button>
-              )}
+                <div>
+                  <p className="text-sm font-bold text-foreground">{upcomingGames.length} Games Coming Soon</p>
+                  <p className="text-xs text-muted-foreground">Browse all to join upcoming matches</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-yellow-400 group-hover:translate-x-1 transition-transform" />
             </div>
-            
-            {featuredUpcoming.map((g) => (
-              <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
-            ))}
-          </div>
+          </button>
         )}
 
         {/* No Games State */}
