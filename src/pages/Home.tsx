@@ -4,7 +4,8 @@ import { BottomNav } from '@/components/BottomNav';
 import { TestModeToggle } from '@/components/TestControls';
 import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutorial';
 import { getPayoutLabel } from '@/components/PrizeDistribution';
-import { PoolParticipants } from '@/components/PoolParticipants';
+import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
+import { GameHistory } from '@/components/GameHistory';
 import { Zap, Trophy, Users, Clock, ChevronRight, Flame, Bell, TrendingUp, Play, Calendar, Eye } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -301,18 +302,24 @@ export const Home = () => {
                       <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     </div>
 
-                    {/* Compact participants preview */}
+                    {/* View pool CTA */}
                     <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                      <PoolParticipants
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">{g.participant_count} players</span>
+                      </div>
+                      <PoolParticipantsSheet
                         gameId={g.id}
+                        gameName={g.name || 'Fastest Finger'}
                         participantCount={g.participant_count}
                         poolValue={g.pool_value}
+                        entryFee={g.entry_fee}
                         isTestMode={isTestMode}
-                        compact
-                      />
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Eye className="w-3 h-3" /> View pool
-                      </span>
+                      >
+                        <span className="flex items-center gap-1 text-xs text-primary font-medium">
+                          <Eye className="w-3 h-3" /> View pool
+                        </span>
+                      </PoolParticipantsSheet>
                     </div>
                   </div>
                 </button>
@@ -403,6 +410,9 @@ export const Home = () => {
             </div>
           </div>
         </div>
+
+        {/* Game History CTA */}
+        <GameHistory isTestMode={isTestMode} />
 
         {/* Recent Wins */}
         {displayActivity.length > 0 && (
