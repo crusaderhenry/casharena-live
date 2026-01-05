@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('id', gameId)
         .eq('status', 'live')
-        .single();
+        .maybeSingle();
 
       if (gameError || !game) {
         console.log('[game-timer] No active game found for tick');
@@ -100,11 +100,40 @@ Deno.serve(async (req) => {
       const startTime = new Date(game.start_time).getTime();
       const now = Date.now();
       const elapsedMinutes = (now - startTime) / (1000 * 60);
-      
+
       if (newCountdown === 0 || elapsedMinutes >= game.max_duration) {
         console.log('[game-timer] Game ending - countdown reached 0 or max duration exceeded');
-        
-        const payoutDistribution: number[] = (game as any).payout_distribution || [0.5, 0.3, 0.2];
+
+        // Idempotency lock: set end_time once so only one caller settles payouts.
+        // NOTE: This sets end_time before status='ended' to prevent double payouts under concurrent calls.
+        const lockIso = new Date().toISOString();
+        const { data: lockedGame, error: lockErr } = await supabase
+          .from('fastest_finger_games')
+          .update({ end_time: lockIso })
+          .eq('id', gameId)
+          .eq('status', 'live')
+          .is('end_time', null)
+          .select('*')
+          .maybeSingle();
+
+        if (lockErr) {
+          console.error('[game-timer] Error acquiring end lock:', lockErr);
+          return new Response(JSON.stringify({ error: 'Failed to end game' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (!lockedGame) {
+          console.log('[game-timer] Game already ending/ended, skipping settlement');
+          return new Response(JSON.stringify({ success: true, action: 'already_ending' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const gameForEnd = lockedGame as any;
+
+        const payoutDistribution: number[] = gameForEnd.payout_distribution || [0.5, 0.3, 0.2];
         const winnerCount = payoutDistribution.length;
 
         const { data: comments } = await supabase
@@ -122,86 +151,92 @@ Deno.serve(async (req) => {
           if (uniqueWinnerIds.length >= winnerCount) break;
         }
 
-        const poolValue = game.pool_value;
+        const poolValue = gameForEnd.pool_value;
         const platformCut = Math.floor(poolValue * 0.1);
         const prizePool = poolValue - platformCut;
-        
+
         for (let i = 0; i < uniqueWinnerIds.length; i++) {
           const winnerId = uniqueWinnerIds[i];
           const prize = Math.floor(prizePool * payoutDistribution[i]);
-          
+
           await supabase.from('winners').insert({
             game_id: gameId,
             user_id: winnerId,
             position: i + 1,
             amount_won: prize,
           });
-          
+
           const { data: profile } = await supabase
             .from('profiles')
             .select('wallet_balance, rank_points, total_wins')
             .eq('id', winnerId)
             .single();
-            
+
           if (profile) {
             const rankPoints = [100, 60, 30, 10, 10, 10, 10, 10, 10, 10][i] || 10;
             await supabase
               .from('profiles')
-              .update({ 
+              .update({
                 wallet_balance: profile.wallet_balance + prize,
                 rank_points: profile.rank_points + rankPoints,
                 total_wins: profile.total_wins + 1,
               })
               .eq('id', winnerId);
           }
-          
+
           await supabase.from('wallet_transactions').insert({
             user_id: winnerId,
             type: 'win',
             amount: prize,
             game_id: gameId,
-            description: `${(game as any).name || 'Fastest Finger'} - Position ${i + 1}`,
+            description: `${gameForEnd.name || 'Fastest Finger'} - Position ${i + 1}`,
           });
-          
+
           await supabase.from('rank_history').insert({
             user_id: winnerId,
             points: [100, 60, 30, 10, 10, 10, 10, 10, 10, 10][i] || 10,
-            reason: `Position ${i + 1} in ${(game as any).name || 'Fastest Finger'}`,
+            reason: `Position ${i + 1} in ${gameForEnd.name || 'Fastest Finger'}`,
             game_id: gameId,
           });
         }
-        
+
         await supabase
           .from('fastest_finger_games')
           .update({
             status: 'ended',
-            end_time: new Date().toISOString(),
+            end_time: lockIso,
             countdown: 0,
           })
           .eq('id', gameId);
-          
+
         console.log(`[game-timer] Game ${gameId} ended. Winners: ${uniqueWinnerIds.length}`);
-        
-        return new Response(JSON.stringify({ 
-          success: true, 
-          action: 'game_ended',
-          winners: uniqueWinnerIds.length,
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            action: 'game_ended',
+            winners: uniqueWinnerIds.length,
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
-      
+
       await supabase
         .from('fastest_finger_games')
         .update({ countdown: newCountdown })
         .eq('id', gameId);
-        
-      return new Response(JSON.stringify({ 
-        success: true, 
-        countdown: newCountdown,
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          countdown: newCountdown,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     if (action === 'reset_countdown') {
@@ -253,14 +288,19 @@ Deno.serve(async (req) => {
         if (elapsedMinutes >= game.max_duration) {
           console.log(`[game-timer] Auto-ending game ${game.id} - exceeded max duration`);
           
-          await fetch(`${supabaseUrl}/functions/v1/game-timer`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabaseServiceKey}`,
-            },
-            body: JSON.stringify({ action: 'tick', gameId: game.id }),
-          });
+           if (!cronSecret) {
+             console.log('[game-timer] CRON_SECRET not set; skipping internal auto-end tick');
+             continue;
+           }
+
+           await fetch(`${supabaseUrl}/functions/v1/game-timer`, {
+             method: 'POST',
+             headers: {
+               'Content-Type': 'application/json',
+               'x-cron-secret': cronSecret,
+             },
+             body: JSON.stringify({ action: 'tick', gameId: game.id }),
+           });
           
           endedGames.push(game.id);
         }
