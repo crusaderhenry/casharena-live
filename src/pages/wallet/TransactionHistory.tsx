@@ -5,7 +5,8 @@ import { useWalletTransactions } from '@/hooks/useWalletTransactions';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { TestModeBanner } from '@/components/wallet/TestModeBanner';
 import { TransactionReceiptModal } from '@/components/wallet/TransactionReceiptModal';
-import { ChevronLeft, ArrowUpRight, ArrowDownLeft, FileText } from 'lucide-react';
+import { DepositModal } from '@/components/wallet/DepositModal';
+import { ChevronLeft, ArrowUpRight, ArrowDownLeft, FileText, RotateCcw } from 'lucide-react';
 
 interface Transaction {
   id: string;
@@ -23,14 +24,21 @@ interface Transaction {
 
 export const TransactionHistory = () => {
   const navigate = useNavigate();
-  const { transactions, loading } = useWalletTransactions();
+  const { transactions, loading, refetch } = useWalletTransactions();
   const { isTestMode } = usePlatformSettings();
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [depositOpen, setDepositOpen] = useState(false);
+  const [retryAmount, setRetryAmount] = useState<number | null>(null);
 
   const handleViewReceipt = (tx: Transaction) => {
     setSelectedTransaction(tx);
     setReceiptOpen(true);
+  };
+
+  const handleRetryDeposit = (tx: Transaction) => {
+    setRetryAmount(Math.abs(tx.amount));
+    setDepositOpen(true);
   };
 
   const getTransactionIcon = (type: string) => {
@@ -151,6 +159,15 @@ export const TransactionHistory = () => {
                   <p className={`font-bold ${getTransactionColor(tx.amount)}`}>
                     {tx.amount >= 0 ? '+' : ''}₦{Math.abs(tx.amount).toLocaleString()}
                   </p>
+                  {tx.type === 'deposit' && tx.status === 'failed' && (
+                    <button
+                      onClick={() => handleRetryDeposit(tx)}
+                      className="w-8 h-8 rounded-lg bg-primary/20 hover:bg-primary/30 flex items-center justify-center transition-colors"
+                      title="Retry Payment"
+                    >
+                      <RotateCcw className="w-4 h-4 text-primary" />
+                    </button>
+                  )}
                   <button
                     onClick={() => handleViewReceipt(tx)}
                     className="w-8 h-8 rounded-lg bg-muted/50 hover:bg-muted flex items-center justify-center transition-colors"
@@ -169,6 +186,16 @@ export const TransactionHistory = () => {
         transaction={selectedTransaction}
         open={receiptOpen}
         onOpenChange={setReceiptOpen}
+      />
+
+      <DepositModal
+        open={depositOpen}
+        onOpenChange={(open) => {
+          setDepositOpen(open);
+          if (!open) setRetryAmount(null);
+        }}
+        onSuccess={refetch}
+        defaultAmount={retryAmount}
       />
       
       <BottomNav />
