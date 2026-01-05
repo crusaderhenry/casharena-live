@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
         email: email,
         amount: amount * 100, // Paystack uses kobo
         reference: reference,
-        callback_url: callback_url || `${req.headers.get('origin')}/wallet?deposit=success`,
+        callback_url: callback_url || `${req.headers.get('origin')}/wallet/callback`,
         metadata: {
           user_id: user.id,
           custom_fields: [

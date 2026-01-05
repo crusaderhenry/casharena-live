@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, AlertTriangle, CheckCircle, ArrowUpRight } from 'lucide-react';
+import { Loader2, AlertTriangle, CheckCircle, ArrowUpRight, BadgeCheck, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
@@ -30,6 +30,9 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingBanks, setLoadingBanks] = useState(true);
+  const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
@@ -50,6 +53,7 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
       // Pre-fill saved bank details
       if (profile?.bank_account_name) {
         setAccountName(profile.bank_account_name);
+        setVerified(true); // Already verified if saved
       }
       if (profile?.bank_account_number) {
         setAccountNumber(profile.bank_account_number);
@@ -59,6 +63,51 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
       }
     }
   }, [open, profile]);
+
+  // Reset verification when account number or bank changes
+  useEffect(() => {
+    if (accountNumber.length === 10 && bankCode && !verified) {
+      // Auto-verify when both fields are complete
+      verifyAccount();
+    } else if (accountNumber.length < 10 || !bankCode) {
+      setVerified(false);
+      setAccountName('');
+      setVerificationError('');
+    }
+  }, [accountNumber, bankCode]);
+
+  const verifyAccount = async () => {
+    if (accountNumber.length !== 10 || !bankCode) return;
+
+    setVerifying(true);
+    setVerificationError('');
+    setAccountName('');
+    setVerified(false);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-bank-account', {
+        body: {
+          account_number: accountNumber,
+          bank_code: bankCode,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setAccountName(data.account_name);
+        setVerified(true);
+        toast.success('Account verified!');
+      } else {
+        setVerificationError(data.error || 'Could not verify account');
+      }
+    } catch (err: any) {
+      console.error('Verification error:', err);
+      setVerificationError(err.message || 'Verification failed');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const handleWithdraw = async () => {
     const withdrawAmount = parseInt(amount);
@@ -74,8 +123,8 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
       return;
     }
 
-    if (!bankCode || !accountNumber || !accountName) {
-      toast.error('Please fill in all bank details');
+    if (!verified || !accountName) {
+      toast.error('Please verify your bank account first');
       return;
     }
 
@@ -133,8 +182,19 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
 
   const walletBalance = profile?.wallet_balance || 0;
 
+  const handleClose = (newOpen: boolean) => {
+    if (!newOpen) {
+      // Reset state when closing
+      setAmount('');
+      setVerified(false);
+      setVerificationError('');
+      setSuccess(false);
+    }
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -184,7 +244,14 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Bank</label>
-              <Select value={bankCode} onValueChange={setBankCode} disabled={loadingBanks}>
+              <Select 
+                value={bankCode} 
+                onValueChange={(value) => {
+                  setBankCode(value);
+                  setVerified(false);
+                }} 
+                disabled={loadingBanks}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder={loadingBanks ? 'Loading banks...' : 'Select bank'} />
                 </SelectTrigger>
@@ -200,24 +267,44 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Account Number</label>
-              <Input
-                type="text"
-                placeholder="10 digit account number"
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                maxLength={10}
-              />
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="10 digit account number"
+                  value={accountNumber}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setAccountNumber(value);
+                    if (value.length < 10) {
+                      setVerified(false);
+                    }
+                  }}
+                  maxLength={10}
+                  className="pr-10"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {verifying && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                  {verified && <BadgeCheck className="w-5 h-5 text-primary" />}
+                  {verificationError && <XCircle className="w-5 h-5 text-destructive" />}
+                </div>
+              </div>
+              {verificationError && (
+                <p className="text-xs text-destructive mt-1">{verificationError}</p>
+              )}
             </div>
 
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Account Name</label>
-              <Input
-                type="text"
-                placeholder="Account holder name"
-                value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-              />
-            </div>
+            {/* Account Name - Auto-filled from verification */}
+            {(verified || accountName) && (
+              <div className="p-3 bg-primary/10 rounded-lg border border-primary/30">
+                <div className="flex items-center gap-2">
+                  <BadgeCheck className="w-5 h-5 text-primary flex-shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Account Name</p>
+                    <p className="font-medium text-foreground">{accountName}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <Button
               onClick={handleWithdraw}
@@ -226,8 +313,7 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
                 !amount || 
                 parseInt(amount) < 100 || 
                 parseInt(amount) > walletBalance ||
-                !bankCode ||
-                !accountNumber ||
+                !verified ||
                 !accountName
               }
               className="w-full"

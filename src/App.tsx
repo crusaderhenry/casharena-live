@@ -28,6 +28,7 @@ import { RankScreen } from "@/pages/RankScreen";
 import { ProfileScreen } from "@/pages/ProfileScreen";
 import { WalletMain } from "@/pages/wallet/WalletMain";
 import { TransactionHistory } from "@/pages/wallet/TransactionHistory";
+import { DepositCallback } from "@/pages/wallet/DepositCallback";
 
 // Admin
 import { AdminLayout } from "@/pages/admin/AdminLayout";
@@ -198,6 +199,7 @@ const AppRoutes = () => (
     <Route path="/profile" element={<ProtectedRoute><ProfileScreen /></ProtectedRoute>} />
     <Route path="/wallet" element={<ProtectedRoute><WalletMain /></ProtectedRoute>} />
     <Route path="/wallet/history" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
+    <Route path="/wallet/callback" element={<ProtectedRoute><DepositCallback /></ProtectedRoute>} />
     
     {/* Admin Dashboard - Requires admin role */}
     <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
