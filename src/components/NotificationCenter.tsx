@@ -1,72 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Bell, X, Flame, Trophy, Zap, Sparkles, Clock, Gift } from 'lucide-react';
+import { Bell, X, Trophy, Zap, Clock, Flag } from 'lucide-react';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useRealtimeActivity } from '@/hooks/useRealtimeActivity';
 
 export interface Notification {
   id: string;
-  type: 'streak' | 'win' | 'game' | 'reminder' | 'gift';
+  type: 'win' | 'game_start' | 'game_end' | 'reminder';
   title: string;
   message: string;
   timestamp: Date;
   read: boolean;
 }
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: '1',
-    type: 'streak',
-    title: '🔥 Streak Warning!',
-    message: 'Complete your daily task in 2 hours or lose your streak!',
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-    read: false,
-  },
-  {
-    id: '2',
-    type: 'win',
-    title: '🎉 Congratulations!',
-    message: 'You won ₦2,500 in yesterday\'s Arena!',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    read: false,
-  },
-  {
-    id: '3',
-    type: 'game',
-    title: '⚡ Fastest Finger Starting!',
-    message: 'A new game starts in 5 minutes. Join now!',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
-    read: true,
-  },
-  {
-    id: '4',
-    type: 'reminder',
-    title: '🏆 Daily Arena Open',
-    message: 'Today\'s challenge is live! 847 players competing.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5),
-    read: true,
-  },
-  {
-    id: '5',
-    type: 'gift',
-    title: '🎁 Welcome Bonus!',
-    message: 'Claim your ₦500 welcome bonus now!',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-    read: true,
-  },
-];
-
 const getIcon = (type: Notification['type']) => {
   switch (type) {
-    case 'streak':
-      return <Flame className="w-5 h-5 text-secondary" />;
     case 'win':
-      return <Trophy className="w-5 h-5 text-primary" />;
-    case 'game':
-      return <Zap className="w-5 h-5 text-secondary" />;
+      return <Trophy className="w-5 h-5 text-gold" />;
+    case 'game_start':
+      return <Zap className="w-5 h-5 text-primary" />;
+    case 'game_end':
+      return <Flag className="w-5 h-5 text-secondary" />;
     case 'reminder':
       return <Clock className="w-5 h-5 text-muted-foreground" />;
-    case 'gift':
-      return <Gift className="w-5 h-5 text-primary" />;
     default:
       return <Bell className="w-5 h-5 text-muted-foreground" />;
   }
@@ -80,22 +36,60 @@ const formatTimeAgo = (date: Date) => {
   return `${Math.floor(seconds / 86400)}d ago`;
 };
 
+const getPositionText = (position: number) => {
+  if (position === 1) return '1st';
+  if (position === 2) return '2nd';
+  if (position === 3) return '3rd';
+  return `${position}th`;
+};
+
 export const NotificationCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const { activities } = useRealtimeActivity(10);
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
+
+  // Transform activities to notifications
+  const notifications: Notification[] = activities.map(activity => {
+    let title = '';
+    let message = '';
+    let type: Notification['type'] = 'reminder';
+
+    if (activity.type === 'finger_win') {
+      type = 'win';
+      title = `🏆 ${activity.playerName} Won!`;
+      message = `${getPositionText(activity.position || 1)} place - ₦${(activity.amount || 0).toLocaleString()}`;
+    } else if (activity.type === 'game_start') {
+      type = 'game_start';
+      title = `⚡ ${activity.gameName || 'Fastest Finger'} is LIVE!`;
+      message = `Pool: ₦${(activity.amount || 0).toLocaleString()} - Join now!`;
+    } else if (activity.type === 'game_end') {
+      type = 'game_end';
+      title = `🏁 ${activity.gameName || 'Fastest Finger'} Ended`;
+      message = 'Check the results!';
+    }
+
+    return {
+      id: activity.id,
+      type,
+      title,
+      message,
+      timestamp: activity.timestamp,
+      read: readIds.has(activity.id),
+    };
+  });
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const markAllRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setReadIds(new Set(notifications.map(n => n.id)));
     play('click');
     buttonClick();
-  }, [play, buttonClick]);
+  }, [notifications, play, buttonClick]);
 
   const markAsRead = useCallback((id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    setReadIds(prev => new Set([...prev, id]));
   }, []);
 
   const toggleOpen = () => {
@@ -103,27 +97,6 @@ export const NotificationCenter = () => {
     play('click');
     buttonClick();
   };
-
-  // Simulate push notification
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const random = Math.random();
-      if (random > 0.7 && notifications.filter(n => !n.read).length < 5) {
-        const newNotification: Notification = {
-          id: `notif_${Date.now()}`,
-          type: ['streak', 'win', 'game', 'reminder'][Math.floor(Math.random() * 4)] as Notification['type'],
-          title: ['🔥 Don\'t lose your streak!', '🎉 Someone just won big!', '⚡ New game starting!', '🏆 Your rank updated!'][Math.floor(Math.random() * 4)],
-          message: 'Tap to view details',
-          timestamp: new Date(),
-          read: false,
-        };
-        setNotifications(prev => [newNotification, ...prev.slice(0, 9)]);
-        play('notification');
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [notifications, play]);
 
   return (
     <div className="relative">

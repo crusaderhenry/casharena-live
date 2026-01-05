@@ -1,8 +1,9 @@
-import { useGame, ActivityItem } from '@/contexts/GameContext';
-import { Trophy, TrendingUp, Flame } from 'lucide-react';
+import { useRealtimeActivity, RealActivityItem } from '@/hooks/useRealtimeActivity';
+import { Trophy, TrendingUp, Flame, Zap, Flag } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export const ActivityFeed = () => {
-  const { recentActivity } = useGame();
+  const { activities, loading } = useRealtimeActivity(5);
 
   const formatMoney = (amount: number) => {
     return `₦${amount.toLocaleString()}`;
@@ -12,6 +13,10 @@ export const ActivityFeed = () => {
     switch (type) {
       case 'finger_win':
         return <Trophy className="w-4 h-4 text-gold" />;
+      case 'game_start':
+        return <Zap className="w-4 h-4 text-primary" />;
+      case 'game_end':
+        return <Flag className="w-4 h-4 text-secondary" />;
       case 'rank_up':
         return <TrendingUp className="w-4 h-4 text-primary" />;
       default:
@@ -19,12 +24,32 @@ export const ActivityFeed = () => {
     }
   };
 
-  const getActivityText = (activity: ActivityItem) => {
+  const getPositionText = (position: number) => {
+    if (position === 1) return '1st';
+    if (position === 2) return '2nd';
+    if (position === 3) return '3rd';
+    return `${position}th`;
+  };
+
+  const getActivityText = (activity: RealActivityItem) => {
     switch (activity.type) {
       case 'finger_win':
         return (
           <span>
-            won <span className="text-gold font-semibold">{formatMoney(activity.amount || 0)}</span> in Fastest Finger
+            won <span className="text-gold font-semibold">{formatMoney(activity.amount || 0)}</span>
+            {activity.position && <span className="text-muted-foreground"> ({getPositionText(activity.position)} place)</span>}
+          </span>
+        );
+      case 'game_start':
+        return (
+          <span>
+            <span className="text-primary font-semibold">{activity.gameName}</span> is now LIVE!
+          </span>
+        );
+      case 'game_end':
+        return (
+          <span>
+            <span className="text-secondary font-semibold">{activity.gameName}</span> has ended
           </span>
         );
       case 'rank_up':
@@ -46,19 +71,48 @@ export const ActivityFeed = () => {
     return `${Math.floor(seconds / 86400)}d ago`;
   };
 
-  // Filter for Fastest Finger activity only
-  const fingerActivity = recentActivity.filter(a => a.type === 'finger_win' || a.type === 'rank_up');
+  if (loading) {
+    return (
+      <div className="card-panel">
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+          <Flame className="w-4 h-4 text-primary" />
+          Recent Activity
+        </h3>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="w-8 h-8 rounded-full" />
+              <Skeleton className="h-4 flex-1" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-  if (fingerActivity.length === 0) return null;
+  if (activities.length === 0) {
+    return (
+      <div className="card-panel">
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+          <Flame className="w-4 h-4 text-primary" />
+          Recent Activity
+        </h3>
+        <p className="text-sm text-muted-foreground text-center py-4">No recent activity yet</p>
+      </div>
+    );
+  }
 
   return (
     <div className="card-panel">
       <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-        <Flame className="w-4 h-4 text-primary" />
-        Recent Activity
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+        </span>
+        Live Activity
       </h3>
       <div className="space-y-0">
-        {fingerActivity.slice(0, 5).map((activity) => (
+        {activities.map((activity) => (
           <div key={activity.id} className="activity-item">
             <div className="w-8 h-8 rounded-full bg-card-elevated flex items-center justify-center text-lg">
               {activity.playerAvatar}

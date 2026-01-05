@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Avatar } from '@/components/Avatar';
-import { Trophy, Flame, Zap, Sparkles, Heart, MessageCircle, Share2 } from 'lucide-react';
+import { Trophy, Zap, Heart, MessageCircle, Share2 } from 'lucide-react';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useRealtimeActivity } from '@/hooks/useRealtimeActivity';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface FeedItem {
   id: string;
   user: string;
   avatar: string;
-  type: 'win' | 'streak' | 'join' | 'achievement';
+  type: 'win' | 'game_start' | 'game_end';
   content: string;
   amount?: number;
   game?: string;
@@ -18,84 +20,14 @@ interface FeedItem {
   liked: boolean;
 }
 
-const MOCK_FEED: FeedItem[] = [
-  {
-    id: '1',
-    user: 'ChampKing99',
-    avatar: '👑',
-    type: 'win',
-    content: 'just won big in Daily Arena! 🔥',
-    amount: 15000,
-    game: 'arena',
-    timestamp: new Date(Date.now() - 1000 * 60 * 2),
-    likes: 24,
-    comments: 5,
-    liked: false,
-  },
-  {
-    id: '2',
-    user: 'StreakMaster',
-    avatar: '🎯',
-    type: 'streak',
-    content: 'completed a 7-day streak! 🔥🔥🔥',
-    amount: 5000,
-    game: 'streak',
-    timestamp: new Date(Date.now() - 1000 * 60 * 15),
-    likes: 45,
-    comments: 12,
-    liked: true,
-  },
-  {
-    id: '3',
-    user: 'FastFingers',
-    avatar: '👆',
-    type: 'win',
-    content: 'claimed 1st place in Fastest Finger! ⚡',
-    amount: 8500,
-    game: 'finger',
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-    likes: 67,
-    comments: 8,
-    liked: false,
-  },
-  {
-    id: '4',
-    user: 'LuckyAde',
-    avatar: '🍀',
-    type: 'win',
-    content: 'won the Smart Lucky Pool! 🎰',
-    amount: 25000,
-    game: 'pool',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60),
-    likes: 128,
-    comments: 34,
-    liked: false,
-  },
-  {
-    id: '5',
-    user: 'NewPlayer',
-    avatar: '🌟',
-    type: 'join',
-    content: 'just joined CashArena! Welcome! 👋',
-    timestamp: new Date(Date.now() - 1000 * 60 * 90),
-    likes: 15,
-    comments: 3,
-    liked: false,
-  },
-];
-
-const getGameIcon = (game?: string) => {
-  switch (game) {
-    case 'arena':
-      return <Trophy className="w-4 h-4 text-primary" />;
-    case 'streak':
-      return <Flame className="w-4 h-4 text-secondary" />;
-    case 'finger':
-      return <Zap className="w-4 h-4 text-secondary" />;
-    case 'pool':
-      return <Sparkles className="w-4 h-4 text-primary" />;
+const getTypeIcon = (type: string) => {
+  switch (type) {
+    case 'win':
+      return <Trophy className="w-4 h-4 text-gold" />;
+    case 'game_start':
+      return <Zap className="w-4 h-4 text-primary" />;
     default:
-      return null;
+      return <Trophy className="w-4 h-4 text-primary" />;
   }
 };
 
@@ -107,55 +39,87 @@ const formatTimeAgo = (date: Date) => {
   return `${Math.floor(seconds / 86400)}d`;
 };
 
+const getPositionText = (position: number) => {
+  if (position === 1) return '1st';
+  if (position === 2) return '2nd';
+  if (position === 3) return '3rd';
+  return `${position}th`;
+};
+
 export const SocialFeed = () => {
-  const [feed, setFeed] = useState<FeedItem[]>(MOCK_FEED);
+  const { activities, loading } = useRealtimeActivity(10);
+  const [likedItems, setLikedItems] = useState<Set<string>>(new Set());
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
 
+  // Transform real activities to feed items
+  const feed: FeedItem[] = activities.map(activity => {
+    let content = '';
+    if (activity.type === 'finger_win') {
+      content = `won ${getPositionText(activity.position || 1)} place in ${activity.gameName || 'Fastest Finger'}! 🏆`;
+    } else if (activity.type === 'game_start') {
+      content = `${activity.gameName || 'Fastest Finger'} is now LIVE! ⚡`;
+    } else if (activity.type === 'game_end') {
+      content = `${activity.gameName || 'Fastest Finger'} has ended 🏁`;
+    }
+
+    return {
+      id: activity.id,
+      user: activity.playerName,
+      avatar: activity.playerAvatar,
+      type: activity.type === 'finger_win' ? 'win' : activity.type === 'game_start' ? 'game_start' : 'game_end',
+      content,
+      amount: activity.amount,
+      game: 'finger',
+      timestamp: activity.timestamp,
+      likes: Math.floor(Math.random() * 50) + 5, // Simulated for now
+      comments: Math.floor(Math.random() * 10),
+      liked: likedItems.has(activity.id),
+    };
+  });
+
   const handleLike = (id: string) => {
-    setFeed(prev => prev.map(item => {
-      if (item.id === id) {
-        const newLiked = !item.liked;
-        play(newLiked ? 'success' : 'click');
-        buttonClick();
-        return {
-          ...item,
-          liked: newLiked,
-          likes: newLiked ? item.likes + 1 : item.likes - 1,
-        };
+    const isLiked = likedItems.has(id);
+    play(isLiked ? 'click' : 'success');
+    buttonClick();
+    
+    setLikedItems(prev => {
+      const next = new Set(prev);
+      if (isLiked) {
+        next.delete(id);
+      } else {
+        next.add(id);
       }
-      return item;
-    }));
+      return next;
+    });
   };
 
-  // Simulate new feed items
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.6) {
-        const newItem: FeedItem = {
-          id: `feed_${Date.now()}`,
-          user: ['GoldenTouch', 'WinnerVibes', 'CashFlow', 'ProPlayer'][Math.floor(Math.random() * 4)],
-          avatar: ['✨', '🌟', '💸', '🎮'][Math.floor(Math.random() * 4)],
-          type: 'win',
-          content: [
-            'just won in Daily Arena! 🔥',
-            'completed today\'s streak task! ✅',
-            'joined Fastest Finger! ⚡',
-            'is on a winning streak! 🚀',
-          ][Math.floor(Math.random() * 4)],
-          amount: Math.floor(Math.random() * 10000) + 500,
-          game: ['arena', 'streak', 'finger', 'pool'][Math.floor(Math.random() * 4)],
-          timestamp: new Date(),
-          likes: Math.floor(Math.random() * 20),
-          comments: Math.floor(Math.random() * 5),
-          liked: false,
-        };
-        setFeed(prev => [newItem, ...prev.slice(0, 9)]);
-      }
-    }, 15000);
-
-    return () => clearInterval(interval);
-  }, []);
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+          </span>
+          Live Activity
+        </h3>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="card-game p-3">
+              <div className="flex gap-3">
+                <Skeleton className="w-10 h-10 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -179,7 +143,7 @@ export const SocialFeed = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium text-foreground">{item.user}</span>
-                  {item.game && getGameIcon(item.game)}
+                  {getTypeIcon(item.type)}
                   <span className="text-xs text-muted-foreground">{formatTimeAgo(item.timestamp)}</span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-0.5">{item.content}</p>
