@@ -521,6 +521,7 @@ export type Database = {
           weekly_rank: number
         }[]
       }
+      get_server_time: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
