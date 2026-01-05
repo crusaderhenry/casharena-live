@@ -7,6 +7,8 @@ import { getPayoutLabel } from '@/components/PrizeDistribution';
 import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
 import { GameHistory } from '@/components/GameHistory';
 import { AllTimeLeaderboard } from '@/components/AllTimeLeaderboard';
+import { BadgeCelebration } from '@/components/BadgeCelebration';
+import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
 import { Zap, Trophy, Users, Clock, ChevronRight, Flame, Bell, TrendingUp, Play, Calendar, Eye } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +43,12 @@ export const Home = () => {
   const [recentWinners, setRecentWinners] = useState<any[]>([]);
   const [allGames, setAllGames] = useState<any[]>([]);
   const [activeNotification, setActiveNotification] = useState(0);
+
+  // Badge unlock celebration
+  const { newBadge, showCelebration, dismissCelebration } = useBadgeUnlock({
+    total_wins: profile?.total_wins || 0,
+    games_played: profile?.games_played || 0,
+  });
 
   // Fetch all active games and subscribe to real-time updates
   useEffect(() => {
@@ -182,6 +190,11 @@ export const Home = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       {showOnboarding && <OnboardingTutorial onComplete={completeOnboarding} />}
+      
+      {/* Badge Celebration Modal */}
+      {showCelebration && newBadge && (
+        <BadgeCelebration badge={newBadge} onDismiss={dismissCelebration} />
+      )}
       
       <div className="p-4 space-y-4">
         {/* Header */}
