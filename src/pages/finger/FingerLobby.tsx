@@ -55,8 +55,8 @@ export const FingerLobby = () => {
         const secsUntilLive = secondsUntil(game.start_time);
         setCountdown(Math.max(0, secsUntilLive));
         
-        // Auto-transition to arena when game goes live
-        if (secsUntilLive <= 0 && game.status === 'live' && hasJoined && !isSpectator) {
+        // Auto-transition to arena when countdown reaches 0 (don't wait for server status)
+        if (secsUntilLive <= 0 && hasJoined && !isSpectator) {
           play('success');
           buttonClick();
           navigate('/finger/arena', { state: { gameId: game.id } });
@@ -81,11 +81,9 @@ export const FingerLobby = () => {
       return;
     }
 
-    // Auto-enter arena when game goes live (for joined players or spectators who chose to watch)
-    if (game?.status === 'live' && countdown <= 0) {
-      if (hasJoined || isSpectator) {
-        navigate('/finger/arena', { state: { gameId: game.id, isSpectator } });
-      }
+    // Auto-enter arena when game goes live OR countdown reaches 0
+    if ((game?.status === 'live' || countdown <= 0) && (hasJoined || isSpectator)) {
+      navigate('/finger/arena', { state: { gameId: game.id, isSpectator } });
     }
   }, [game?.status, game?.id, countdown, hasJoined, isSpectator, navigate]);
 
