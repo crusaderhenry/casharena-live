@@ -88,12 +88,12 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
-    const { action, gameId, userId, config } = body;
-    console.log(`Game action: ${action}`, { gameId, userId, config });
+    const { action, gameId, userId, config, reason } = body;
+    console.log(`Game action: ${action}`, { gameId, userId, config, reason });
 
     // Actions that require authentication
-    const authRequiredActions = ['join', 'create_game', 'start_game', 'end_game', 'reset_weekly_ranks'];
-    const adminRequiredActions = ['create_game', 'start_game', 'end_game', 'reset_weekly_ranks'];
+    const authRequiredActions = ['join', 'create_game', 'start_game', 'end_game', 'cancel_game', 'reset_weekly_ranks'];
+    const adminRequiredActions = ['create_game', 'start_game', 'end_game', 'cancel_game', 'reset_weekly_ranks'];
 
     let authenticatedUser = null;
 
@@ -400,6 +400,88 @@ serve(async (req) => {
           .eq('id', gameId);
 
         return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'cancel_game': {
+        // Admin only - already verified above
+        if (!gameId) throw new Error('Missing gameId');
+        if (!reason) throw new Error('Missing cancellation reason');
+
+        const { data: game, error: gameError } = await supabase
+          .from('fastest_finger_games')
+          .select('*')
+          .eq('id', gameId)
+          .single();
+
+        if (gameError || !game) throw new Error('Game not found');
+        
+        // Only allow cancelling non-live games
+        if (game.status === 'live') {
+          return new Response(JSON.stringify({ error: 'Cannot cancel a live game. End the game instead.' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Get all participants
+        const { data: participants } = await supabase
+          .from('fastest_finger_participants')
+          .select('user_id')
+          .eq('game_id', gameId);
+
+        // Refund all participants
+        if (participants && participants.length > 0) {
+          for (const p of participants) {
+            // Get current balance
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('wallet_balance')
+              .eq('id', p.user_id)
+              .single();
+
+            if (profile) {
+              // Refund entry fee
+              await supabase
+                .from('profiles')
+                .update({ wallet_balance: profile.wallet_balance + game.entry_fee })
+                .eq('id', p.user_id);
+
+              // Create refund transaction
+              await supabase.from('wallet_transactions').insert({
+                user_id: p.user_id,
+                type: 'refund',
+                amount: game.entry_fee,
+                description: `Game cancelled: ${reason}`,
+                game_id: gameId,
+              });
+            }
+          }
+        }
+
+        // Update game status to cancelled
+        await supabase
+          .from('fastest_finger_games')
+          .update({
+            status: 'cancelled',
+            end_time: new Date().toISOString(),
+          })
+          .eq('id', gameId);
+
+        // Log audit action
+        await logAuditAction(supabase, authenticatedUser!.id, 'cancel_game', 'game', gameId, { 
+          reason,
+          refunded_participants: participants?.length || 0,
+          refund_amount_each: game.entry_fee
+        }, clientIp);
+
+        console.log('Game cancelled by admin:', authenticatedUser?.id, gameId, 'Reason:', reason, 'Refunded:', participants?.length || 0);
+        return new Response(JSON.stringify({ 
+          success: true, 
+          refundedCount: participants?.length || 0,
+          refundAmount: game.entry_fee
+        }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }

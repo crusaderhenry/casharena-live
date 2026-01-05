@@ -118,6 +118,7 @@ interface AdminContextType {
   createGameWithConfig: (config: CreateGameConfig) => Promise<void>;
   startGame: (gameId?: string) => Promise<void>;
   endGame: (gameId?: string) => Promise<void>;
+  cancelGame: (gameId: string, reason: string) => Promise<void>;
   resetGame: () => void;
   pauseSimulation: () => void;
   resumeSimulation: () => void;
@@ -483,6 +484,28 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     setIsSimulating(false);
   }, []);
 
+  const cancelGame = useCallback(async (gameId: string, reason: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('game-manager', {
+        body: { action: 'cancel_game', gameId, reason },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (gameId === currentGame?.id) {
+        setCurrentGame(null);
+        setIsSimulating(false);
+        setLiveComments([]);
+      }
+      toast({ title: 'Game Cancelled', description: 'Game has been cancelled and participants will be refunded' });
+      refreshData();
+    } catch (error: any) {
+      console.error('Cancel game error:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  }, [currentGame, refreshData, toast]);
+
   const pauseSimulation = useCallback(() => setIsSimulating(false), []);
   const resumeSimulation = useCallback(() => setIsSimulating(true), []);
 
@@ -535,7 +558,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AdminContext.Provider value={{
       users, transactions, games, currentGame, liveComments, settings, stats, isSimulating, loading,
-      createGame, createGameWithConfig, startGame, endGame, resetGame, pauseSimulation, resumeSimulation,
+      createGame, createGameWithConfig, startGame, endGame, cancelGame, resetGame, pauseSimulation, resumeSimulation,
       updateSettings, suspendUser, flagUser, activateUser, approvePayout, triggerWeeklyReset, simulateHighTraffic, refreshData,
     }}>
       {children}
