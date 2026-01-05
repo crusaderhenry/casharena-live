@@ -296,7 +296,31 @@ async function endGame(supabase: any, game: GameRow, now: Date) {
   const winnerCount = payoutDistribution.length;
   const platformCut = game.platform_cut_percentage || 10;
 
-  // Get last comments (unique users)
+  // Get all participants FIRST and increment games_played
+  const { data: participants } = await supabase
+    .from('fastest_finger_participants')
+    .select('user_id')
+    .eq('game_id', game.id);
+
+  const participantIds = new Set((participants || []).map((p: any) => p.user_id));
+  
+  // Increment games_played for all participants BEFORE processing winners
+  for (const p of participants || []) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('games_played')
+      .eq('id', p.user_id)
+      .single();
+    
+    if (profile) {
+      await supabase
+        .from('profiles')
+        .update({ games_played: profile.games_played + 1 })
+        .eq('id', p.user_id);
+    }
+  }
+
+  // Get last comments (unique users) - only from participants
   const { data: comments } = await supabase
     .from('comments')
     .select('user_id, created_at')
@@ -306,7 +330,8 @@ async function endGame(supabase: any, game: GameRow, now: Date) {
 
   const uniqueWinnerIds: string[] = [];
   for (const comment of comments || []) {
-    if (!uniqueWinnerIds.includes(comment.user_id)) {
+    // Only count as winner if they were a participant
+    if (participantIds.has(comment.user_id) && !uniqueWinnerIds.includes(comment.user_id)) {
       uniqueWinnerIds.push(comment.user_id);
     }
     if (uniqueWinnerIds.length >= winnerCount) break;
@@ -319,7 +344,7 @@ async function endGame(supabase: any, game: GameRow, now: Date) {
 
   console.log(`[game-lifecycle] Game ${game.id} settlement: pool=${effectivePool}, platform=${platformAmount}, prizes=${prizePool}, winners=${uniqueWinnerIds.length}`);
 
-  // Process winners
+  // Process winners (games_played already incremented above)
   for (let i = 0; i < uniqueWinnerIds.length; i++) {
     const winnerId = uniqueWinnerIds[i];
     const position = i + 1;
@@ -364,27 +389,6 @@ async function endGame(supabase: any, game: GameRow, now: Date) {
         reason: `Position ${position} in ${game.name}`,
         game_id: game.id,
       });
-    }
-  }
-
-  // Update games_played for all participants
-  const { data: participants } = await supabase
-    .from('fastest_finger_participants')
-    .select('user_id')
-    .eq('game_id', game.id);
-
-  for (const p of participants || []) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('games_played')
-      .eq('id', p.user_id)
-      .single();
-    
-    if (profile) {
-      await supabase
-        .from('profiles')
-        .update({ games_played: profile.games_played + 1 })
-        .eq('id', p.user_id);
     }
   }
 
