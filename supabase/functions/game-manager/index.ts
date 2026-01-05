@@ -397,20 +397,7 @@ serve(async (req) => {
         });
       }
 
-      case 'update_countdown': {
-        // Internal use only - no auth (called by cron)
-        if (!gameId) throw new Error('Missing gameId');
-        const { countdown } = body;
-
-        await supabase
-          .from('fastest_finger_games')
-          .update({ countdown })
-          .eq('id', gameId);
-
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+      // update_countdown action removed - use game-timer function with proper auth instead
 
       case 'cancel_game': {
         // Admin only - already verified above

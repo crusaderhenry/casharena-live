@@ -24,6 +24,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useGame } from '@/contexts/GameContext';
 import { TestScenarioBuilder } from '@/components/admin/TestScenarioBuilder';
+import { MusicUploader } from '@/components/admin/MusicUploader';
 
 const PAYOUT_PRESETS = {
   winner_takes_all: { label: 'Winner Takes All', distribution: [1] },
@@ -646,39 +647,24 @@ export const AdminFingerControl = () => {
                 </Select>
                 
                 {formData.musicType === 'uploaded' && (
-                  <div className="space-y-3 p-3 bg-muted/30 rounded-lg border border-border">
-                    <div>
-                      <Label htmlFor="lobbyMusic" className="text-xs">Lobby Music URL</Label>
-                      <Input
-                        id="lobbyMusic"
-                        type="url"
-                        placeholder="https://..."
-                        value={formData.lobbyMusicUrl}
-                        onChange={(e) => setFormData(prev => ({ ...prev, lobbyMusicUrl: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="arenaMusic" className="text-xs">Arena Music URL</Label>
-                      <Input
-                        id="arenaMusic"
-                        type="url"
-                        placeholder="https://..."
-                        value={formData.arenaMusicUrl}
-                        onChange={(e) => setFormData(prev => ({ ...prev, arenaMusicUrl: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="tenseMusic" className="text-xs">Tense Music URL</Label>
-                      <Input
-                        id="tenseMusic"
-                        type="url"
-                        placeholder="https://..."
-                        value={formData.tenseMusicUrl}
-                        onChange={(e) => setFormData(prev => ({ ...prev, tenseMusicUrl: e.target.value }))}
-                      />
-                    </div>
+                  <div className="space-y-4 p-3 bg-muted/30 rounded-lg border border-border">
+                    <MusicUploader
+                      label="Lobby Music"
+                      value={formData.lobbyMusicUrl}
+                      onChange={(url) => setFormData(prev => ({ ...prev, lobbyMusicUrl: url }))}
+                    />
+                    <MusicUploader
+                      label="Arena Music"
+                      value={formData.arenaMusicUrl}
+                      onChange={(url) => setFormData(prev => ({ ...prev, arenaMusicUrl: url }))}
+                    />
+                    <MusicUploader
+                      label="Tense Music"
+                      value={formData.tenseMusicUrl}
+                      onChange={(url) => setFormData(prev => ({ ...prev, tenseMusicUrl: url }))}
+                    />
                     <p className="text-xs text-muted-foreground">
-                      Upload MP3 files to storage and paste URLs here, or leave empty to use generated audio.
+                      Upload MP3 files (max 10MB) or paste URLs. Leave empty to fall back to generated audio.
                     </p>
                   </div>
                 )}
