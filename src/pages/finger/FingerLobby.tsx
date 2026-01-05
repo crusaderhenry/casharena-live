@@ -31,7 +31,7 @@ export const FingerLobby = () => {
 
   const { isTestMode, resetFingerGame } = useGame();
   const { profile, refreshProfile } = useAuth();
-  const { game, participants, loading, hasJoined, joinGame, error: gameError } = useLiveGame(gameIdFromState);
+  const { game, participants, loading, hasJoined, joinGame, error: gameError, gameJoinStatus } = useLiveGame(gameIdFromState);
   const crusader = useCrusader();
   const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { play } = useSounds();
@@ -39,12 +39,14 @@ export const FingerLobby = () => {
   const { secondsUntil } = useServerTime();
   
   const [countdown, setCountdown] = useState(60);
-  const [entryClosed, setEntryClosed] = useState(false);
   const [crusaderMessage, setCrusaderMessage] = useState(CRUSADER_LOBBY_MESSAGES[0]);
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [micCheckComplete, setMicCheckComplete] = useState(false);
   const [isSpectator, setIsSpectator] = useState(isSpectatorFromState);
   const [joining, setJoining] = useState(false);
+  
+  // Derive entryClosed from gameJoinStatus
+  const entryClosed = !hasJoined && !gameJoinStatus.canJoin && game?.status === 'live';
 
   const startTriggeredRef = useRef(false);
 
@@ -115,13 +117,14 @@ export const FingerLobby = () => {
     };
   }, []);
 
-  // Entry closed warning
+  // Entry closed warning - play sound once when entries close
+  const entryClosedSoundRef = useRef(false);
   useEffect(() => {
-    if (countdown <= 10 && !entryClosed) {
-      setEntryClosed(true);
+    if (entryClosed && !entryClosedSoundRef.current) {
+      entryClosedSoundRef.current = true;
       play('countdown');
     }
-  }, [countdown, entryClosed, play]);
+  }, [entryClosed, play]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -138,7 +141,6 @@ export const FingerLobby = () => {
   const handleTestReset = () => {
     resetFingerGame();
     setCountdown(60);
-    setEntryClosed(false);
   };
 
   const handleBack = () => {
@@ -344,9 +346,14 @@ export const FingerLobby = () => {
                     </p>
                   </div>
                 ) : entryClosed ? (
-                  <div className="flex items-center justify-center gap-2 mt-3 text-destructive">
-                    <Lock className="w-4 h-4" />
-                    <span className="text-sm font-bold">No more entries</span>
+                  <div className="flex flex-col items-center justify-center gap-1 mt-3 text-destructive">
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      <span className="text-sm font-bold">No more entries</span>
+                    </div>
+                    {gameJoinStatus.reason && (
+                      <span className="text-xs opacity-80">{gameJoinStatus.reason}</span>
+                    )}
                   </div>
                 ) : (
                   <button

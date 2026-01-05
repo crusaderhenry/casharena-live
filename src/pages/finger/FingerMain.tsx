@@ -28,7 +28,7 @@ export const FingerMain = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { isTestMode, resetFingerGame } = useGame();
-  const { game, participants, loading, hasJoined, joinGame, error, fetchAllActiveGames } = useLiveGame();
+  const { game, participants, loading, hasJoined, joinGame, error, fetchAllActiveGames, canJoinGame } = useLiveGame();
   const { play } = useSounds();
   const { buttonClick, success } = useHaptics();
   const { secondsUntil } = useServerTime();
@@ -36,7 +36,6 @@ export const FingerMain = () => {
   const [joining, setJoining] = useState(false);
   const [allGames, setAllGames] = useState<any[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
-  const [entriesClosed, setEntriesClosed] = useState(false);
 
   // Fetch all active games
   useEffect(() => {
@@ -121,49 +120,9 @@ export const FingerMain = () => {
   const balance = profile?.wallet_balance || 0;
   const hasGames = allGames.length > 0;
 
-  // Check if entries are closed for selected game (live games with < 10 min cutoff)
-  useEffect(() => {
-    if (!selectedGame) {
-      setEntriesClosed(false);
-      return;
-    }
-    
-    const checkEntryClosed = () => {
-      // Already joined - no need to check
-      if (hasJoined) {
-        setEntriesClosed(false);
-        return;
-      }
-      
-      // Scheduled games aren't open yet
-      if (selectedGame.status === 'scheduled') {
-        setEntriesClosed(true);
-        return;
-      }
-      
-      // Live games - check if cutoff has passed
-      if (selectedGame.status === 'live' && selectedGame.start_time) {
-        const secsRemaining = secondsUntil(new Date(new Date(selectedGame.start_time).getTime() + (selectedGame.max_duration || 20) * 60 * 1000));
-        const cutoffMins = selectedGame.entry_cutoff_minutes ?? 10;
-        setEntriesClosed(secsRemaining < cutoffMins * 60);
-        return;
-      }
-      
-      // Open games with start_time - check if less than cutoff minutes remaining
-      if (selectedGame.status === 'open' && selectedGame.start_time) {
-        const secsUntilLive = secondsUntil(selectedGame.start_time);
-        const cutoffMins = selectedGame.entry_cutoff_minutes ?? 10;
-        setEntriesClosed(secsUntilLive < cutoffMins * 60);
-        return;
-      }
-      
-      setEntriesClosed(false);
-    };
-    
-    checkEntryClosed();
-    const interval = setInterval(checkEntryClosed, 1000);
-    return () => clearInterval(interval);
-  }, [selectedGame, hasJoined, secondsUntil]);
+  // Check join eligibility using the hook's canJoinGame function
+  const selectedGameJoinStatus = selectedGame ? canJoinGame(selectedGame) : { canJoin: false, reason: null, timeRemaining: null };
+  const entriesClosed = selectedGame && !hasJoined && !selectedGameJoinStatus.canJoin && selectedGame.status !== 'scheduled';
 
   const formatMoney = (amount: number) => {
     if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
@@ -443,9 +402,14 @@ export const FingerMain = () => {
                   </button>
                 ) : entriesClosed ? (
                   <div className="space-y-2">
-                    <div className="flex items-center justify-center gap-2 py-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive">
-                      <Lock className="w-4 h-4" />
-                      <span className="font-bold text-sm">Entries Closed</span>
+                    <div className="flex flex-col items-center justify-center gap-1 py-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive">
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-4 h-4" />
+                        <span className="font-bold text-sm">Entries Closed</span>
+                      </div>
+                      {selectedGameJoinStatus.reason && (
+                        <span className="text-xs opacity-80">{selectedGameJoinStatus.reason}</span>
+                      )}
                     </div>
                     {selectedGame.status === 'live' && (
                       <button
