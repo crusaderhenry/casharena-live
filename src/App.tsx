@@ -41,6 +41,13 @@ import { AdminAnalytics } from "@/pages/admin/AdminAnalytics";
 import { AdminAuditLogs } from "@/pages/admin/AdminAuditLogs";
 import { AdminSettings } from "@/pages/admin/AdminSettings";
 
+// Moderator
+import { ModeratorLayout } from "@/pages/moderator/ModeratorLayout";
+import { ModeratorDashboard } from "@/pages/moderator/ModeratorDashboard";
+import { ModeratorUsers } from "@/pages/moderator/ModeratorUsers";
+import { ModeratorComments } from "@/pages/moderator/ModeratorComments";
+import { ModeratorFlagged } from "@/pages/moderator/ModeratorFlagged";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -94,6 +101,47 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
           <div className="text-6xl mb-4">🔒</div>
           <h1 className="text-2xl font-bold text-foreground mb-2">Access Denied</h1>
           <p className="text-muted-foreground mb-6">You don't have permission to access the admin panel.</p>
+          <button 
+            onClick={() => window.location.href = '/home'}
+            className="btn-primary"
+          >
+            Go Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
+
+// Moderator route wrapper - requires authentication AND moderator OR admin role
+const ModeratorRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading: authLoading } = useAuth();
+  const { isModerator, loading: roleLoading } = useUserRole();
+
+  if (authLoading || roleLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Verifying access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  if (!isModerator) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center p-8">
+          <div className="text-6xl mb-4">🛡️</div>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Moderator Access Required</h1>
+          <p className="text-muted-foreground mb-6">You don't have permission to access the moderator panel.</p>
           <button 
             onClick={() => window.location.href = '/home'}
             className="btn-primary"
@@ -162,6 +210,14 @@ const AppRoutes = () => (
       <Route path="analytics" element={<AdminAnalytics />} />
       <Route path="audit-logs" element={<AdminAuditLogs />} />
       <Route path="settings" element={<AdminSettings />} />
+    </Route>
+    
+    {/* Moderator Dashboard - Requires moderator or admin role */}
+    <Route path="/moderator" element={<ModeratorRoute><ModeratorLayout /></ModeratorRoute>}>
+      <Route index element={<ModeratorDashboard />} />
+      <Route path="users" element={<ModeratorUsers />} />
+      <Route path="comments" element={<ModeratorComments />} />
+      <Route path="flagged" element={<ModeratorFlagged />} />
     </Route>
     
     {/* Catch-all */}

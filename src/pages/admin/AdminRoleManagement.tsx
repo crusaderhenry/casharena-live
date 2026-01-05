@@ -119,25 +119,19 @@ export const AdminRoleManagement = () => {
   const addRole = async (userId: string, role: AppRole) => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('user_roles')
-        .insert({ user_id: userId, role });
+      const { data, error } = await supabase.functions.invoke('role-manager', {
+        body: { action: 'add_role', targetUserId: userId, role },
+      });
 
-      if (error) {
-        if (error.code === '23505') {
-          toast.error('User already has this role');
-        } else {
-          throw error;
-        }
-        return;
-      }
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast.success(`Added ${role} role successfully`);
       setAddRoleDialog({ open: false, user: null });
       fetchUsers();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding role:', err);
-      toast.error('Failed to add role');
+      toast.error(err.message || 'Failed to add role');
     } finally {
       setSaving(false);
     }
@@ -152,19 +146,18 @@ export const AdminRoleManagement = () => {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId)
-        .eq('role', role);
+      const { data, error } = await supabase.functions.invoke('role-manager', {
+        body: { action: 'remove_role', targetUserId: userId, role },
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast.success(`Removed ${role} role successfully`);
       fetchUsers();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error removing role:', err);
-      toast.error('Failed to remove role');
+      toast.error(err.message || 'Failed to remove role');
     } finally {
       setSaving(false);
     }
