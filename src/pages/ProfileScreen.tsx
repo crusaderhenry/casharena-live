@@ -1,5 +1,6 @@
 import { BottomNav } from '@/components/BottomNav';
 import { ProfileBadges } from '@/components/ProfileBadges';
+import { KycVerificationModal } from '@/components/wallet/KycVerificationModal';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
@@ -39,6 +40,18 @@ export const ProfileScreen = () => {
     firstName: '', 
     lastName: '' 
   });
+  const [showKycModal, setShowKycModal] = useState(false);
+
+  const handleKycVerified = (firstName: string, lastName: string) => {
+    setKycStatus({
+      verified: true,
+      type: 'nin', // Will be updated from DB
+      firstName,
+      lastName,
+    });
+    setShowKycModal(false);
+    toast.success('Identity verified successfully!');
+  };
 
   // Use real profile data if available
   const displayProfile = {
@@ -336,12 +349,20 @@ export const ProfileScreen = () => {
                   </p>
                 </>
               ) : (
-                <>
-                  <p className="text-lg font-bold text-yellow-500">Not Verified</p>
-                  <p className="text-xs text-muted-foreground">
-                    Verify via NIN or BVN when making your first withdrawal
-                  </p>
-                </>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-bold text-yellow-500">Not Verified</p>
+                    <p className="text-xs text-muted-foreground">
+                      Verify your identity with NIN or BVN
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowKycModal(true)}
+                    className="px-4 py-2 bg-yellow-500 text-black text-sm font-medium rounded-lg hover:bg-yellow-400 transition-colors"
+                  >
+                    Verify Now
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -448,6 +469,12 @@ export const ProfileScreen = () => {
         </div>
       </div>
       <BottomNav />
+      
+      <KycVerificationModal
+        open={showKycModal}
+        onOpenChange={setShowKycModal}
+        onVerified={handleKycVerified}
+      />
     </div>
   );
 };
