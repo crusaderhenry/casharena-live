@@ -13,7 +13,7 @@ import { useLiveGame } from '@/hooks/useLiveGame';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Zap, Users, Clock, Trophy, MessageSquare, ChevronRight, Play, Calendar, Timer, Coins, Eye, Swords } from 'lucide-react';
+import { ArrowLeft, Zap, Users, Clock, Trophy, MessageSquare, ChevronRight, Play, Calendar, Timer, Coins, Eye, Swords, Shield, Flame, Crown } from 'lucide-react';
 
 // Mock games for test mode
 const mockGamesForTest = [
@@ -187,6 +187,48 @@ export const FingerMain = () => {
           </div>
         </div>
 
+        {/* Arena Hero Banner */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-card to-primary/10 border border-primary/30 p-5">
+          {/* Animated Background Effects */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl animate-pulse" />
+            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-gold/15 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
+          </div>
+          
+          {/* Content */}
+          <div className="relative z-10 flex items-center gap-4">
+            {/* Arena Icon */}
+            <div className="relative">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+                <Swords className="w-8 h-8 text-primary-foreground" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-gold flex items-center justify-center animate-bounce" style={{ animationDuration: '2s' }}>
+                <Flame className="w-3.5 h-3.5 text-background" />
+              </div>
+            </div>
+            
+            {/* Text */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-lg font-black text-foreground">Battle Arena</h2>
+                <Shield className="w-4 h-4 text-primary" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Enter the arena. Compete for glory. Claim victory.
+              </p>
+              <div className="flex items-center gap-3 mt-2">
+                <span className="flex items-center gap-1 text-xs text-primary font-medium">
+                  <Crown className="w-3 h-3" /> Top rewards
+                </span>
+                <span className="flex items-center gap-1 text-xs text-gold font-medium">
+                  <Trophy className="w-3 h-3" /> Live battles
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Wallet */}
         <WalletCard compact />
 
@@ -206,12 +248,22 @@ export const FingerMain = () => {
 
         {/* No Games State */}
         {!hasGames && (
-          <div className="card-panel text-center py-12">
-            <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
-              <Zap className="w-8 h-8 text-muted-foreground" />
+          <div className="card-panel text-center py-12 relative overflow-hidden">
+            {/* Decorative background */}
+            <div className="absolute inset-0 overflow-hidden opacity-30">
+              <div className="absolute top-4 left-8 w-8 h-8 rounded-lg bg-primary/20 rotate-12" />
+              <div className="absolute bottom-6 right-12 w-6 h-6 rounded-lg bg-gold/20 -rotate-12" />
+              <div className="absolute top-1/2 left-1/4 w-4 h-4 rounded-full bg-primary/15" />
             </div>
-            <h3 className="font-bold text-foreground mb-2">No Games Available</h3>
-            <p className="text-sm text-muted-foreground">Check back soon for exciting new games!</p>
+            
+            <div className="relative z-10">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-muted/80 to-muted/40 flex items-center justify-center mx-auto mb-4 border border-border/50">
+                <Swords className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <h3 className="font-bold text-foreground mb-2 text-lg">Arena is Empty</h3>
+              <p className="text-sm text-muted-foreground mb-3">No battles available right now.</p>
+              <p className="text-xs text-muted-foreground/70">Champions are preparing... Check back soon!</p>
+            </div>
           </div>
         )}
 
