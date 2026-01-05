@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { VoiceRoomLive } from '@/components/VoiceRoomLive';
 import { TestControls } from '@/components/TestControls';
+import { MicCheckModal } from '@/components/MicCheckModal';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
@@ -53,6 +54,7 @@ export const FingerArena = () => {
   const [hostMuted, setHostMuted] = useState(false);
   const [audienceMuted, setAudienceMuted] = useState(false);
   const [sending, setSending] = useState(false);
+  const [showMicCheck, setShowMicCheck] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const hasAnnouncedStart = useRef(false);
   const lastHypeRef = useRef(0);
@@ -70,8 +72,12 @@ export const FingerArena = () => {
         const remaining = (game.max_duration * 60) - elapsed;
         setGameTime(Math.max(0, remaining));
       }
+    }
+  }, [game?.countdown, game?.start_time, game?.max_duration]);
 
-      // Update Crusader with current game state
+  // Update Crusader with game state (separate effect to avoid loops)
+  useEffect(() => {
+    if (game) {
       crusader.updateGameState({
         timer: game.countdown || 60,
         participantCount: game.participant_count || participants.length,
@@ -81,7 +87,8 @@ export const FingerArena = () => {
         commentCount: comments.length,
       });
     }
-  }, [game?.countdown, game?.start_time, game?.max_duration, game?.pool_value, game?.participant_count, participants.length, topThree, comments.length, crusader]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game?.countdown, game?.pool_value, game?.participant_count, topThree[0]?.name, comments.length]);
 
   // Check for game ended
   useEffect(() => {
@@ -161,6 +168,13 @@ export const FingerArena = () => {
       setTimeout(() => crusader.announceGameStart(), 500);
       hasAnnouncedStart.current = true;
     }
+
+    // Show mic check if not done before (with delay to let user settle in)
+    const micCheckDone = sessionStorage.getItem('micCheckComplete');
+    if (!micCheckDone) {
+      setTimeout(() => setShowMicCheck(true), 2000);
+    }
+
     return () => stopBackgroundMusic();
   }, [game?.id]);
 
@@ -270,6 +284,10 @@ export const FingerArena = () => {
     setLastLeader('');
     setIsShaking(false);
     hasAnnouncedStart.current = false;
+  };
+
+  const handleMicCheckComplete = () => {
+    sessionStorage.setItem('micCheckComplete', 'true');
   };
 
   const currentUsername = profile?.username || userProfile.username;
@@ -605,6 +623,13 @@ export const FingerArena = () => {
           </div>
         )}
       </div>
+
+      {/* Mic Check Modal */}
+      <MicCheckModal 
+        open={showMicCheck}
+        onOpenChange={setShowMicCheck}
+        onComplete={handleMicCheckComplete}
+      />
     </div>
   );
 };
