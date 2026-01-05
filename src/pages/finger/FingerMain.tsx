@@ -115,10 +115,12 @@ export const FingerMain = () => {
 
   // Real-time countdown to next game
   const [timeToNext, setTimeToNext] = useState<string | null>(null);
+  const [hasNotifiedZero, setHasNotifiedZero] = useState(false);
   
   useEffect(() => {
     if (!nextScheduledGame?.start_time) {
       setTimeToNext(null);
+      setHasNotifiedZero(false);
       return;
     }
 
@@ -129,6 +131,11 @@ export const FingerMain = () => {
 
       if (diff <= 0) {
         setTimeToNext('Starting now!');
+        if (!hasNotifiedZero) {
+          play('success');
+          success();
+          setHasNotifiedZero(true);
+        }
         return;
       }
 
@@ -148,7 +155,7 @@ export const FingerMain = () => {
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
-  }, [nextScheduledGame?.start_time]);
+  }, [nextScheduledGame?.start_time, hasNotifiedZero, play, success]);
   
   // Only auto-select if user came from a specific game context, otherwise require manual selection
   const selectedGame = selectedGameId 
