@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.expire-stale-deposits]
 verify_jwt = false
+
+[functions.verify-kyc]
+verify_jwt = false
