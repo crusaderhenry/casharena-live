@@ -394,9 +394,12 @@ serve(async (req) => {
         throw new Error(`Unknown action: ${action}`);
     }
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Game manager error:', message);
-    return new Response(JSON.stringify({ error: message }), {
+    // Log detailed error for debugging (server-side only)
+    const internalMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Game manager error:', internalMessage);
+    
+    // Return generic error to client to prevent information disclosure
+    return new Response(JSON.stringify({ error: 'An error occurred processing your request' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

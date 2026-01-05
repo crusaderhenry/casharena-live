@@ -273,9 +273,12 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
-    console.error('[game-timer] Error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: message }), {
+    // Log detailed error for debugging (server-side only)
+    const internalMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[game-timer] Error:', internalMessage);
+    
+    // Return generic error to client to prevent information disclosure
+    return new Response(JSON.stringify({ error: 'An error occurred processing your request' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

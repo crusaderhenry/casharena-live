@@ -358,39 +358,7 @@ export type Database = {
       }
     }
     Views: {
-      profiles_public: {
-        Row: {
-          avatar: string | null
-          created_at: string | null
-          games_played: number | null
-          id: string | null
-          rank_points: number | null
-          total_wins: number | null
-          username: string | null
-          weekly_rank: number | null
-        }
-        Insert: {
-          avatar?: string | null
-          created_at?: string | null
-          games_played?: number | null
-          id?: string | null
-          rank_points?: number | null
-          total_wins?: number | null
-          username?: string | null
-          weekly_rank?: number | null
-        }
-        Update: {
-          avatar?: string | null
-          created_at?: string | null
-          games_played?: number | null
-          id?: string | null
-          rank_points?: number | null
-          total_wins?: number | null
-          username?: string | null
-          weekly_rank?: number | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       get_leaderboard: {
