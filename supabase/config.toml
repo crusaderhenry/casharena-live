@@ -13,16 +13,16 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.paystack-deposit]
-verify_jwt = true
+verify_jwt = false
 
 [functions.paystack-webhook]
 verify_jwt = false
 
 [functions.paystack-withdraw]
-verify_jwt = true
+verify_jwt = false
 
 [functions.get-banks]
 verify_jwt = false
 
 [functions.verify-bank-account]
-verify_jwt = true
+verify_jwt = false
