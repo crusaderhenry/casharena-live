@@ -5,7 +5,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 
 const navItems = [
   { icon: Home, label: 'Home', path: '/home' },
-  { icon: Zap, label: 'Arena', path: '/finger' },
+  { icon: Zap, label: 'Crusader', path: '/finger' },
   { icon: Trophy, label: 'Rank', path: '/rank' },
   { icon: Wallet, label: 'Wallet', path: '/wallet' },
   { icon: User, label: 'Profile', path: '/profile' },
