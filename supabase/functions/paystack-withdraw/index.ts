@@ -270,8 +270,14 @@ Deno.serve(async (req) => {
       );
     } catch (transferError: unknown) {
       // Refund on failure
-      const errorMessage = transferError instanceof Error ? transferError.message : 'Withdrawal failed';
+      const rawMessage = transferError instanceof Error ? transferError.message : 'Withdrawal failed';
       console.error('Transfer failed:', transferError);
+
+      // Provide user-friendly error messages
+      let userMessage = rawMessage;
+      if (rawMessage.includes('balance is not enough')) {
+        userMessage = 'Withdrawals are temporarily unavailable. Please try again later or contact support.';
+      }
 
       await supabase
         .from('profiles')
@@ -290,7 +296,7 @@ Deno.serve(async (req) => {
         .eq('reference', reference);
 
       return new Response(
-        JSON.stringify({ error: errorMessage }),
+        JSON.stringify({ error: userMessage }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
