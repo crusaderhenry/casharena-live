@@ -105,7 +105,6 @@ Deno.serve(async (req) => {
         console.log('[game-timer] Game ending - countdown reached 0 or max duration exceeded');
 
         // Idempotency lock: set end_time once so only one caller settles payouts.
-        // NOTE: This sets end_time before status='ended' to prevent double payouts under concurrent calls.
         const lockIso = new Date().toISOString();
         const { data: lockedGame, error: lockErr } = await supabase
           .from('fastest_finger_games')
@@ -152,7 +151,8 @@ Deno.serve(async (req) => {
         }
 
         const poolValue = gameForEnd.pool_value;
-        const platformCut = Math.floor(poolValue * 0.1);
+        const platformCutPct = gameForEnd.platform_cut_percentage || 10;
+        const platformCut = Math.floor(poolValue * (platformCutPct / 100));
         const prizePool = poolValue - platformCut;
 
         for (let i = 0; i < uniqueWinnerIds.length; i++) {
@@ -211,11 +211,18 @@ Deno.serve(async (req) => {
 
         console.log(`[game-timer] Game ${gameId} ended. Winners: ${uniqueWinnerIds.length}`);
 
+        // Handle auto-restart or recurrence
+        if (gameForEnd.auto_restart || gameForEnd.recurrence_type) {
+          console.log(`[game-timer] Creating next game (auto_restart: ${gameForEnd.auto_restart}, recurrence: ${gameForEnd.recurrence_type})`);
+          await createNextGame(supabase, gameForEnd, new Date());
+        }
+
         return new Response(
           JSON.stringify({
             success: true,
             action: 'game_ended',
             winners: uniqueWinnerIds.length,
+            autoRestarted: gameForEnd.auto_restart || !!gameForEnd.recurrence_type,
           }),
           {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -320,14 +327,91 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
-    // Log detailed error for debugging (server-side only)
     const internalMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[game-timer] Error:', internalMessage);
     
-    // Return generic error to client to prevent information disclosure
     return new Response(JSON.stringify({ error: 'An error occurred processing your request' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
+
+// Create next game instance (for auto-restart or recurrence)
+async function createNextGame(supabase: any, baseGame: any, now: Date) {
+  let nextScheduledAt: Date | null = null;
+  let goLiveType = 'scheduled';
+  
+  // Auto-restart: immediately open for entries (no scheduled time)
+  if (baseGame.auto_restart) {
+    console.log(`[game-timer] Auto-restarting game from ${baseGame.id}`);
+    goLiveType = 'immediate';
+    nextScheduledAt = null;
+  } else if (baseGame.recurrence_type) {
+    // Calculate next scheduled time based on recurrence
+    switch (baseGame.recurrence_type) {
+      case 'minutes':
+        nextScheduledAt = new Date(now.getTime() + (baseGame.recurrence_interval * 60 * 1000));
+        break;
+      case 'hours':
+        nextScheduledAt = new Date(now.getTime() + (baseGame.recurrence_interval * 60 * 60 * 1000));
+        break;
+      case 'daily':
+        if (baseGame.fixed_daily_time) {
+          const [hours, minutes] = baseGame.fixed_daily_time.split(':').map(Number);
+          nextScheduledAt = new Date(now);
+          nextScheduledAt.setDate(nextScheduledAt.getDate() + 1);
+          nextScheduledAt.setHours(hours, minutes, 0, 0);
+        } else {
+          nextScheduledAt = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+        }
+        break;
+      case 'weekly':
+        nextScheduledAt = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+        break;
+      case 'monthly':
+        nextScheduledAt = new Date(now);
+        nextScheduledAt.setMonth(nextScheduledAt.getMonth() + 1);
+        break;
+      default:
+        return;
+    }
+    console.log(`[game-timer] Creating recurring game, next at ${nextScheduledAt?.toISOString()}`);
+  } else {
+    return;
+  }
+
+  const { data: newGame, error } = await supabase.from('fastest_finger_games').insert({
+    name: baseGame.name,
+    description: baseGame.description,
+    entry_fee: baseGame.entry_fee,
+    max_duration: baseGame.max_duration,
+    comment_timer: baseGame.comment_timer,
+    payout_type: baseGame.payout_type,
+    payout_distribution: baseGame.payout_distribution,
+    min_participants: baseGame.min_participants,
+    countdown: baseGame.entry_wait_seconds || baseGame.countdown || 60,
+    recurrence_type: baseGame.recurrence_type,
+    recurrence_interval: baseGame.recurrence_interval,
+    is_sponsored: baseGame.is_sponsored,
+    sponsored_amount: baseGame.sponsored_amount,
+    platform_cut_percentage: baseGame.platform_cut_percentage,
+    go_live_type: goLiveType,
+    scheduled_at: nextScheduledAt?.toISOString() || null,
+    visibility: baseGame.visibility,
+    entry_cutoff_minutes: baseGame.entry_cutoff_minutes,
+    auto_restart: baseGame.auto_restart,
+    fixed_daily_time: baseGame.fixed_daily_time,
+    entry_wait_seconds: baseGame.entry_wait_seconds,
+    min_participants_action: baseGame.min_participants_action,
+    status: 'scheduled',
+    pool_value: 0,
+    participant_count: 0,
+  }).select().single();
+
+  if (error) {
+    console.error('[game-timer] Error creating next game:', error);
+  } else {
+    console.log(`[game-timer] Created next game: ${newGame?.id}`);
+  }
+}
