@@ -1,8 +1,25 @@
 import { useState, useEffect } from 'react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { ShieldCheck, ShieldX, Search, RefreshCw } from 'lucide-react';
+import { ShieldCheck, ShieldX, Search, RefreshCw, MoreHorizontal, UserCheck, UserX } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 
 interface UserKycData {
   id: string;
@@ -22,6 +39,17 @@ export const AdminKyc = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'verified' | 'unverified'>('all');
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  
+  // Manual verify dialog state
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserKycData | null>(null);
+  const [verifyFirstName, setVerifyFirstName] = useState('');
+  const [verifyLastName, setVerifyLastName] = useState('');
+  const [verifyType, setVerifyType] = useState<'nin' | 'bvn'>('nin');
+
+  // Revoke dialog state
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -43,6 +71,84 @@ export const AdminKyc = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const handleManualVerify = async () => {
+    if (!selectedUser || !verifyFirstName.trim() || !verifyLastName.trim()) {
+      toast.error('Please enter first and last name');
+      return;
+    }
+
+    setActionLoading(selectedUser.id);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          kyc_verified: true,
+          kyc_type: verifyType,
+          kyc_first_name: verifyFirstName.trim(),
+          kyc_last_name: verifyLastName.trim(),
+          kyc_verified_at: new Date().toISOString(),
+        })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      toast.success(`KYC verified for ${selectedUser.username}`);
+      setVerifyDialogOpen(false);
+      setSelectedUser(null);
+      setVerifyFirstName('');
+      setVerifyLastName('');
+      fetchUsers();
+    } catch (err) {
+      console.error('Failed to verify user:', err);
+      toast.error('Failed to verify user');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRevokeKyc = async () => {
+    if (!selectedUser) return;
+
+    setActionLoading(selectedUser.id);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          kyc_verified: false,
+          kyc_type: null,
+          kyc_first_name: null,
+          kyc_last_name: null,
+          kyc_verified_at: null,
+        })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      toast.success(`KYC revoked for ${selectedUser.username}`);
+      setRevokeDialogOpen(false);
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (err) {
+      console.error('Failed to revoke KYC:', err);
+      toast.error('Failed to revoke KYC');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const openVerifyDialog = (user: UserKycData) => {
+    setSelectedUser(user);
+    setVerifyFirstName('');
+    setVerifyLastName('');
+    setVerifyType('nin');
+    setVerifyDialogOpen(true);
+  };
+
+  const openRevokeDialog = (user: UserKycData) => {
+    setSelectedUser(user);
+    setRevokeDialogOpen(true);
+  };
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch = 
@@ -84,7 +190,7 @@ export const AdminKyc = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground">KYC Verification</h1>
-              <p className="text-muted-foreground">View all users' identity verification status</p>
+              <p className="text-muted-foreground">View and manage users' identity verification status</p>
             </div>
             <button
               onClick={fetchUsers}
@@ -166,7 +272,7 @@ export const AdminKyc = () => {
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Verified Name</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Type</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Verified Date</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Joined</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -217,8 +323,34 @@ export const AdminKyc = () => {
                         <td className="py-3 px-4 text-sm text-muted-foreground">
                           {formatDate(user.kyc_verified_at)}
                         </td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground">
-                          {formatDate(user.created_at)}
+                        <td className="py-3 px-4">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                disabled={actionLoading === user.id}
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {!user.kyc_verified ? (
+                                <DropdownMenuItem onClick={() => openVerifyDialog(user)}>
+                                  <UserCheck className="w-4 h-4 mr-2 text-primary" />
+                                  Manually Verify
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem 
+                                  onClick={() => openRevokeDialog(user)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <UserX className="w-4 h-4 mr-2" />
+                                  Revoke Verification
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </td>
                       </tr>
                     ))}
@@ -229,6 +361,111 @@ export const AdminKyc = () => {
           </div>
         </div>
       </main>
+
+      {/* Manual Verify Dialog */}
+      <Dialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="w-5 h-5 text-primary" />
+              Manually Verify KYC
+            </DialogTitle>
+            <DialogDescription>
+              Verify KYC for {selectedUser?.username} ({selectedUser?.email})
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="verify-first-name">First Name</Label>
+                <Input
+                  id="verify-first-name"
+                  placeholder="First name"
+                  value={verifyFirstName}
+                  onChange={(e) => setVerifyFirstName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="verify-last-name">Last Name</Label>
+                <Input
+                  id="verify-last-name"
+                  placeholder="Last name"
+                  value={verifyLastName}
+                  onChange={(e) => setVerifyLastName(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Verification Type</Label>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setVerifyType('nin')}
+                  className={`flex-1 py-2 rounded-lg border font-medium transition-colors ${
+                    verifyType === 'nin'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-muted text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  NIN
+                </button>
+                <button
+                  onClick={() => setVerifyType('bvn')}
+                  className={`flex-1 py-2 rounded-lg border font-medium transition-colors ${
+                    verifyType === 'bvn'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-muted text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  BVN
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVerifyDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleManualVerify}
+              disabled={!verifyFirstName.trim() || !verifyLastName.trim() || actionLoading === selectedUser?.id}
+            >
+              {actionLoading === selectedUser?.id ? 'Verifying...' : 'Verify User'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revoke Dialog */}
+      <Dialog open={revokeDialogOpen} onOpenChange={setRevokeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <UserX className="w-5 h-5" />
+              Revoke KYC Verification
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to revoke KYC verification for {selectedUser?.username}? 
+              They will need to verify again before making withdrawals.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevokeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleRevokeKyc}
+              disabled={actionLoading === selectedUser?.id}
+            >
+              {actionLoading === selectedUser?.id ? 'Revoking...' : 'Revoke Verification'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
