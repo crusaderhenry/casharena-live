@@ -13,8 +13,9 @@ import { useGame } from '@/contexts/GameContext';
 import { useLiveGame } from '@/hooks/useLiveGame';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useServerTime } from '@/hooks/useServerTime';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Zap, Users, Clock, Trophy, ChevronRight, Play, Calendar, Swords, Radio, Sparkles, Gift } from 'lucide-react';
+import { ArrowLeft, Zap, Users, Clock, Trophy, ChevronRight, Play, Calendar, Swords, Radio, Sparkles, Gift, Eye, Lock } from 'lucide-react';
 
 // Mock games for test mode
 const mockGamesForTest = [
@@ -23,7 +24,6 @@ const mockGamesForTest = [
   { id: 'mock-3', name: 'Quick Draw', status: 'scheduled', pool_value: 0, effective_prize_pool: 50000, participant_count: 8, countdown: 180, entry_fee: 0, max_duration: 10, payout_type: 'top5', payout_distribution: [0.4, 0.25, 0.15, 0.12, 0.08], is_sponsored: true, sponsored_amount: 50000 },
   { id: 'mock-4', name: 'Lightning Round', status: 'open', pool_value: 8000, effective_prize_pool: 8000, participant_count: 5, countdown: 30, entry_fee: 200, max_duration: 5, payout_type: 'top3', payout_distribution: [0.5, 0.3, 0.2], start_time: new Date(Date.now() + 2 * 60 * 1000).toISOString() },
 ];
-
 export const FingerMain = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -31,10 +31,12 @@ export const FingerMain = () => {
   const { game, participants, loading, hasJoined, joinGame, error, fetchAllActiveGames } = useLiveGame();
   const { play } = useSounds();
   const { buttonClick, success } = useHaptics();
+  const { secondsUntil } = useServerTime();
   
   const [joining, setJoining] = useState(false);
   const [allGames, setAllGames] = useState<any[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [entriesClosed, setEntriesClosed] = useState(false);
 
   // Fetch all active games
   useEffect(() => {
@@ -119,6 +121,50 @@ export const FingerMain = () => {
   const balance = profile?.wallet_balance || 0;
   const hasGames = allGames.length > 0;
 
+  // Check if entries are closed for selected game (live games with < 10 min cutoff)
+  useEffect(() => {
+    if (!selectedGame) {
+      setEntriesClosed(false);
+      return;
+    }
+    
+    const checkEntryClosed = () => {
+      // Already joined - no need to check
+      if (hasJoined) {
+        setEntriesClosed(false);
+        return;
+      }
+      
+      // Scheduled games aren't open yet
+      if (selectedGame.status === 'scheduled') {
+        setEntriesClosed(true);
+        return;
+      }
+      
+      // Live games - check if cutoff has passed
+      if (selectedGame.status === 'live' && selectedGame.start_time) {
+        const secsRemaining = secondsUntil(new Date(new Date(selectedGame.start_time).getTime() + (selectedGame.max_duration || 20) * 60 * 1000));
+        const cutoffMins = selectedGame.entry_cutoff_minutes ?? 10;
+        setEntriesClosed(secsRemaining < cutoffMins * 60);
+        return;
+      }
+      
+      // Open games with start_time - check if less than cutoff minutes remaining
+      if (selectedGame.status === 'open' && selectedGame.start_time) {
+        const secsUntilLive = secondsUntil(selectedGame.start_time);
+        const cutoffMins = selectedGame.entry_cutoff_minutes ?? 10;
+        setEntriesClosed(secsUntilLive < cutoffMins * 60);
+        return;
+      }
+      
+      setEntriesClosed(false);
+    };
+    
+    checkEntryClosed();
+    const interval = setInterval(checkEntryClosed, 1000);
+    return () => clearInterval(interval);
+  }, [selectedGame, hasJoined, secondsUntil]);
+
   const formatMoney = (amount: number) => {
     if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
     if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
@@ -173,13 +219,17 @@ export const FingerMain = () => {
     navigate('/finger/lobby', { state: { preferLobby: true } });
   };
 
-  const handleEnterGame = () => {
+  const handleEnterGame = (asSpectator: boolean = false) => {
     if (!selectedGame) return;
     play('click');
     buttonClick();
     
     // Live games can still enter lobby (they'll auto-navigate to arena)
-    navigate('/finger/lobby', { state: { gameId: selectedGame.id } });
+    navigate('/finger/lobby', { state: { gameId: selectedGame.id, isSpectator: asSpectator } });
+  };
+
+  const handleWatchAsSpectator = () => {
+    handleEnterGame(true);
   };
 
   if (loading) {
@@ -384,13 +434,30 @@ export const FingerMain = () => {
 
                 {hasJoined ? (
                   <button
-                    onClick={handleEnterGame}
+                    onClick={() => handleEnterGame(false)}
                     className="w-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
                   >
                     <Sparkles className="w-5 h-5" />
                     {selectedGame.status === 'live' ? 'Enter Arena' : 'Go to Lobby'}
                     <ChevronRight className="w-5 h-5" />
                   </button>
+                ) : entriesClosed ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2 py-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive">
+                      <Lock className="w-4 h-4" />
+                      <span className="font-bold text-sm">Entries Closed</span>
+                    </div>
+                    {selectedGame.status === 'live' && (
+                      <button
+                        onClick={handleWatchAsSpectator}
+                        className="w-full bg-gradient-to-r from-orange-500/80 to-orange-600/80 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                      >
+                        <Eye className="w-5 h-5" />
+                        Watch as Spectator
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <button
                     onClick={handleJoin}
