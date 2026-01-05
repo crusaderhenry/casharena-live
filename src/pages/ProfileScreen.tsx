@@ -416,11 +416,11 @@ export const ProfileScreen = () => {
               </button>
             </div>
 
-            {/* Crusader Commentary */}
+            {/* Host Commentary */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Mic className="w-5 h-5 text-muted-foreground" />
-                <span className="text-foreground">Crusader Voice</span>
+                <span className="text-foreground">Host Voice</span>
               </div>
               <button
                 onClick={() => handleToggle(toggleCommentary)}
