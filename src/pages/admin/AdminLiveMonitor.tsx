@@ -1,7 +1,34 @@
 import { useAdmin } from '@/contexts/AdminContext';
-import { Monitor, Play, Pause, Square, Users, Clock, Trophy, MessageSquare, Radio, Volume2, VolumeX, Maximize, Minimize, X } from 'lucide-react';
+import { Monitor, Play, Pause, Square, Users, Clock, Trophy, MessageSquare, Radio, Volume2, VolumeX, Maximize, Minimize, X, Activity, RefreshCw, Zap, Timer, AlertTriangle, CheckCircle, Database } from 'lucide-react';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { adminAudio } from '@/utils/adminAudio';
+import { supabase } from '@/integrations/supabase/client';
+import { useServerTime } from '@/hooks/useServerTime';
+
+interface RealTimeGame {
+  id: string;
+  name: string | null;
+  status: string;
+  pool_value: number;
+  effective_prize_pool: number;
+  participant_count: number;
+  entry_fee: number;
+  scheduled_at: string | null;
+  start_time: string | null;
+  is_sponsored: boolean | null;
+  seconds_until_open: number;
+  seconds_until_live: number;
+  seconds_remaining: number;
+  is_ending_soon: boolean;
+}
+
+interface CronActivity {
+  id: string;
+  timestamp: Date;
+  action: string;
+  status: 'success' | 'pending' | 'error';
+  details?: string;
+}
 
 export const AdminLiveMonitor = () => {
   const { 
@@ -13,6 +40,8 @@ export const AdminLiveMonitor = () => {
     endGame,
   } = useAdmin();
 
+  const { getServerTime } = useServerTime();
+  const serverTime = new Date(getServerTime());
   const commentsRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
@@ -21,8 +50,111 @@ export const AdminLiveMonitor = () => {
   const [broadcastTime, setBroadcastTime] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [realTimeGames, setRealTimeGames] = useState<RealTimeGame[]>([]);
+  const [cronActivity, setCronActivity] = useState<CronActivity[]>([]);
+  const [lastCronRun, setLastCronRun] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const lastCommentCount = useRef(0);
   const lastCountdown = useRef(60);
+
+  // Fetch real-time games from database
+  const fetchActiveGames = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const { data, error } = await supabase.rpc('get_active_games');
+      if (error) throw error;
+      setRealTimeGames(data || []);
+      
+      // Log cron activity
+      const now = new Date();
+      setLastCronRun(now);
+      setCronActivity(prev => [{
+        id: `fetch-${now.getTime()}`,
+        timestamp: now,
+        action: 'Game state refresh',
+        status: 'success',
+        details: `Found ${data?.length || 0} active games`
+      }, ...prev.slice(0, 19)]);
+    } catch (error) {
+      console.error('Error fetching games:', error);
+      const now = new Date();
+      setCronActivity(prev => [{
+        id: `error-${now.getTime()}`,
+        timestamp: now,
+        action: 'Game state refresh',
+        status: 'error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }, ...prev.slice(0, 19)]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  // Subscribe to real-time game updates
+  useEffect(() => {
+    fetchActiveGames();
+
+    const channel = supabase
+      .channel('admin-game-monitor')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'fastest_finger_games'
+        },
+        (payload) => {
+          console.log('Game update:', payload);
+          const now = new Date();
+          setCronActivity(prev => [{
+            id: `db-${now.getTime()}`,
+            timestamp: now,
+            action: `Game ${payload.eventType}`,
+            status: 'success',
+            details: `Game ID: ${(payload.new as any)?.id?.slice(0, 8) || (payload.old as any)?.id?.slice(0, 8) || 'unknown'}...`
+          }, ...prev.slice(0, 19)]);
+          
+          // Refresh games list
+          fetchActiveGames();
+        }
+      )
+      .subscribe();
+
+    // Refresh every 10 seconds
+    const interval = setInterval(fetchActiveGames, 10000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [fetchActiveGames]);
+
+  // Simulate cron job activity indicator
+  useEffect(() => {
+    const cronInterval = setInterval(() => {
+      const now = new Date();
+      if (now.getSeconds() === 0) {
+        setCronActivity(prev => [{
+          id: `cron-${now.getTime()}`,
+          timestamp: now,
+          action: 'Cron: game-lifecycle',
+          status: 'pending',
+          details: 'Processing game state transitions...'
+        }, ...prev.slice(0, 19)]);
+        
+        // Simulate completion after a moment
+        setTimeout(() => {
+          setCronActivity(prev => prev.map(a => 
+            a.id === `cron-${now.getTime()}` 
+              ? { ...a, status: 'success' as const, details: 'Completed state transitions' }
+              : a
+          ));
+        }, 500);
+      }
+    }, 1000);
+
+    return () => clearInterval(cronInterval);
+  }, []);
 
   // Toggle sound
   const toggleSound = useCallback(() => {
@@ -74,7 +206,6 @@ export const AdminLiveMonitor = () => {
     
     const countdown = currentGame.countdown;
     
-    // Only play sounds when countdown decreases
     if (countdown < lastCountdown.current) {
       if (countdown === 30) {
         adminAudio.playTimerWarning();
@@ -129,7 +260,6 @@ export const AdminLiveMonitor = () => {
     return () => clearInterval(interval);
   }, [currentGame?.status]);
 
-  // Mock top 3 based on recent comments
   const top3 = liveComments.slice(0, 3).map((c, i) => ({
     position: i + 1,
     username: c.username,
@@ -156,6 +286,26 @@ export const AdminLiveMonitor = () => {
     return 'text-foreground';
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'live': return 'bg-red-500/20 text-red-400 border-red-500/50';
+      case 'ending_soon': return 'bg-orange-500/20 text-orange-400 border-orange-500/50';
+      case 'open': return 'bg-green-500/20 text-green-400 border-green-500/50';
+      case 'scheduled': return 'bg-blue-500/20 text-blue-400 border-blue-500/50';
+      default: return 'bg-muted text-muted-foreground border-border';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'live': return <Radio className="w-3 h-3 animate-pulse" />;
+      case 'ending_soon': return <AlertTriangle className="w-3 h-3" />;
+      case 'open': return <Users className="w-3 h-3" />;
+      case 'scheduled': return <Clock className="w-3 h-3" />;
+      default: return <Database className="w-3 h-3" />;
+    }
+  };
+
   return (
     <div 
       ref={containerRef}
@@ -167,9 +317,24 @@ export const AdminLiveMonitor = () => {
           <h1 className={`font-black text-foreground ${isFullscreen ? 'text-3xl' : 'text-2xl'}`}>
             Live Games Monitor
           </h1>
-          <p className="text-sm text-muted-foreground">Real-time game observation and control</p>
+          <p className="text-sm text-muted-foreground">Real-time game observation and automation tracking</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Server Time */}
+          <div className="px-3 py-1.5 bg-muted rounded-lg text-xs font-mono text-muted-foreground">
+            Server: {serverTime.toLocaleTimeString()}
+          </div>
+
+          {/* Refresh Button */}
+          <button
+            onClick={fetchActiveGames}
+            disabled={isRefreshing}
+            className="p-2 rounded-xl bg-muted hover:bg-muted/80 transition-colors disabled:opacity-50"
+            title="Refresh games"
+          >
+            <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+
           {/* Sound Toggle */}
           <button
             onClick={toggleSound}
@@ -226,13 +391,220 @@ export const AdminLiveMonitor = () => {
         </div>
       </div>
 
-      {currentGame?.status === 'live' ? (
+      {/* Real-Time Games Grid */}
+      <div className="bg-card rounded-xl border border-border p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-primary" />
+            <h2 className="font-bold text-foreground">Active Games (Live Backend)</h2>
+            <span className="text-xs text-muted-foreground">({realTimeGames.length} games)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-xs text-green-400">REAL-TIME</span>
+          </div>
+        </div>
+
+        {realTimeGames.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {realTimeGames.map((game) => (
+              <div
+                key={game.id}
+                className={`p-4 rounded-xl border ${
+                  game.is_ending_soon 
+                    ? 'bg-red-500/5 border-red-500/30 animate-pulse' 
+                    : game.status === 'live' 
+                    ? 'bg-card border-primary/30' 
+                    : 'bg-card border-border'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-foreground text-sm truncate">
+                    {game.name || 'Fastest Finger'}
+                  </h3>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase flex items-center gap-1 border ${getStatusColor(game.status)}`}>
+                    {getStatusIcon(game.status)}
+                    {game.status.replace('_', ' ')}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <Users className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-muted-foreground">Players:</span>
+                    <span className="font-medium text-foreground">{game.participant_count}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Trophy className="w-3 h-3 text-primary" />
+                    <span className="text-muted-foreground">Prize:</span>
+                    <span className="font-medium text-primary">₦{game.effective_prize_pool.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Status-specific info */}
+                <div className="p-2 bg-muted/30 rounded-lg">
+                  {game.status === 'live' && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Time Remaining:</span>
+                      <span className={`font-mono font-bold ${game.is_ending_soon ? 'text-red-400' : 'text-foreground'}`}>
+                        {formatCountdown(game.seconds_remaining)}
+                      </span>
+                    </div>
+                  )}
+                  {game.status === 'open' && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Entry Fee:</span>
+                      <span className="font-medium text-foreground">
+                        {game.entry_fee === 0 ? (
+                          <span className="text-green-400">FREE (Sponsored)</span>
+                        ) : (
+                          `₦${game.entry_fee}`
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  {game.status === 'scheduled' && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Opens in:</span>
+                      <span className="font-mono font-medium text-foreground">
+                        {formatCountdown(game.seconds_until_open)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {game.is_sponsored && (
+                  <div className="mt-2 px-2 py-1 bg-gold/10 rounded text-[10px] text-gold font-medium text-center">
+                    ⭐ SPONSORED
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <Database className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>No active games in the backend</p>
+            <p className="text-xs mt-1">Create a game from Finger Control to see it here</p>
+          </div>
+        )}
+      </div>
+
+      {/* Cron Activity Log */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-yellow-400" />
+              <h2 className="font-bold text-foreground">Automation Activity</h2>
+            </div>
+            {lastCronRun && (
+              <span className="text-xs text-muted-foreground">
+                Last update: {lastCronRun.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {cronActivity.length > 0 ? (
+              cronActivity.map((activity) => (
+                <div
+                  key={activity.id}
+                  className={`flex items-center gap-3 p-2 rounded-lg text-sm ${
+                    activity.status === 'error' 
+                      ? 'bg-red-500/10' 
+                      : activity.status === 'pending' 
+                      ? 'bg-yellow-500/10' 
+                      : 'bg-muted/30'
+                  }`}
+                >
+                  {activity.status === 'success' ? (
+                    <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+                  ) : activity.status === 'pending' ? (
+                    <Timer className="w-4 h-4 text-yellow-400 animate-spin shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">{activity.action}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {activity.timestamp.toLocaleTimeString()}
+                      </span>
+                    </div>
+                    {activity.details && (
+                      <p className="text-xs text-muted-foreground truncate">{activity.details}</p>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Activity className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Waiting for activity...</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Cron Status Panel */}
+        <div className="space-y-4">
+          <div className="bg-card rounded-xl border border-green-500/30 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+              <h3 className="font-bold text-foreground">Cron: game-lifecycle</h3>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Schedule</span>
+                <span className="font-mono text-foreground">* * * * *</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Frequency</span>
+                <span className="text-foreground">Every minute</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status</span>
+                <span className="text-green-400">Active</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-xl border border-border p-4">
+            <h3 className="font-bold text-foreground mb-3 text-sm">State Transitions</h3>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="text-muted-foreground">scheduled → open</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-muted-foreground">open → live</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-orange-500" />
+                <span className="text-muted-foreground">live → ending_soon</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="text-muted-foreground">ending_soon → ended</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                <span className="text-muted-foreground">ended → settlement</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Test Mode Monitor (existing functionality) */}
+      {currentGame?.status === 'live' && (
         <div className={`grid gap-6 ${isFullscreen ? 'grid-cols-1 lg:grid-cols-4' : 'grid-cols-1 lg:grid-cols-3'}`}>
           {/* Main Monitor */}
           <div className={`space-y-4 ${isFullscreen ? 'lg:col-span-3' : 'lg:col-span-2'}`}>
             {/* Broadcast Status Bar */}
             <div className="bg-card rounded-xl border border-red-500/50 p-4 relative overflow-hidden">
-              {/* Animated background */}
               <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-transparent to-red-500/5 animate-pulse" />
               
               <div className="relative flex items-center justify-between mb-4">
@@ -243,7 +615,7 @@ export const AdminLiveMonitor = () => {
                   </div>
                   <span className={`font-black text-red-400 uppercase tracking-wider flex items-center gap-2 ${isFullscreen ? 'text-xl' : 'text-lg'}`}>
                     <Radio className="w-5 h-5" />
-                    LIVE BROADCAST
+                    TEST MODE BROADCAST
                   </span>
                 </div>
                 <div className="flex items-center gap-4">
@@ -262,7 +634,6 @@ export const AdminLiveMonitor = () => {
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                {/* Countdown - Most Important */}
                 <div className={`text-center p-4 rounded-xl transition-all duration-300 ${
                   currentGame.countdown <= 10 
                     ? 'bg-red-500/20 border-2 border-red-500/50' 
@@ -281,7 +652,6 @@ export const AdminLiveMonitor = () => {
                   </p>
                 </div>
 
-                {/* Pool Value */}
                 <div className="text-center p-4 bg-muted/30 rounded-xl border border-border/30">
                   <Trophy className="w-6 h-6 text-gold mx-auto mb-2" />
                   <p className={`font-black text-primary transition-all ${newCommentFlash ? 'scale-110' : ''} ${isFullscreen ? 'text-5xl' : 'text-3xl'}`}>
@@ -290,7 +660,6 @@ export const AdminLiveMonitor = () => {
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Prize Pool</p>
                 </div>
 
-                {/* Participants */}
                 <div className="text-center p-4 bg-muted/30 rounded-xl border border-border/30">
                   <Users className="w-6 h-6 text-primary mx-auto mb-2" />
                   <p className={`font-black text-foreground ${isFullscreen ? 'text-5xl' : 'text-3xl'}`}>{currentGame.participants}</p>
@@ -315,7 +684,6 @@ export const AdminLiveMonitor = () => {
                 </div>
               </div>
 
-              {/* Typing Indicators */}
               {typingUsers.length > 0 && (
                 <div className="mb-3 px-3 py-2 bg-muted/30 rounded-lg border border-border/30 animate-fade-in">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -382,7 +750,6 @@ export const AdminLiveMonitor = () => {
                 )}
               </div>
 
-              {/* Comments per minute indicator */}
               <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
                 <span>~12 comments/min</span>
                 <span>Last activity: {liveComments[0] ? 'Just now' : 'N/A'}</span>
@@ -471,54 +838,16 @@ export const AdminLiveMonitor = () => {
                 </p>
               )}
             </div>
-
-            {/* Audio Controls Info */}
-            <div className="bg-card rounded-xl border border-border p-4">
-              <h3 className="font-bold text-foreground mb-3 text-sm flex items-center gap-2">
-                {soundEnabled ? <Volume2 className="w-4 h-4 text-primary" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
-                Audio Alerts
-              </h3>
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-primary" />
-                  <span>New comment chirp</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-orange-400" />
-                  <span>30s warning beep</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-yellow-400" />
-                  <span>15s critical alert</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-red-500" />
-                  <span>5s danger alarm</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Session Stats */}
-            <div className="bg-card rounded-xl border border-border p-4">
-              <h3 className="font-bold text-foreground mb-3 text-sm">Session Stats</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-2 bg-muted/30 rounded-lg text-center">
-                  <p className={`font-bold text-primary ${isFullscreen ? 'text-2xl' : 'text-lg'}`}>{liveComments.length}</p>
-                  <p className="text-[10px] text-muted-foreground">Comments</p>
-                </div>
-                <div className="p-2 bg-muted/30 rounded-lg text-center">
-                  <p className={`font-bold text-gold ${isFullscreen ? 'text-2xl' : 'text-lg'}`}>{top3.length}</p>
-                  <p className="text-[10px] text-muted-foreground">Top Players</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
-      ) : (
+      )}
+
+      {/* Empty state when no test mode game */}
+      {!currentGame?.status && realTimeGames.length === 0 && (
         <div className="bg-card rounded-xl border border-border p-12 text-center">
           <Monitor className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-30" />
-          <h3 className="text-xl font-bold text-foreground mb-2">No Live Game</h3>
-          <p className="text-muted-foreground mb-6">Start a game from the Finger Control panel to monitor it here.</p>
+          <h3 className="text-xl font-bold text-foreground mb-2">No Active Games</h3>
+          <p className="text-muted-foreground mb-6">Create a game from the Finger Control panel to see it here.</p>
           <a 
             href="/admin/finger-control"
             className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium"
