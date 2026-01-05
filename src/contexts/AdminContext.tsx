@@ -30,7 +30,7 @@ interface AdminTransaction {
 interface AdminGame {
   id: string;
   name: string;
-  status: 'scheduled' | 'live' | 'ended';
+  status: 'scheduled' | 'open' | 'live' | 'ended' | 'cancelled';
   poolValue: number;
   participants: number;
   entryFee: number;
@@ -96,6 +96,11 @@ interface CreateGameConfig {
   sponsored_amount?: number | null;
   platform_cut_percentage?: number;
   description?: string | null;
+  // New automation fields
+  auto_restart?: boolean;
+  fixed_daily_time?: string | null;
+  entry_wait_seconds?: number;
+  min_participants_action?: 'reset' | 'cancel' | 'start_anyway';
 }
 
 interface AdminContextType {

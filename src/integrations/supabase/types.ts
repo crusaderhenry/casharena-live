@@ -81,6 +81,7 @@ export type Database = {
       }
       fastest_finger_games: {
         Row: {
+          auto_restart: boolean | null
           comment_timer: number | null
           countdown: number
           created_at: string
@@ -89,12 +90,15 @@ export type Database = {
           end_time: string | null
           entry_cutoff_minutes: number | null
           entry_fee: number
+          entry_wait_seconds: number | null
+          fixed_daily_time: string | null
           go_live_type: string
           id: string
           is_sponsored: boolean | null
           lobby_opens_at: string | null
           max_duration: number
           min_participants: number | null
+          min_participants_action: string | null
           name: string | null
           participant_count: number
           payout_distribution: number[] | null
@@ -110,6 +114,7 @@ export type Database = {
           visibility: string | null
         }
         Insert: {
+          auto_restart?: boolean | null
           comment_timer?: number | null
           countdown?: number
           created_at?: string
@@ -118,12 +123,15 @@ export type Database = {
           end_time?: string | null
           entry_cutoff_minutes?: number | null
           entry_fee?: number
+          entry_wait_seconds?: number | null
+          fixed_daily_time?: string | null
           go_live_type?: string
           id?: string
           is_sponsored?: boolean | null
           lobby_opens_at?: string | null
           max_duration?: number
           min_participants?: number | null
+          min_participants_action?: string | null
           name?: string | null
           participant_count?: number
           payout_distribution?: number[] | null
@@ -139,6 +147,7 @@ export type Database = {
           visibility?: string | null
         }
         Update: {
+          auto_restart?: boolean | null
           comment_timer?: number | null
           countdown?: number
           created_at?: string
@@ -147,12 +156,15 @@ export type Database = {
           end_time?: string | null
           entry_cutoff_minutes?: number | null
           entry_fee?: number
+          entry_wait_seconds?: number | null
+          fixed_daily_time?: string | null
           go_live_type?: string
           id?: string
           is_sponsored?: boolean | null
           lobby_opens_at?: string | null
           max_duration?: number
           min_participants?: number | null
+          min_participants_action?: string | null
           name?: string | null
           participant_count?: number
           payout_distribution?: number[] | null
