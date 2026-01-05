@@ -39,19 +39,79 @@ export const Home = () => {
   const [allGames, setAllGames] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<string[]>([]);
 
-  // Fetch all active games
+  // Fetch all active games and subscribe to real-time updates
   useEffect(() => {
-    if (!isTestMode) {
-      const loadGames = async () => {
-        const games = await fetchAllActiveGames();
-        setAllGames(games);
-      };
-      loadGames();
+    if (isTestMode) return;
 
-      // Refresh every 30 seconds
-      const interval = setInterval(loadGames, 30000);
-      return () => clearInterval(interval);
-    }
+    const loadGames = async () => {
+      const games = await fetchAllActiveGames();
+      setAllGames(games);
+    };
+    loadGames();
+
+    // Subscribe to real-time game updates
+    const gamesChannel = supabase
+      .channel('home-games-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'fastest_finger_games',
+        },
+        (payload) => {
+          console.log('[Home] Game update:', payload.eventType, payload);
+          
+          if (payload.eventType === 'INSERT') {
+            const newGame = payload.new as any;
+            setAllGames(prev => [newGame, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            const updated = payload.new as any;
+            setAllGames(prev => 
+              prev.map(g => g.id === updated.id ? { ...g, ...updated } : g)
+                .filter(g => g.status === 'live' || g.status === 'scheduled')
+            );
+          } else if (payload.eventType === 'DELETE') {
+            const deleted = payload.old as any;
+            setAllGames(prev => prev.filter(g => g.id !== deleted.id));
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to new winners for notifications
+    const winnersChannel = supabase
+      .channel('home-winners-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'winners',
+        },
+        async (payload) => {
+          console.log('[Home] New winner:', payload);
+          const winner = payload.new as any;
+          
+          // Fetch winner's profile
+          const { data: profileData } = await supabase
+            .rpc('get_public_profile', { profile_id: winner.user_id });
+          const profile = profileData?.[0];
+          
+          if (profile) {
+            setRecentWinners(prev => [{
+              ...winner,
+              profile
+            }, ...prev].slice(0, 5));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(gamesChannel);
+      supabase.removeChannel(winnersChannel);
+    };
   }, [isTestMode, fetchAllActiveGames]);
 
   // Real data values
