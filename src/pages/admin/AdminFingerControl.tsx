@@ -444,7 +444,7 @@ export const AdminRumbleControl = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-foreground">Royal Rumble Control</h1>
-          <p className="text-sm text-muted-foreground">Manage game lifecycle and settings</p>
+          <p className="text-sm text-muted-foreground">Manage game cycles and templates</p>
         </div>
         
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>

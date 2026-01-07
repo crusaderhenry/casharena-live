@@ -156,6 +156,22 @@ async function processStateTransition(supabase: any, cycle: GameCycle, now: Date
       const newCountdown = Math.max(0, cycle.countdown - 1);
       updates.countdown = newCountdown;
 
+      // Trigger mock comments periodically (every ~3 seconds for activity)
+      if (Math.random() < 0.3) {
+        try {
+          await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/mock-user-service`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({ action: 'trigger_comment', cycleId: cycle.id }),
+          });
+        } catch (e) {
+          console.log('[live] Mock comment trigger failed:', e);
+        }
+      }
+
       // Check if countdown hit zero OR max duration exceeded
       if (newCountdown <= 0 || nowTime >= liveEndAt) {
         newStatus = 'ending';

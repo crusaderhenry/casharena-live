@@ -22,10 +22,8 @@ const getRandomComment = (): string => {
 
 // Get delay based on personality and activity level
 const getCommentDelay = (personality: string, activityLevel: string): number => {
-  // Base delay in ms
   let baseDelay = 5000;
   
-  // Adjust for activity level
   switch (activityLevel) {
     case 'high':
       baseDelay = 2000;
@@ -38,7 +36,6 @@ const getCommentDelay = (personality: string, activityLevel: string): number => 
       break;
   }
   
-  // Adjust for personality
   switch (personality) {
     case 'aggressive':
       baseDelay *= 0.5;
@@ -51,12 +48,10 @@ const getCommentDelay = (personality: string, activityLevel: string): number => 
       break;
   }
   
-  // Add randomness
   return baseDelay + (Math.random() * baseDelay * 0.5);
 };
 
 serve(async (req) => {
-  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -66,7 +61,10 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { action, gameId } = await req.json();
+    const { action, gameId, cycleId } = await req.json();
+    
+    // Support both gameId and cycleId for backwards compatibility
+    const targetCycleId = cycleId || gameId;
 
     // Check if mock users are enabled
     const { data: settings, error: settingsError } = await supabase
@@ -82,11 +80,9 @@ serve(async (req) => {
 
     switch (action) {
       case 'trigger_joins': {
-        // Triggered when a real user joins or game needs activity
-        if (!gameId) throw new Error('Missing gameId');
+        // Triggered when a real user joins or cycle needs activity
+        if (!targetCycleId) throw new Error('Missing cycleId');
 
-        // Always try to add users (ignore probability for continuous triggers)
-        // Random chance still applies but at a higher rate
         const shouldJoin = Math.random() * 100 < Math.max(settings.join_probability, 70);
         if (!shouldJoin) {
           return new Response(JSON.stringify({ success: true, joined: 0 }), {
@@ -94,11 +90,12 @@ serve(async (req) => {
           });
         }
 
-        // Get current mock participation count for this game
+        // Get current mock participation count for this cycle
         const { count: currentMockCount } = await supabase
-          .from('mock_game_participation')
+          .from('cycle_participants')
           .select('*', { count: 'exact', head: true })
-          .eq('game_id', gameId);
+          .eq('cycle_id', targetCycleId)
+          .in('user_id', (await supabase.from('mock_users').select('id')).data?.map((m: any) => m.id) || []);
 
         const remainingSlots = settings.max_mock_users_per_game - (currentMockCount || 0);
         if (remainingSlots <= 0) {
@@ -107,7 +104,7 @@ serve(async (req) => {
           });
         }
 
-        // More aggressive join rates: 2-5 users at a time based on activity level
+        // Determine how many to add based on activity level
         let toAdd = 2;
         if (settings.activity_level === 'high') {
           toAdd = Math.min(5, remainingSlots);
@@ -115,19 +112,25 @@ serve(async (req) => {
           toAdd = Math.min(3, remainingSlots);
         }
 
-        // Get random mock users not already in this game
-        const { data: existingMocks } = await supabase
-          .from('mock_game_participation')
-          .select('mock_user_id')
-          .eq('game_id', gameId);
+        // Get mock users already in this cycle
+        const { data: existingParticipants } = await supabase
+          .from('cycle_participants')
+          .select('user_id')
+          .eq('cycle_id', targetCycleId);
 
-        const existingIds = existingMocks?.map(m => m.mock_user_id) || [];
+        const existingIds = existingParticipants?.map(p => p.user_id) || [];
 
-        const { data: availableMocks } = await supabase
+        // Get available mock users
+        let query = supabase
           .from('mock_users')
           .select('*')
-          .eq('is_active', true)
-          .not('id', 'in', existingIds.length > 0 ? `(${existingIds.join(',')})` : '()');
+          .eq('is_active', true);
+
+        if (existingIds.length > 0) {
+          query = query.not('id', 'in', `(${existingIds.join(',')})`);
+        }
+
+        const { data: availableMocks } = await query.limit(50);
 
         if (!availableMocks || availableMocks.length === 0) {
           return new Response(JSON.stringify({ success: true, joined: 0, message: 'No available mock users' }), {
@@ -139,32 +142,38 @@ serve(async (req) => {
         const shuffled = availableMocks.sort(() => Math.random() - 0.5);
         const toJoin = shuffled.slice(0, Math.min(toAdd, availableMocks.length));
 
-        // Add to game participation
-        for (const mockUser of toJoin) {
-          await supabase.from('mock_game_participation').insert({
-            game_id: gameId,
-            mock_user_id: mockUser.id,
+        // Get cycle info for pool updates
+        const { data: cycle } = await supabase
+          .from('game_cycles')
+          .select('pool_value, participant_count, entry_fee')
+          .eq('id', targetCycleId)
+          .single();
+
+        if (!cycle) {
+          return new Response(JSON.stringify({ success: false, error: 'Cycle not found' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
-
-          // Update game display pool (add virtual entry fee)
-          const { data: game } = await supabase
-            .from('fastest_finger_games')
-            .select('pool_value, participant_count, entry_fee')
-            .eq('id', gameId)
-            .single();
-
-          if (game) {
-            await supabase
-              .from('fastest_finger_games')
-              .update({
-                pool_value: game.pool_value + game.entry_fee,
-                participant_count: game.participant_count + 1,
-              })
-              .eq('id', gameId);
-          }
         }
 
-        console.log(`Mock users joined game ${gameId}:`, toJoin.map(m => m.username));
+        // Add mock users to cycle_participants
+        for (const mockUser of toJoin) {
+          await supabase.from('cycle_participants').insert({
+            cycle_id: targetCycleId,
+            user_id: mockUser.id,
+            is_spectator: false,
+          });
+        }
+
+        // Update cycle pool and participant count
+        await supabase
+          .from('game_cycles')
+          .update({
+            pool_value: cycle.pool_value + (cycle.entry_fee * toJoin.length),
+            participant_count: cycle.participant_count + toJoin.length,
+          })
+          .eq('id', targetCycleId);
+
+        console.log(`Mock users joined cycle ${targetCycleId}:`, toJoin.map(m => m.username));
 
         return new Response(JSON.stringify({ 
           success: true, 
@@ -176,8 +185,8 @@ serve(async (req) => {
       }
 
       case 'trigger_comment': {
-        // Triggered periodically during live games
-        if (!gameId) throw new Error('Missing gameId');
+        // Triggered periodically during live cycles
+        if (!targetCycleId) throw new Error('Missing cycleId');
 
         // Check comment frequency
         if (Math.random() * 100 > settings.comment_frequency) {
@@ -186,51 +195,69 @@ serve(async (req) => {
           });
         }
 
-        // Get mock users in this game
-        const { data: mockParticipants } = await supabase
-          .from('mock_game_participation')
-          .select('mock_user_id, mock_users(*)')
-          .eq('game_id', gameId);
+        // Get all mock user IDs first
+        const { data: allMockUsers } = await supabase
+          .from('mock_users')
+          .select('id, username')
+          .eq('is_active', true);
 
-        if (!mockParticipants || mockParticipants.length === 0) {
-          return new Response(JSON.stringify({ success: true, commented: false }), {
+        if (!allMockUsers || allMockUsers.length === 0) {
+          return new Response(JSON.stringify({ success: true, commented: false, message: 'No active mock users' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
 
-        // Randomly pick one mock user to comment
+        const mockUserIds = allMockUsers.map(m => m.id);
+        const mockUserMap = new Map(allMockUsers.map(m => [m.id, m.username]));
+
+        // Get participants in this cycle
+        const { data: participants } = await supabase
+          .from('cycle_participants')
+          .select('user_id')
+          .eq('cycle_id', targetCycleId)
+          .eq('is_spectator', false);
+
+        if (!participants || participants.length === 0) {
+          return new Response(JSON.stringify({ success: true, commented: false, message: 'No participants in cycle' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Filter to only mock participants
+        const mockParticipants = participants.filter(p => mockUserIds.includes(p.user_id));
+
+        if (mockParticipants.length === 0) {
+          return new Response(JSON.stringify({ success: true, commented: false, message: 'No mock participants in cycle' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Pick random mock participant
         const randomParticipant = mockParticipants[Math.floor(Math.random() * mockParticipants.length)];
-        const mockUser = randomParticipant.mock_users as any;
+        const username = mockUserMap.get(randomParticipant.user_id) || 'MockUser';
 
-        if (!mockUser) {
-          return new Response(JSON.stringify({ success: true, commented: false }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        // Insert comment using mock user ID as user_id
-        // We use a special prefix to mark mock comments
+        // Insert comment
         const comment = getRandomComment();
         
-        await supabase.from('comments').insert({
-          game_id: gameId,
-          user_id: mockUser.id, // This will be the mock user's UUID
+        const { error: commentError } = await supabase.from('cycle_comments').insert({
+          cycle_id: targetCycleId,
+          user_id: randomParticipant.user_id,
           content: comment,
         });
 
-        // Update comment count
-        await supabase
-          .from('mock_game_participation')
-          .update({ comment_count: (randomParticipant as any).comment_count + 1 })
-          .eq('game_id', gameId)
-          .eq('mock_user_id', mockUser.id);
+        if (commentError) {
+          console.error('Failed to insert comment:', commentError);
+          return new Response(JSON.stringify({ success: false, error: commentError.message }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
 
-        console.log(`Mock user ${mockUser.username} commented in game ${gameId}: ${comment}`);
+        console.log(`Mock user ${username} commented in cycle ${targetCycleId}: ${comment}`);
 
         return new Response(JSON.stringify({ 
           success: true, 
           commented: true,
-          username: mockUser.username,
+          username,
           comment,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -238,37 +265,128 @@ serve(async (req) => {
       }
 
       case 'get_mock_participants': {
-        // Get all mock users participating in a game (for display)
-        if (!gameId) throw new Error('Missing gameId');
+        // Get all mock users participating in a cycle
+        if (!targetCycleId) throw new Error('Missing cycleId');
 
-        const { data } = await supabase
-          .from('mock_game_participation')
-          .select('*, mock_users(*)')
-          .eq('game_id', gameId);
+        // Get mock user IDs
+        const { data: mockUsers } = await supabase
+          .from('mock_users')
+          .select('id, username, avatar');
+
+        const mockUserMap = new Map(mockUsers?.map(m => [m.id, m]) || []);
+        const mockUserIds = mockUsers?.map(m => m.id) || [];
+
+        // Get participants that are mock users
+        const { data: participants } = await supabase
+          .from('cycle_participants')
+          .select('user_id, joined_at')
+          .eq('cycle_id', targetCycleId)
+          .in('user_id', mockUserIds);
+
+        const mockParticipants = (participants || []).map(p => {
+          const mock = mockUserMap.get(p.user_id);
+          return {
+            id: p.user_id,
+            username: mock?.username || 'Unknown',
+            avatar: mock?.avatar || '🎮',
+            joined_at: p.joined_at,
+          };
+        });
 
         return new Response(JSON.stringify({ 
           success: true, 
-          participants: data?.map(p => ({
-            id: (p.mock_users as any)?.id,
-            username: (p.mock_users as any)?.username,
-            avatar: (p.mock_users as any)?.avatar,
-            joined_at: p.joined_at,
-          })) || [],
+          participants: mockParticipants,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      case 'cleanup_game': {
-        // Clean up mock participation after game ends
-        if (!gameId) throw new Error('Missing gameId');
+      case 'cleanup_cycle': {
+        // Clean up mock participation after cycle ends
+        if (!targetCycleId) throw new Error('Missing cycleId');
 
-        await supabase
-          .from('mock_game_participation')
-          .delete()
-          .eq('game_id', gameId);
+        // Get mock user IDs to only delete mock participants
+        const { data: mockUsers } = await supabase
+          .from('mock_users')
+          .select('id');
+
+        const mockUserIds = mockUsers?.map(m => m.id) || [];
+
+        if (mockUserIds.length > 0) {
+          await supabase
+            .from('cycle_participants')
+            .delete()
+            .eq('cycle_id', targetCycleId)
+            .in('user_id', mockUserIds);
+        }
 
         return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Auto-populate mock users for active cycles
+      case 'auto_populate': {
+        // Get all opening cycles
+        const { data: openCycles } = await supabase
+          .from('game_cycles')
+          .select('id, participant_count, entry_fee, pool_value')
+          .eq('status', 'opening');
+
+        if (!openCycles || openCycles.length === 0) {
+          return new Response(JSON.stringify({ success: true, message: 'No opening cycles' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        let totalJoined = 0;
+
+        for (const cycle of openCycles) {
+          // Randomly add 3-8 mock users per cycle
+          const toAdd = Math.floor(Math.random() * 6) + 3;
+          
+          // Get available mock users
+          const { data: existingParticipants } = await supabase
+            .from('cycle_participants')
+            .select('user_id')
+            .eq('cycle_id', cycle.id);
+
+          const existingIds = existingParticipants?.map(p => p.user_id) || [];
+
+          let query = supabase
+            .from('mock_users')
+            .select('*')
+            .eq('is_active', true);
+
+          if (existingIds.length > 0) {
+            query = query.not('id', 'in', `(${existingIds.join(',')})`);
+          }
+
+          const { data: availableMocks } = await query.limit(toAdd);
+
+          if (availableMocks && availableMocks.length > 0) {
+            for (const mockUser of availableMocks) {
+              await supabase.from('cycle_participants').insert({
+                cycle_id: cycle.id,
+                user_id: mockUser.id,
+                is_spectator: false,
+              });
+            }
+
+            await supabase
+              .from('game_cycles')
+              .update({
+                pool_value: cycle.pool_value + (cycle.entry_fee * availableMocks.length),
+                participant_count: cycle.participant_count + availableMocks.length,
+              })
+              .eq('id', cycle.id);
+
+            totalJoined += availableMocks.length;
+            console.log(`Auto-populated ${availableMocks.length} mock users to cycle ${cycle.id}`);
+          }
+        }
+
+        return new Response(JSON.stringify({ success: true, totalJoined }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
