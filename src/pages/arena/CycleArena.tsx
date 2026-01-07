@@ -11,6 +11,16 @@ import { VoiceRoomLive } from '@/components/VoiceRoomLive';
 import { CompactHostBanner } from '@/components/CompactHostBanner';
 import { LiveTimer } from '@/components/Countdown';
 import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { 
   ArrowLeft, Send, Users, Timer, Crown, Eye, Trophy, 
   Zap, MessageCircle, Clock, Play, Radio, Sparkles,
   Target, Flame, Award, AlertTriangle, Hourglass
@@ -52,7 +62,10 @@ export const CycleArena = () => {
   const [commentText, setCommentText] = useState('');
   const [localCountdown, setLocalCountdown] = useState(0);
   const [gameTimeRemaining, setGameTimeRemaining] = useState(0);
+  const [timeUntilOpening, setTimeUntilOpening] = useState(0);
+  const [timeUntilLive, setTimeUntilLive] = useState(0);
   const [hostIsSpeaking, setHostIsSpeaking] = useState(false);
+  const [showLeaveWarning, setShowLeaveWarning] = useState(false);
   const commentsContainerRef = useRef<HTMLDivElement>(null);
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
@@ -98,9 +111,14 @@ export const CycleArena = () => {
     setCycle({ ...data, template_name: template?.name || 'Royal Rumble' });
     setLocalCountdown(data.countdown);
     
-    // Calculate game time remaining
-    const liveEndAt = new Date(data.live_end_at).getTime();
     const now = Date.now();
+    const entryOpenAt = new Date(data.entry_open_at).getTime();
+    const liveStartAt = new Date(data.live_start_at).getTime();
+    const liveEndAt = new Date(data.live_end_at).getTime();
+    
+    // Calculate various timers
+    setTimeUntilOpening(Math.max(0, Math.floor((entryOpenAt - now) / 1000)));
+    setTimeUntilLive(Math.max(0, Math.floor((liveStartAt - now) / 1000)));
     setGameTimeRemaining(Math.max(0, Math.floor((liveEndAt - now) / 1000)));
     
     setLoading(false);
@@ -151,11 +169,18 @@ export const CycleArena = () => {
 
   // Local countdown ticker (visual only, server is authoritative)
   useEffect(() => {
-    if (!cycle || cycle.status !== 'live') return;
+    if (!cycle) return;
 
     const interval = setInterval(() => {
-      setLocalCountdown(prev => Math.max(0, prev - 1));
-      setGameTimeRemaining(prev => Math.max(0, prev - 1));
+      if (cycle.status === 'live') {
+        setLocalCountdown(prev => Math.max(0, prev - 1));
+        setGameTimeRemaining(prev => Math.max(0, prev - 1));
+      } else if (cycle.status === 'waiting') {
+        setTimeUntilOpening(prev => Math.max(0, prev - 1));
+        setTimeUntilLive(prev => Math.max(0, prev - 1));
+      } else if (cycle.status === 'opening') {
+        setTimeUntilLive(prev => Math.max(0, prev - 1));
+      }
     }, 1000);
 
     return () => clearInterval(interval);
@@ -269,7 +294,16 @@ export const CycleArena = () => {
         {/* Top Bar */}
         <div className="p-3 flex items-center justify-between">
           <button
-            onClick={() => { play('click'); buttonClick(); navigate('/arena'); }}
+            onClick={() => { 
+              play('click'); 
+              buttonClick(); 
+              // Show warning if in live game as participant (not spectator)
+              if (isLive && participation.isParticipant && !participation.isSpectator) {
+                setShowLeaveWarning(true);
+              } else {
+                navigate('/arena'); 
+              }
+            }}
             className="w-10 h-10 rounded-xl bg-muted/80 flex items-center justify-center"
           >
             <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -310,7 +344,7 @@ export const CycleArena = () => {
           </div>
         )}
 
-        {/* Live Stats Bar */}
+        {/* Lobby Status Bar - Shows different info based on status */}
         <div className="px-4 pb-3 grid grid-cols-3 gap-2">
           <div className="text-center py-2 rounded-xl bg-muted/50 backdrop-blur-sm">
             <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
@@ -318,26 +352,67 @@ export const CycleArena = () => {
             </p>
             <p className="text-lg font-bold text-foreground">{cycle.participant_count}</p>
           </div>
-          <div className="text-center py-2 rounded-xl bg-muted/50 backdrop-blur-sm">
-            <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
-              <MessageCircle className="w-3 h-3" /> Comments
-            </p>
-            <p className="text-lg font-bold text-foreground">{comments.length}</p>
-          </div>
-          {/* PROMINENT Game Ends In */}
-          <div className={`text-center py-2 rounded-xl ${
-            gameTimeRemaining <= 60 
-              ? 'bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30' 
-              : 'bg-muted/50'
-          } backdrop-blur-sm`}>
-            <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
-              <Hourglass className={`w-3 h-3 ${gameTimeRemaining <= 60 ? 'text-red-400 animate-pulse' : ''}`} /> 
-              Game Ends
-            </p>
-            <p className={`text-lg font-bold ${gameTimeRemaining <= 60 ? 'text-red-400' : 'text-foreground'}`}>
-              {formatTime(gameTimeRemaining)}
-            </p>
-          </div>
+          
+          {/* Waiting: Show time until entry opens */}
+          {cycle.status === 'waiting' && (
+            <>
+              <div className="text-center py-2 rounded-xl bg-blue-500/10 border border-blue-500/30 backdrop-blur-sm">
+                <p className="text-[10px] text-blue-400 uppercase flex items-center justify-center gap-1">
+                  <Clock className="w-3 h-3 animate-pulse" /> Entry Opens
+                </p>
+                <p className="text-lg font-bold text-blue-400">{formatTime(timeUntilOpening)}</p>
+              </div>
+              <div className="text-center py-2 rounded-xl bg-muted/50 backdrop-blur-sm">
+                <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
+                  <Play className="w-3 h-3" /> Goes Live
+                </p>
+                <p className="text-lg font-bold text-foreground">{formatTime(timeUntilLive)}</p>
+              </div>
+            </>
+          )}
+          
+          {/* Opening: Show time until game goes live */}
+          {cycle.status === 'opening' && (
+            <>
+              <div className="text-center py-2 rounded-xl bg-green-500/10 border border-green-500/30 backdrop-blur-sm">
+                <p className="text-[10px] text-green-400 uppercase flex items-center justify-center gap-1">
+                  <Play className="w-3 h-3 animate-pulse" /> Entry Open
+                </p>
+                <p className="text-lg font-bold text-green-400">JOIN NOW</p>
+              </div>
+              <div className="text-center py-2 rounded-xl bg-primary/10 border border-primary/30 backdrop-blur-sm">
+                <p className="text-[10px] text-primary uppercase flex items-center justify-center gap-1">
+                  <Radio className="w-3 h-3" /> Goes Live In
+                </p>
+                <p className="text-lg font-bold text-primary">{formatTime(timeUntilLive)}</p>
+              </div>
+            </>
+          )}
+          
+          {/* Live: Show comments and game end time */}
+          {isLive && (
+            <>
+              <div className="text-center py-2 rounded-xl bg-muted/50 backdrop-blur-sm">
+                <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
+                  <MessageCircle className="w-3 h-3" /> Comments
+                </p>
+                <p className="text-lg font-bold text-foreground">{comments.length}</p>
+              </div>
+              <div className={`text-center py-2 rounded-xl ${
+                gameTimeRemaining <= 60 
+                  ? 'bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30' 
+                  : 'bg-muted/50'
+              } backdrop-blur-sm`}>
+                <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
+                  <Hourglass className={`w-3 h-3 ${gameTimeRemaining <= 60 ? 'text-red-400 animate-pulse' : ''}`} /> 
+                  Game Ends
+                </p>
+                <p className={`text-lg font-bold ${gameTimeRemaining <= 60 ? 'text-red-400' : 'text-foreground'}`}>
+                  {formatTime(gameTimeRemaining)}
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -380,39 +455,46 @@ export const CycleArena = () => {
           </div>
         )}
 
-        {/* Top 3 Contenders - BELOW Timer */}
+        {/* Top Contenders - Compact podium style with 1st in middle */}
         {isLive && orderedCommenters.length > 0 && (
-          <div className="mb-4 p-4 rounded-2xl bg-gradient-to-r from-gold/5 via-gold/10 to-gold/5 border border-gold/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-gold" />
-                <span className="text-sm font-bold text-foreground">Top Contenders</span>
-              </div>
-              <span className="text-xs text-muted-foreground">{orderedCommenters.length} active</span>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {orderedCommenters.slice(0, Math.min(3, cycle.winner_count)).map((c, i) => {
-                const prizePercent = cycle.prize_distribution[i] || 0;
-                const prizeAmount = Math.floor(effectivePrizePool * (0.9) * (prizePercent / 100));
+          <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-gold/5 via-gold/10 to-gold/5 border border-gold/20">
+            <div className="flex items-center justify-center gap-1">
+              {/* Reorder: 2nd, 1st, 3rd for podium effect */}
+              {(() => {
+                const top3 = orderedCommenters.slice(0, Math.min(3, cycle.winner_count));
+                const reordered = top3.length >= 2 
+                  ? [top3[1], top3[0], top3[2]].filter(Boolean)
+                  : top3;
                 
-                return (
-                  <div 
-                    key={c.user_id} 
-                    className={`relative p-3 rounded-xl text-center ${
-                      i === 0 ? 'bg-gradient-to-b from-gold/30 to-gold/10 border border-gold/40' : 
-                      i === 1 ? 'bg-gradient-to-b from-gray-400/20 to-gray-400/5 border border-gray-400/30' : 
-                      'bg-gradient-to-b from-amber-700/20 to-amber-700/5 border border-amber-700/30'
-                    }`}
-                  >
-                    <div className="text-3xl mb-1">
-                      {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}
+                return reordered.map((c, displayIdx) => {
+                  const actualPosition = c === top3[0] ? 0 : c === top3[1] ? 1 : 2;
+                  const prizePercent = cycle.prize_distribution[actualPosition] || 0;
+                  const prizeAmount = Math.floor(effectivePrizePool * (0.9) * (prizePercent / 100));
+                  const isFirst = actualPosition === 0;
+                  
+                  return (
+                    <div 
+                      key={c.user_id} 
+                      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg ${
+                        isFirst 
+                          ? 'bg-gold/20 border border-gold/40 scale-105 mx-1' 
+                          : 'bg-muted/30 border border-border/50'
+                      }`}
+                    >
+                      <span className="text-sm">{actualPosition === 0 ? '🥇' : actualPosition === 1 ? '🥈' : '🥉'}</span>
+                      <span className="text-lg">{c.avatar}</span>
+                      <div className="flex flex-col">
+                        <span className={`text-[10px] font-bold truncate max-w-[60px] ${isFirst ? 'text-gold' : 'text-foreground'}`}>
+                          {c.username}
+                        </span>
+                        <span className={`text-[9px] ${isFirst ? 'text-gold/80' : 'text-muted-foreground'}`}>
+                          {formatMoney(prizeAmount)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-2xl mb-1">{c.avatar}</div>
-                    <p className="text-xs font-bold text-foreground truncate">{c.username}</p>
-                    <p className="text-[10px] text-gold font-medium">{formatMoney(prizeAmount)}</p>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           </div>
         )}
@@ -525,7 +607,7 @@ export const CycleArena = () => {
               <div className="flex-1 py-4 px-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center">
                 <p className="text-sm text-blue-400 font-medium flex items-center justify-center gap-2">
                   <Clock className="w-4 h-4 animate-pulse" />
-                  Entry opens soon
+                  Entry opens in {formatTime(timeUntilOpening)}
                 </p>
               </div>
             )}
@@ -583,6 +665,32 @@ export const CycleArena = () => {
           </div>
         )}
       </div>
+
+      {/* Leave Game Warning Dialog */}
+      <AlertDialog open={showLeaveWarning} onOpenChange={setShowLeaveWarning}>
+        <AlertDialogContent className="max-w-[90vw] rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-400">
+              <AlertTriangle className="w-5 h-5" />
+              Leave Live Game?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              You are currently in a <strong className="text-foreground">LIVE game</strong>. If you leave now, 
+              you will stop receiving comments and could lose your position in the leaderboard.
+              Your entry fee is non-refundable.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">Stay in Game</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => navigate('/arena')}
+              className="bg-red-500 hover:bg-red-600 rounded-xl"
+            >
+              Leave Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
