@@ -1,12 +1,13 @@
 import { BottomNav } from '@/components/BottomNav';
 import { ProfileBadges } from '@/components/ProfileBadges';
 import { KycVerificationModal } from '@/components/wallet/KycVerificationModal';
+import { PushNotificationToggle } from '@/components/PushNotificationBanner';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award, ShieldCheck, ShieldX } from 'lucide-react';
+import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award, ShieldCheck, ShieldX, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -378,6 +379,15 @@ export const ProfileScreen = () => {
             totalWins={displayProfile.wins} 
             gamesPlayed={displayProfile.gamesPlayed} 
           />
+        </div>
+
+        {/* Notification Settings */}
+        <div className="card-panel">
+          <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+            <Bell className="w-5 h-5 text-primary" />
+            Notifications
+          </h3>
+          <PushNotificationToggle />
         </div>
 
         {/* Audio Settings */}

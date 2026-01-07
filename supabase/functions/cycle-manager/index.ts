@@ -45,6 +45,35 @@ interface GameCycle {
   min_participants: number;
 }
 
+// Helper function to send push notifications
+async function sendPushNotification(supabase: any, payload: {
+  user_ids?: string[];
+  all_users?: boolean;
+  payload: {
+    title: string;
+    body: string;
+    tag?: string;
+    data?: Record<string, unknown>;
+    requireInteraction?: boolean;
+  };
+}) {
+  try {
+    const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    console.log('[push] Notification sent:', result);
+    return result;
+  } catch (error) {
+    console.error('[push] Failed to send notification:', error);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -147,6 +176,17 @@ async function processStateTransition(supabase: any, cycle: GameCycle, now: Date
           newStatus = 'live';
           updates.countdown = cycle.comment_timer;
           console.log(`[transition] Cycle ${cycle.id}: opening -> live`);
+          
+          // Send push notification to all users that game is live
+          await sendPushNotification(supabase, {
+            all_users: true,
+            payload: {
+              title: '🎮 Game is LIVE!',
+              body: `Royal Rumble is now live! Pool: ₦${cycle.pool_value.toLocaleString()}`,
+              tag: `game-live-${cycle.id}`,
+              data: { url: `/arena/${cycle.id}` },
+            }
+          });
         }
       }
       break;
@@ -465,6 +505,18 @@ async function settleCycle(supabase: any, cycleId: string) {
     }
 
     console.log(`[settle] Winner ${i + 1}: ${userId} wins ₦${prize}`);
+    
+    // Send push notification to winner
+    await sendPushNotification(supabase, {
+      user_ids: [userId],
+      payload: {
+        title: '🏆 Congratulations!',
+        body: `You won ₦${prize.toLocaleString()} - Position ${i + 1}!`,
+        tag: `win-${cycleId}-${userId}`,
+        data: { url: `/arena/${cycleId}/results` },
+        requireInteraction: true,
+      }
+    });
   }
 
   // Insert winners
