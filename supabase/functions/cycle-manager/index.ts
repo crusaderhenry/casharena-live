@@ -152,8 +152,25 @@ async function processStateTransition(supabase: any, cycle: GameCycle, now: Date
       break;
 
     case 'live':
-      // Decrement countdown
-      const newCountdown = Math.max(0, cycle.countdown - 1);
+      // Calculate countdown based on time since last comment
+      const { data: lastComment } = await supabase
+        .from('cycle_comments')
+        .select('server_timestamp')
+        .eq('cycle_id', cycle.id)
+        .order('server_timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let newCountdown: number;
+      if (lastComment) {
+        const lastCommentTime = new Date(lastComment.server_timestamp).getTime();
+        const elapsedSinceComment = Math.floor((nowTime - lastCommentTime) / 1000);
+        newCountdown = Math.max(0, cycle.comment_timer - elapsedSinceComment);
+      } else {
+        // No comments yet - countdown from live_start_at
+        const elapsedSinceLive = Math.floor((nowTime - liveStartAt) / 1000);
+        newCountdown = Math.max(0, cycle.comment_timer - elapsedSinceLive);
+      }
       updates.countdown = newCountdown;
 
       // Trigger mock comments periodically (every ~3 seconds for activity)
