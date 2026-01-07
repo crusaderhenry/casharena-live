@@ -313,41 +313,53 @@ export const AdminRumbleControl = () => {
     const game = games.find(g => g.id === gameId);
     if (!game) return;
 
-    // Fetch full game data from supabase to get all fields
+    // Fetch full cycle data with template info
     const fetchGameData = async () => {
       const { data } = await supabase
-        .from('fastest_finger_games')
-        .select('*')
+        .from('game_cycles')
+        .select(`
+          *,
+          game_templates!inner(name, entry_fee, max_live_duration, comment_timer, 
+            min_participants, platform_cut_percentage, prize_distribution, winner_count,
+            sponsored_prize_amount, recurrence_type)
+        `)
         .eq('id', gameId)
         .single();
       
       if (data) {
-        const scheduledDate = data.scheduled_at ? new Date(data.scheduled_at).toISOString().split('T')[0] : getDefaultDateTime().date;
-        const scheduledTime = data.scheduled_at ? new Date(data.scheduled_at).toTimeString().slice(0, 5) : getDefaultDateTime().time;
+        const template = data.game_templates as any;
+        const defaults = getDefaultDateTime();
+        
+        // Map prize_distribution from percentages to decimals
+        const payoutDist = data.prize_distribution.map((p: number) => Number(p) / 100);
+        let payoutType: GameFormData['payoutType'] = 'top3';
+        if (payoutDist.length === 1) payoutType = 'winner_takes_all';
+        else if (payoutDist.length === 5) payoutType = 'top5';
+        else if (payoutDist.length === 10) payoutType = 'top10';
         
         setFormData({
-          name: (data as any).name || 'Royal Rumble',
-          description: (data as any).description || '',
+          name: template?.name || 'Royal Rumble',
+          description: '',
           entryFee: data.entry_fee,
-          maxDuration: data.max_duration,
-          commentTimer: (data as any).comment_timer || 60,
-          payoutType: ((data as any).payout_type || 'top3') as GameFormData['payoutType'],
-          minParticipants: (data as any).min_participants || 3,
-          entryWaitSeconds: (data as any).entry_wait_seconds || 60,
-          goLiveType: (data as any).go_live_type || 'immediate',
-          scheduledDate,
-          scheduledTime,
-          recurrenceType: (data as any).auto_restart ? 'auto_restart' : ((data as any).recurrence_type || 'none'),
-          recurrenceInterval: (data as any).recurrence_interval || 1,
-          fixedDailyTime: (data as any).fixed_daily_time || '20:00',
-          minParticipantsAction: (data as any).min_participants_action || 'reset',
-          isSponsored: (data as any).is_sponsored || false,
-          sponsoredAmount: (data as any).sponsored_amount || 0,
-          platformCutPercentage: (data as any).platform_cut_percentage || 10,
-          musicType: (data as any).music_type || 'generated',
-          lobbyMusicUrl: (data as any).lobby_music_url || '',
-          arenaMusicUrl: (data as any).arena_music_url || '',
-          tenseMusicUrl: (data as any).tense_music_url || '',
+          maxDuration: template?.max_live_duration || 15,
+          commentTimer: data.comment_timer || 60,
+          payoutType,
+          minParticipants: data.min_participants || 2,
+          entryWaitSeconds: 60,
+          goLiveType: 'immediate',
+          scheduledDate: defaults.date,
+          scheduledTime: defaults.time,
+          recurrenceType: template?.recurrence_type || 'infinity',
+          recurrenceInterval: 1,
+          fixedDailyTime: '20:00',
+          minParticipantsAction: 'reset',
+          isSponsored: (data.sponsored_prize_amount || 0) > 0,
+          sponsoredAmount: data.sponsored_prize_amount || 0,
+          platformCutPercentage: Number(data.platform_cut_percentage) || 10,
+          musicType: 'generated',
+          lobbyMusicUrl: '',
+          arenaMusicUrl: '',
+          tenseMusicUrl: '',
         });
         setEditingGameId(gameId);
         setShowEditDialog(true);

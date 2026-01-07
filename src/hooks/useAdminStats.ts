@@ -71,14 +71,14 @@ export const useAdminStats = () => {
       // MAU - users active this month
       const mau = profiles?.filter(p => p.last_active_at && new Date(p.last_active_at) >= monthStart).length || totalUsers || 0;
 
-      // Fetch active games
-      const { data: games } = await supabase
-        .from('fastest_finger_games')
-        .select('status, pool_value, start_time, end_time, max_duration')
-        .in('status', ['live', 'scheduled']);
+      // Fetch active cycles
+      const { data: cycles } = await supabase
+        .from('game_cycles')
+        .select('status, pool_value, live_start_at, actual_end_at')
+        .in('status', ['live', 'waiting', 'opening']);
 
-      const activeGames = games?.length || 0;
-      const totalPlatformBalance = games?.reduce((sum, g) => sum + g.pool_value, 0) || 0;
+      const activeGames = cycles?.length || 0;
+      const totalPlatformBalance = cycles?.reduce((sum, c) => sum + c.pool_value, 0) || 0;
 
       // Fetch today's transactions
       const { data: todayTx } = await supabase
@@ -92,21 +92,21 @@ export const useAdminStats = () => {
       const pendingPayouts = todayTx?.filter(t => t.type === 'withdrawal' && t.status === 'pending').length || 0;
       const completedPayouts = todayTx?.filter(t => t.type === 'withdrawal' && t.status === 'completed').length || 0;
 
-      // Fetch games played today
-      const { data: todayGames } = await supabase
-        .from('fastest_finger_games')
-        .select('id, start_time, end_time')
+      // Fetch cycles played today
+      const { data: todayCycles } = await supabase
+        .from('game_cycles')
+        .select('id, live_start_at, actual_end_at')
         .gte('created_at', todayISO);
 
-      const gamesPlayedToday = todayGames?.length || 0;
+      const gamesPlayedToday = todayCycles?.length || 0;
 
-      // Calculate avg duration from ended games
-      const endedGames = todayGames?.filter(g => g.start_time && g.end_time) || [];
-      const avgGameDuration = endedGames.length > 0
-        ? Math.round(endedGames.reduce((sum, g) => {
-            const duration = (new Date(g.end_time!).getTime() - new Date(g.start_time!).getTime()) / 60000;
+      // Calculate avg duration from settled cycles
+      const endedCycles = todayCycles?.filter(c => c.live_start_at && c.actual_end_at) || [];
+      const avgGameDuration = endedCycles.length > 0
+        ? Math.round(endedCycles.reduce((sum, c) => {
+            const duration = (new Date(c.actual_end_at!).getTime() - new Date(c.live_start_at!).getTime()) / 60000;
             return sum + duration;
-          }, 0) / endedGames.length)
+          }, 0) / endedCycles.length)
         : 0;
 
       setStats({
@@ -137,9 +137,9 @@ export const useAdminStats = () => {
 
         const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
 
-        // Get games for this day
-        const { data: dayGames } = await supabase
-          .from('fastest_finger_games')
+        // Get cycles for this day
+        const { data: dayCycles } = await supabase
+          .from('game_cycles')
           .select('pool_value')
           .gte('created_at', date.toISOString())
           .lt('created_at', nextDate.toISOString());
@@ -162,9 +162,9 @@ export const useAdminStats = () => {
 
         weeklyData.push({
           date: dayName,
-          games: dayGames?.length || 0,
+          games: dayCycles?.length || 0,
           revenue: dayRevenue?.reduce((sum, t) => sum + t.amount, 0) || 0,
-          users: 0, // Would need more complex query
+          users: 0,
           entries: dayEntries?.length || 0,
         });
       }

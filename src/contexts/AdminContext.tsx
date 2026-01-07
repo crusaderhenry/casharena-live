@@ -506,23 +506,60 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const cloneGame = useCallback(async (gameId: string) => {
     try {
-      // Get the cycle's template
+      // Get the cycle and its template details
       const { data: cycle } = await supabase
         .from('game_cycles')
-        .select('template_id')
+        .select(`
+          template_id,
+          entry_fee,
+          comment_timer,
+          min_participants,
+          platform_cut_percentage,
+          prize_distribution,
+          winner_count,
+          sponsored_prize_amount
+        `)
         .eq('id', gameId)
         .single();
 
       if (!cycle) throw new Error('Cycle not found');
 
-      // Create a new cycle from the same template
-      const { error } = await supabase.functions.invoke('cycle-manager', {
-        body: { action: 'create_cycle', templateId: cycle.template_id },
-      });
+      // Get template details
+      const { data: originalTemplate } = await supabase
+        .from('game_templates')
+        .select('*')
+        .eq('id', cycle.template_id)
+        .single();
 
-      if (error) throw error;
+      if (!originalTemplate) throw new Error('Template not found');
 
-      toast({ title: 'Game Cloned', description: 'New cycle created from template' });
+      // Create a new INACTIVE (draft/unpublished) template
+      const { data: newTemplate, error: templateError } = await supabase
+        .from('game_templates')
+        .insert({
+          name: `${originalTemplate.name} (Copy)`,
+          game_type: originalTemplate.game_type,
+          entry_fee: originalTemplate.entry_fee,
+          entry_mode: originalTemplate.entry_mode,
+          max_live_duration: originalTemplate.max_live_duration,
+          comment_timer: originalTemplate.comment_timer,
+          min_participants: originalTemplate.min_participants,
+          platform_cut_percentage: originalTemplate.platform_cut_percentage,
+          prize_distribution: originalTemplate.prize_distribution,
+          winner_count: originalTemplate.winner_count,
+          sponsored_prize_amount: originalTemplate.sponsored_prize_amount,
+          allow_spectators: originalTemplate.allow_spectators,
+          waiting_duration: originalTemplate.waiting_duration,
+          open_entry_duration: originalTemplate.open_entry_duration,
+          recurrence_type: originalTemplate.recurrence_type,
+          is_active: false, // Draft/unpublished
+        })
+        .select()
+        .single();
+
+      if (templateError) throw templateError;
+
+      toast({ title: 'Game Cloned', description: 'Template duplicated as draft (unpublished)' });
       refreshData();
     } catch (error: any) {
       console.error('Clone game error:', error);
@@ -734,14 +771,15 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const triggerWeeklyReset = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { action: 'reset_weekly_ranks' },
-      });
+      // Reset weekly rank points directly
+      const { error } = await supabase
+        .from('profiles')
+        .update({ weekly_rank: null })
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
 
-      toast({ title: 'Weekly Reset', description: 'Rank points have been reset' });
+      toast({ title: 'Weekly Reset', description: 'Weekly ranks have been reset' });
       refreshData();
     } catch (error: any) {
       console.error('Weekly reset error:', error);
