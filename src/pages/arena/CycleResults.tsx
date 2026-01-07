@@ -4,7 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { BottomNav } from '@/components/BottomNav';
-import { Crown, Trophy, ArrowLeft, Share2, Home, Sparkles } from 'lucide-react';
+import { WinnerCelebrationModal } from '@/components/WinnerCelebrationModal';
+import { ShareCard } from '@/components/ShareCard';
+import { Crown, Trophy, ArrowLeft, Share2, Home, Sparkles, Users, Clock, Coins } from 'lucide-react';
 import { Confetti } from '@/components/Confetti';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -27,6 +29,7 @@ interface CycleResult {
   prize_distribution: number[];
   status: string;
   actual_end_at: string;
+  comment_timer: number;
 }
 
 export const CycleResults = () => {
@@ -34,13 +37,15 @@ export const CycleResults = () => {
   const navigate = useNavigate();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   
   const [cycle, setCycle] = useState<CycleResult | null>(null);
   const [winners, setWinners] = useState<Winner[]>([]);
   const [loading, setLoading] = useState(true);
   const [showConfetti, setShowConfetti] = useState(false);
   const [userWin, setUserWin] = useState<Winner | null>(null);
+  const [showWinnerModal, setShowWinnerModal] = useState(false);
+  const [showShareSection, setShowShareSection] = useState(false);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -100,6 +105,7 @@ export const CycleResults = () => {
         if (userWinData) {
           setUserWin(userWinData);
           setShowConfetti(true);
+          setShowWinnerModal(true);
           play('win');
         }
       }
@@ -111,6 +117,12 @@ export const CycleResults = () => {
   }, [cycleId, user?.id, navigate, play]);
 
   const formatMoney = (amount: number) => {
+    return `₦${amount.toLocaleString()}`;
+  };
+
+  const formatMoneyShort = (amount: number) => {
+    if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1)}M`;
+    if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(0)}K`;
     return `₦${amount.toLocaleString()}`;
   };
 
@@ -153,6 +165,18 @@ export const CycleResults = () => {
     <div className="min-h-screen bg-background pb-24">
       {showConfetti && <Confetti />}
       
+      {/* Winner Celebration Modal */}
+      {userWin && (
+        <WinnerCelebrationModal
+          isOpen={showWinnerModal}
+          onClose={() => setShowWinnerModal(false)}
+          username={profile?.username || 'Champion'}
+          avatar={profile?.avatar || '🏆'}
+          position={userWin.position}
+          prizeAmount={userWin.prize_amount}
+        />
+      )}
+
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="p-4 flex items-center gap-4">
@@ -173,16 +197,47 @@ export const CycleResults = () => {
       </div>
 
       <div className="p-4 space-y-6">
-        {/* User Win Banner */}
+        {/* User Win Banner (if won) */}
         {userWin && (
-          <div className="rounded-2xl border border-gold/30 bg-gradient-to-r from-gold/20 via-gold/10 to-transparent p-6 text-center">
-            <div className="text-4xl mb-2">{getPositionEmoji(userWin.position)}</div>
-            <h2 className="text-2xl font-black text-gold mb-1">You Won!</h2>
-            <p className="text-3xl font-black text-foreground">{formatMoney(userWin.prize_amount)}</p>
-            <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
-              <Sparkles className="w-4 h-4 text-gold" />
-              Position {userWin.position} of {cycle.winner_count}
+          <div className="rounded-2xl border-2 border-gold/40 bg-gradient-to-r from-gold/20 via-gold/10 to-transparent p-6 text-center relative overflow-hidden">
+            {/* Background sparkles */}
+            <div className="absolute inset-0 pointer-events-none">
+              <Sparkles className="absolute top-2 left-4 w-5 h-5 text-gold/40 animate-pulse" />
+              <Sparkles className="absolute top-4 right-6 w-4 h-4 text-gold/30 animate-pulse delay-100" />
+              <Sparkles className="absolute bottom-4 left-1/4 w-3 h-3 text-gold/40 animate-pulse delay-200" />
             </div>
+            
+            <div className="relative z-10">
+              <div className="text-5xl mb-3">{getPositionEmoji(userWin.position)}</div>
+              <h2 className="text-3xl font-black text-gold mb-2">🎉 You Won! 🎉</h2>
+              <p className="text-4xl font-black text-foreground mb-2">{formatMoney(userWin.prize_amount)}</p>
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Crown className="w-4 h-4 text-gold" />
+                Position {userWin.position} of {cycle.winner_count}
+              </div>
+              
+              {/* Share button */}
+              <button
+                onClick={() => setShowShareSection(!showShareSection)}
+                className="mt-4 btn-primary px-6 py-2 flex items-center justify-center gap-2 mx-auto"
+              >
+                <Share2 className="w-4 h-4" />
+                Share Your Victory
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Share Section (expanded) */}
+        {showShareSection && userWin && (
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <ShareCard
+              username={profile?.username || 'Champion'}
+              avatar={profile?.avatar || '🏆'}
+              position={userWin.position}
+              amount={userWin.prize_amount}
+              gameType="finger"
+            />
           </div>
         )}
 
@@ -193,13 +248,29 @@ export const CycleResults = () => {
             Game Summary
           </h3>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-muted-foreground">Total Prize Pool</p>
+            <div className="p-3 rounded-xl bg-muted/50">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <Coins className="w-3 h-3" /> Total Prize Pool
+              </div>
               <p className="text-xl font-bold text-gold">{formatMoney(effectivePrizePool)}</p>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Total Players</p>
+            <div className="p-3 rounded-xl bg-muted/50">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <Users className="w-3 h-3" /> Total Players
+              </div>
               <p className="text-xl font-bold text-foreground">{cycle.participant_count}</p>
+            </div>
+            <div className="p-3 rounded-xl bg-muted/50">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <Trophy className="w-3 h-3" /> Winners
+              </div>
+              <p className="text-xl font-bold text-foreground">{winners.length}</p>
+            </div>
+            <div className="p-3 rounded-xl bg-muted/50">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <Clock className="w-3 h-3" /> Comment Timer
+              </div>
+              <p className="text-xl font-bold text-foreground">{cycle.comment_timer}s</p>
             </div>
           </div>
         </div>
@@ -212,7 +283,8 @@ export const CycleResults = () => {
           </h3>
           
           {winners.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-muted-foreground rounded-2xl border border-border bg-card">
+              <Trophy className="w-10 h-10 mx-auto mb-2 opacity-50" />
               <p>No winners for this game</p>
             </div>
           ) : (
@@ -220,17 +292,29 @@ export const CycleResults = () => {
               <div 
                 key={winner.id}
                 className={`flex items-center gap-4 p-4 rounded-2xl border ${getPositionColor(winner.position)} ${
-                  winner.user_id === user?.id ? 'ring-2 ring-primary' : ''
+                  winner.user_id === user?.id ? 'ring-2 ring-primary shadow-lg' : ''
                 }`}
               >
-                <div className="text-3xl">{getPositionEmoji(winner.position)}</div>
+                <div className="text-4xl">{getPositionEmoji(winner.position)}</div>
                 <div className="text-3xl">{winner.avatar}</div>
                 <div className="flex-1">
-                  <p className="font-bold text-foreground">{winner.username}</p>
-                  <p className="text-xs text-muted-foreground">Position {winner.position}</p>
+                  <p className="font-bold text-foreground flex items-center gap-2">
+                    {winner.username}
+                    {winner.user_id === user?.id && (
+                      <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold uppercase">
+                        You
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {winner.position === 1 ? '1st Place' : 
+                     winner.position === 2 ? '2nd Place' : 
+                     winner.position === 3 ? '3rd Place' : 
+                     `Position #${winner.position}`}
+                  </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-gold">{formatMoney(winner.prize_amount)}</p>
+                  <p className="text-xl font-bold text-gold">{formatMoneyShort(winner.prize_amount)}</p>
                   <p className="text-xs text-muted-foreground">
                     {cycle.prize_distribution[winner.position - 1]}%
                   </p>
@@ -241,7 +325,7 @@ export const CycleResults = () => {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 pt-4">
           <button
             onClick={() => { play('click'); buttonClick(); navigate('/home'); }}
             className="flex-1 py-4 rounded-xl bg-muted text-foreground font-medium flex items-center justify-center gap-2"

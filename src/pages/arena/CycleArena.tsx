@@ -5,14 +5,15 @@ import { useCycleComments } from '@/hooks/useCycleComments';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useCycleHostTTS } from '@/hooks/useCycleHostTTS';
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceRoomLive } from '@/components/VoiceRoomLive';
-import { CrusaderHost } from '@/components/CrusaderHost';
+import { CompactHostBanner } from '@/components/CompactHostBanner';
 import { LiveTimer } from '@/components/Countdown';
 import { 
   ArrowLeft, Send, Users, Timer, Crown, Eye, Trophy, 
   Zap, MessageCircle, Clock, Play, Radio, Sparkles,
-  Target, Flame, Award, AlertTriangle
+  Target, Flame, Award, AlertTriangle, Hourglass
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -51,7 +52,24 @@ export const CycleArena = () => {
   const [commentText, setCommentText] = useState('');
   const [localCountdown, setLocalCountdown] = useState(0);
   const [gameTimeRemaining, setGameTimeRemaining] = useState(0);
+  const [hostIsSpeaking, setHostIsSpeaking] = useState(false);
   const commentsContainerRef = useRef<HTMLDivElement>(null);
+  const previousLeaderRef = useRef<string | null>(null);
+  const announcedTimersRef = useRef<Set<number>>(new Set());
+
+  const isLive = cycle?.status === 'live' || cycle?.status === 'ending';
+  
+  // TTS Hook for host commentary
+  const { 
+    announceComment, 
+    announceLeaderChange, 
+    announceTimerWarning,
+    announceGameOver 
+  } = useCycleHostTTS({ 
+    cycleId, 
+    isLive: !!isLive,
+    onSpeakingChange: setHostIsSpeaking
+  });
 
   // Fetch cycle data
   const fetchCycle = useCallback(async () => {
@@ -143,6 +161,50 @@ export const CycleArena = () => {
     return () => clearInterval(interval);
   }, [cycle?.status]);
 
+  // Timer warning announcements
+  useEffect(() => {
+    if (!isLive) return;
+    
+    const orderedCommenters = getOrderedCommenters();
+    const leader = orderedCommenters[0]?.username || null;
+    
+    // Announce at key thresholds
+    if ([30, 10, 5].includes(localCountdown) && !announcedTimersRef.current.has(localCountdown)) {
+      announcedTimersRef.current.add(localCountdown);
+      announceTimerWarning(localCountdown, leader);
+    }
+    
+    // Reset announced timers when countdown resets
+    if (localCountdown > 30) {
+      announcedTimersRef.current.clear();
+    }
+  }, [localCountdown, isLive, getOrderedCommenters, announceTimerWarning]);
+
+  // Leader change detection
+  useEffect(() => {
+    if (!isLive) return;
+    
+    const orderedCommenters = getOrderedCommenters();
+    const currentLeader = orderedCommenters[0]?.username || null;
+    
+    if (currentLeader && currentLeader !== previousLeaderRef.current && previousLeaderRef.current !== null) {
+      announceLeaderChange(currentLeader, localCountdown);
+      play('leaderChange');
+    }
+    
+    previousLeaderRef.current = currentLeader;
+  }, [comments, isLive, localCountdown, getOrderedCommenters, announceLeaderChange, play]);
+
+  // Announce new comments via TTS
+  useEffect(() => {
+    if (!isLive || comments.length === 0) return;
+    
+    const latestComment = comments[0];
+    if (latestComment) {
+      announceComment(latestComment.username, latestComment.content, latestComment.id);
+    }
+  }, [comments, isLive, announceComment]);
+
   // Scroll to bottom on new comment
   useEffect(() => {
     if (commentsContainerRef.current) {
@@ -196,14 +258,13 @@ export const CycleArena = () => {
   }
 
   const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
-  const isLive = cycle.status === 'live' || cycle.status === 'ending';
   const canComment = participation.isParticipant && !participation.isSpectator && isLive;
   const orderedCommenters = getOrderedCommenters();
   const isCountdownCritical = localCountdown <= 10 && isLive;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Live Header - Enhanced */}
+      {/* Live Header */}
       <div className="sticky top-0 z-20 bg-gradient-to-b from-background via-background to-transparent">
         {/* Top Bar */}
         <div className="p-3 flex items-center justify-between">
@@ -227,7 +288,7 @@ export const CycleArena = () => {
             </span>
           </div>
           
-          <div className="w-10" /> {/* Spacer for alignment */}
+          <div className="w-10" />
         </div>
 
         {/* Game Title & Prize */}
@@ -241,6 +302,13 @@ export const CycleArena = () => {
           </p>
           <p className="text-xs text-muted-foreground">Prize Pool • Top {cycle.winner_count} Winners</p>
         </div>
+
+        {/* Compact Host Banner - Only shows icon, name, and mute button */}
+        {isLive && (
+          <div className="px-4 pb-2">
+            <CompactHostBanner isLive={isLive} isSpeaking={hostIsSpeaking} />
+          </div>
+        )}
 
         {/* Live Stats Bar */}
         <div className="px-4 pb-3 grid grid-cols-3 gap-2">
@@ -256,33 +324,41 @@ export const CycleArena = () => {
             </p>
             <p className="text-lg font-bold text-foreground">{comments.length}</p>
           </div>
-          <div className="text-center py-2 rounded-xl bg-muted/50 backdrop-blur-sm">
+          {/* PROMINENT Game Ends In */}
+          <div className={`text-center py-2 rounded-xl ${
+            gameTimeRemaining <= 60 
+              ? 'bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30' 
+              : 'bg-muted/50'
+          } backdrop-blur-sm`}>
             <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
-              <Clock className="w-3 h-3" /> Game Ends
+              <Hourglass className={`w-3 h-3 ${gameTimeRemaining <= 60 ? 'text-red-400 animate-pulse' : ''}`} /> 
+              Game Ends
             </p>
-            <p className="text-lg font-bold text-foreground">{formatTime(gameTimeRemaining)}</p>
+            <p className={`text-lg font-bold ${gameTimeRemaining <= 60 ? 'text-red-400' : 'text-foreground'}`}>
+              {formatTime(gameTimeRemaining)}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden px-4">
-        {/* Comment Timer - Prominent Display */}
+        {/* Comment Timer - MOST PROMINENT */}
         {isLive && (
-          <div className={`mb-4 p-4 rounded-2xl text-center ${
+          <div className={`mb-4 p-5 rounded-2xl text-center ${
             isCountdownCritical 
-              ? 'bg-gradient-to-r from-red-500/20 via-red-500/30 to-red-500/20 border border-red-500/50 animate-pulse' 
-              : 'bg-gradient-to-r from-primary/10 via-primary/20 to-primary/10 border border-primary/30'
+              ? 'bg-gradient-to-r from-red-500/30 via-red-500/40 to-red-500/30 border-2 border-red-500/60 animate-pulse shadow-lg shadow-red-500/20' 
+              : 'bg-gradient-to-r from-primary/15 via-primary/25 to-primary/15 border border-primary/40'
           }`}>
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center justify-center gap-4">
               {isCountdownCritical ? (
-                <AlertTriangle className="w-6 h-6 text-red-400" />
+                <AlertTriangle className="w-8 h-8 text-red-400 animate-bounce" />
               ) : (
-                <Timer className="w-6 h-6 text-primary" />
+                <Timer className="w-7 h-7 text-primary" />
               )}
               <div>
-                <p className={`text-xs font-medium uppercase tracking-wider ${isCountdownCritical ? 'text-red-400' : 'text-muted-foreground'}`}>
-                  Comment to Stay Alive
+                <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${isCountdownCritical ? 'text-red-400' : 'text-muted-foreground'}`}>
+                  ⏱️ Comment to Stay Alive
                 </p>
                 <LiveTimer 
                   seconds={localCountdown} 
@@ -291,40 +367,26 @@ export const CycleArena = () => {
                 />
               </div>
               {isCountdownCritical ? (
-                <Flame className="w-6 h-6 text-red-400 animate-bounce" />
+                <Flame className="w-8 h-8 text-red-400 animate-bounce" />
               ) : (
-                <Target className="w-6 h-6 text-primary" />
+                <Target className="w-7 h-7 text-primary" />
               )}
             </div>
             {isCountdownCritical && (
-              <p className="text-xs text-red-400 mt-2 font-medium">
-                ⚠️ Timer running low! Send a comment to reset!
+              <p className="text-sm text-red-400 mt-3 font-bold animate-pulse">
+                ⚠️ DANGER! Timer running low! Send a comment NOW!
               </p>
             )}
           </div>
         )}
 
-        {/* Host Section */}
-        {isLive && (
-          <div className="mb-4">
-            <CrusaderHost isLive={isLive} message="Keep those comments coming! Last one standing wins! 🔥" />
-          </div>
-        )}
-
-        {/* Voice Room */}
-        {isLive && cycleId && (
-          <div className="mb-4">
-            <VoiceRoomLive gameId={cycleId} />
-          </div>
-        )}
-
-        {/* Top 3 Live Leaders */}
+        {/* Top 3 Contenders - BELOW Timer */}
         {isLive && orderedCommenters.length > 0 && (
           <div className="mb-4 p-4 rounded-2xl bg-gradient-to-r from-gold/5 via-gold/10 to-gold/5 border border-gold/20">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-gold" />
-                <span className="text-sm font-bold text-foreground">Current Leaders</span>
+                <span className="text-sm font-bold text-foreground">Top Contenders</span>
               </div>
               <span className="text-xs text-muted-foreground">{orderedCommenters.length} active</span>
             </div>
@@ -352,6 +414,13 @@ export const CycleArena = () => {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* Voice Room */}
+        {isLive && cycleId && (
+          <div className="mb-4">
+            <VoiceRoomLive gameId={cycleId} />
           </div>
         )}
 
