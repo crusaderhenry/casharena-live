@@ -3,8 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-// VAPID public key - this should match your backend
-const VAPID_PUBLIC_KEY = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
+// VAPID public key for Web Push authentication
+// To generate new keys, run: npx web-push generate-vapid-keys
+// Then add the private key to your backend secrets as VAPID_PRIVATE_KEY
+const VAPID_PUBLIC_KEY = 'BCjTvE7KQPl9RYPh6mYpTvKxWHRLrRCr4HqDQ1jKdNzgxOHjz3KJ4WUE_Pw9kv0J6BQzKhC2h7lZVqJRjXlCBj0';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);

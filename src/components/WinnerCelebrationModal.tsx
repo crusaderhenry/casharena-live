@@ -1,7 +1,10 @@
+import { useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { ShareCard } from '@/components/ShareCard';
 import { Confetti } from '@/components/Confetti';
 import { X, PartyPopper } from 'lucide-react';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface WinnerCelebrationModalProps {
   isOpen: boolean;
@@ -20,6 +23,17 @@ export const WinnerCelebrationModal = ({
   position,
   prizeAmount,
 }: WinnerCelebrationModalProps) => {
+  const { play } = useSounds();
+  const { prizeWin } = useHaptics();
+
+  // Play celebration sound and haptic when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      play('prizeWin');
+      prizeWin();
+    }
+  }, [isOpen, play, prizeWin]);
+
   const getPositionEmoji = (pos: number) => {
     switch (pos) {
       case 1: return '🥇';

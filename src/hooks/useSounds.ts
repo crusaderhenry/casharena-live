@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 
-type SoundType = 'click' | 'success' | 'win' | 'error' | 'timer' | 'countdown' | 'notification' | 'coin' | 'send' | 'tick' | 'urgent' | 'gameOver' | 'leaderChange';
+type SoundType = 'click' | 'success' | 'win' | 'error' | 'timer' | 'countdown' | 'notification' | 'coin' | 'send' | 'tick' | 'urgent' | 'gameOver' | 'leaderChange' | 'prizeWin' | 'gameStart';
 
 // Create audio context lazily
 const createAudioContext = () => {
@@ -101,6 +101,21 @@ export const useSounds = () => {
       case 'leaderChange':
         playTone(523.25, 0.1, 'sine', 0.1);
         setTimeout(() => playTone(659.25, 0.1, 'sine', 0.1), 100);
+        break;
+      case 'prizeWin':
+        // Triumphant fanfare for winning prizes
+        playTone(523.25, 0.2, 'sine', 0.2);
+        setTimeout(() => playTone(659.25, 0.2, 'sine', 0.2), 200);
+        setTimeout(() => playTone(783.99, 0.2, 'sine', 0.2), 400);
+        setTimeout(() => playTone(1046.50, 0.4, 'sine', 0.25), 600);
+        setTimeout(() => playTone(1318.51, 0.5, 'sine', 0.2), 1000);
+        break;
+      case 'gameStart':
+        // Alert sound for game starting
+        playTone(440, 0.15, 'sine', 0.15);
+        setTimeout(() => playTone(554.37, 0.15, 'sine', 0.15), 150);
+        setTimeout(() => playTone(659.25, 0.15, 'sine', 0.15), 300);
+        setTimeout(() => playTone(880, 0.25, 'sine', 0.15), 450);
         break;
     }
   }, [playTone]);
