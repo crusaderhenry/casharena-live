@@ -30,7 +30,7 @@ interface AdminTransaction {
 interface AdminGame {
   id: string;
   name: string;
-  status: 'scheduled' | 'open' | 'live' | 'ended' | 'cancelled';
+  status: 'waiting' | 'opening' | 'live' | 'ending' | 'settled' | 'cancelled';
   poolValue: number;
   participants: number;
   entryFee: number;
@@ -212,30 +212,33 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
         setStats(prev => ({ ...prev, totalUserBalances }));
       }
 
-      // Fetch games with new fields
-      const { data: gamesData } = await supabase
-        .from('fastest_finger_games')
-        .select('*')
+      // Fetch game cycles with template info
+      const { data: cyclesData } = await supabase
+        .from('game_cycles')
+        .select(`
+          *,
+          game_templates!inner(name, game_type)
+        `)
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (gamesData) {
-        const mappedGames: AdminGame[] = gamesData.map(g => ({
-          id: g.id,
-          name: (g as any).name || 'Royal Rumble',
-          status: g.status as AdminGame['status'],
-          poolValue: g.pool_value,
-          participants: g.participant_count,
-          entryFee: g.entry_fee,
-          startTime: g.start_time || g.created_at,
-          endTime: g.end_time || undefined,
-          countdown: g.countdown,
-          payoutType: ((g as any).payout_type || 'top3') as AdminGame['payoutType'],
-          payoutDistribution: (g as any).payout_distribution || [0.5, 0.3, 0.2],
-          commentTimer: (g as any).comment_timer || 60,
-          maxDuration: g.max_duration,
-          minParticipants: (g as any).min_participants || 3,
-          visibility: ((g as any).visibility || 'public') as AdminGame['visibility'],
+      if (cyclesData) {
+        const mappedGames: AdminGame[] = cyclesData.map(c => ({
+          id: c.id,
+          name: (c.game_templates as any)?.name || 'Royal Rumble',
+          status: c.status as AdminGame['status'],
+          poolValue: c.pool_value,
+          participants: c.participant_count,
+          entryFee: c.entry_fee,
+          startTime: c.live_start_at || c.created_at,
+          endTime: c.actual_end_at || undefined,
+          countdown: c.countdown,
+          payoutType: 'top3' as AdminGame['payoutType'],
+          payoutDistribution: c.prize_distribution.map(n => Number(n) / 100),
+          commentTimer: c.comment_timer || 60,
+          maxDuration: 15, // Default from template
+          minParticipants: c.min_participants || 2,
+          visibility: 'public' as AdminGame['visibility'],
         }));
         setGames(mappedGames);
         
@@ -245,13 +248,13 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
           setCurrentGame(liveGame);
           setIsSimulating(true);
         } else {
-          const scheduledGame = mappedGames.find(g => g.status === 'scheduled');
-          if (scheduledGame) {
-            setCurrentGame(scheduledGame);
+          const waitingGame = mappedGames.find(g => g.status === 'waiting' || g.status === 'opening');
+          if (waitingGame) {
+            setCurrentGame(waitingGame);
           }
         }
         
-        const activeGames = mappedGames.filter(g => g.status === 'live' || g.status === 'scheduled').length;
+        const activeGames = mappedGames.filter(g => ['live', 'waiting', 'opening', 'ending'].includes(g.status)).length;
         setStats(prev => ({ ...prev, activeGames }));
       }
 
@@ -314,20 +317,20 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   // Real-time subscriptions
   useEffect(() => {
-    const gamesChannel = supabase
-      .channel('admin-games')
+    const cyclesChannel = supabase
+      .channel('admin-cycles')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'fastest_finger_games' },
+        { event: '*', schema: 'public', table: 'game_cycles' },
         () => refreshData()
       )
       .subscribe();
 
     const commentsChannel = supabase
-      .channel('admin-comments')
+      .channel('admin-cycle-comments')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'comments' },
+        { event: 'INSERT', schema: 'public', table: 'cycle_comments' },
         async (payload) => {
           const newComment = payload.new as any;
           
@@ -352,22 +355,22 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
       .subscribe();
 
     const participantsChannel = supabase
-      .channel('admin-participants')
+      .channel('admin-cycle-participants')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'fastest_finger_participants' },
+        { event: '*', schema: 'public', table: 'cycle_participants' },
         () => refreshData()
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(gamesChannel);
+      supabase.removeChannel(cyclesChannel);
       supabase.removeChannel(commentsChannel);
       supabase.removeChannel(participantsChannel);
     };
   }, [refreshData]);
 
-  // Load comments for current game
+  // Load comments for current game (cycle)
   useEffect(() => {
     if (!currentGame) {
       setLiveComments([]);
@@ -376,9 +379,9 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
     const loadComments = async () => {
       const { data: comments } = await supabase
-        .from('comments')
+        .from('cycle_comments')
         .select('*')
-        .eq('game_id', currentGame.id)
+        .eq('cycle_id', currentGame.id)
         .order('created_at', { ascending: false })
         .limit(50);
 

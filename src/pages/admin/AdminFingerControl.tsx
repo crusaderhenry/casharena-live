@@ -265,10 +265,10 @@ export const AdminRumbleControl = () => {
     });
   };
 
-  // Get active games
-  const activeGames = games.filter(g => g.status === 'live' || g.status === 'scheduled' || g.status === 'open');
+  // Get active games (cycles)
+  const activeGames = games.filter(g => g.status === 'live' || g.status === 'waiting' || g.status === 'opening');
   const cancelledGames = games.filter(g => g.status === 'cancelled');
-  const recentEndedGames = games.filter(g => g.status === 'ended' || g.status === 'cancelled').slice(0, 5);
+  const recentEndedGames = games.filter(g => g.status === 'settled' || g.status === 'cancelled').slice(0, 5);
 
   // Handle cancel game
   const handleOpenCancelDialog = (gameId: string) => {
@@ -1176,7 +1176,7 @@ export const AdminRumbleControl = () => {
                   <div className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
                     game.status === 'live' 
                       ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                      : game.status === 'open'
+                      : game.status === 'opening'
                       ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                       : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                   }`}>
@@ -1204,7 +1204,7 @@ export const AdminRumbleControl = () => {
                 </div>
                 
                 <div className="flex gap-2 flex-wrap">
-                  {(game.status === 'scheduled' || game.status === 'open') && (
+                  {(game.status === 'waiting' || game.status === 'opening') && (
                     <>
                       <button
                         onClick={() => toggleVisibility(game.id)}
