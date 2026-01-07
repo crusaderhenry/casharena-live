@@ -88,8 +88,8 @@ serve(async (req) => {
     console.log(`Game action: ${action}`, { gameId, userId, config, reason });
 
     // Actions that require authentication
-    const authRequiredActions = ['join', 'create_game', 'start_game', 'end_game', 'cancel_game', 'delete_game', 'reset_weekly_ranks'];
-    const adminRequiredActions = ['create_game', 'start_game', 'end_game', 'cancel_game', 'delete_game', 'reset_weekly_ranks'];
+    const authRequiredActions = ['join', 'create_game', 'update_game', 'start_game', 'end_game', 'cancel_game', 'delete_game', 'reset_weekly_ranks'];
+    const adminRequiredActions = ['create_game', 'update_game', 'start_game', 'end_game', 'cancel_game', 'delete_game', 'reset_weekly_ranks'];
 
     let authenticatedUser = null;
 
@@ -487,6 +487,82 @@ serve(async (req) => {
       }
 
       // update_countdown action removed - use game-timer function with proper auth instead
+
+      case 'update_game': {
+        // Admin only - already verified above
+        if (!gameId) throw new Error('Missing gameId');
+
+        const { data: game, error: gameError } = await supabase
+          .from('fastest_finger_games')
+          .select('*')
+          .eq('id', gameId)
+          .single();
+
+        if (gameError || !game) throw new Error('Game not found');
+        
+        // Cannot edit live games
+        if (game.status === 'live') {
+          return new Response(JSON.stringify({ error: 'Cannot edit live games' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const gameConfig = config || {};
+        
+        // If game has participants, don't allow changing entry_fee
+        if (game.participant_count > 0 && gameConfig.entry_fee !== undefined && gameConfig.entry_fee !== game.entry_fee) {
+          return new Response(JSON.stringify({ error: 'Cannot change entry fee when participants have joined' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Build update object with only provided fields
+        const updateData: Record<string, any> = {};
+        
+        if (gameConfig.name !== undefined) updateData.name = gameConfig.name;
+        if (gameConfig.description !== undefined) updateData.description = gameConfig.description;
+        if (gameConfig.entry_fee !== undefined) updateData.entry_fee = gameConfig.entry_fee;
+        if (gameConfig.max_duration !== undefined) updateData.max_duration = gameConfig.max_duration;
+        if (gameConfig.comment_timer !== undefined) updateData.comment_timer = gameConfig.comment_timer;
+        if (gameConfig.payout_type !== undefined) updateData.payout_type = gameConfig.payout_type;
+        if (gameConfig.payout_distribution !== undefined) updateData.payout_distribution = gameConfig.payout_distribution;
+        if (gameConfig.min_participants !== undefined) updateData.min_participants = gameConfig.min_participants;
+        if (gameConfig.countdown !== undefined) updateData.countdown = gameConfig.countdown;
+        if (gameConfig.go_live_type !== undefined) updateData.go_live_type = gameConfig.go_live_type;
+        if (gameConfig.scheduled_at !== undefined) updateData.scheduled_at = gameConfig.scheduled_at;
+        if (gameConfig.recurrence_type !== undefined) updateData.recurrence_type = gameConfig.recurrence_type;
+        if (gameConfig.recurrence_interval !== undefined) updateData.recurrence_interval = gameConfig.recurrence_interval;
+        if (gameConfig.is_sponsored !== undefined) updateData.is_sponsored = gameConfig.is_sponsored;
+        if (gameConfig.sponsored_amount !== undefined) updateData.sponsored_amount = gameConfig.sponsored_amount;
+        if (gameConfig.platform_cut_percentage !== undefined) updateData.platform_cut_percentage = gameConfig.platform_cut_percentage;
+        if (gameConfig.auto_restart !== undefined) updateData.auto_restart = gameConfig.auto_restart;
+        if (gameConfig.fixed_daily_time !== undefined) updateData.fixed_daily_time = gameConfig.fixed_daily_time;
+        if (gameConfig.entry_wait_seconds !== undefined) updateData.entry_wait_seconds = gameConfig.entry_wait_seconds;
+        if (gameConfig.min_participants_action !== undefined) updateData.min_participants_action = gameConfig.min_participants_action;
+        if (gameConfig.music_type !== undefined) updateData.music_type = gameConfig.music_type;
+        if (gameConfig.lobby_music_url !== undefined) updateData.lobby_music_url = gameConfig.lobby_music_url;
+        if (gameConfig.arena_music_url !== undefined) updateData.arena_music_url = gameConfig.arena_music_url;
+        if (gameConfig.tense_music_url !== undefined) updateData.tense_music_url = gameConfig.tense_music_url;
+
+        const { data: updatedGame, error } = await supabase
+          .from('fastest_finger_games')
+          .update(updateData)
+          .eq('id', gameId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        
+        // Log audit action
+        await logAuditAction(supabase, authenticatedUser!.id, 'update_game', 'game', gameId, gameConfig, clientIp);
+        
+        console.log('Game updated by admin:', authenticatedUser?.id, gameId);
+        return new Response(JSON.stringify({ success: true, game: updatedGame }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
       case 'cancel_game': {
         // Admin only - already verified above

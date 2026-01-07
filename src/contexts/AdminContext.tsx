@@ -121,6 +121,7 @@ interface AdminContextType {
   
   createGame: () => Promise<void>;
   createGameWithConfig: (config: CreateGameConfig) => Promise<void>;
+  updateGame: (gameId: string, config: Partial<CreateGameConfig>) => Promise<void>;
   startGame: (gameId?: string) => Promise<void>;
   endGame: (gameId?: string) => Promise<void>;
   cancelGame: (gameId: string, reason: string) => Promise<void>;
@@ -438,6 +439,27 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [refreshData, toast]);
 
+  const updateGame = useCallback(async (gameId: string, config: Partial<CreateGameConfig>) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('game-manager', {
+        body: { 
+          action: 'update_game',
+          gameId,
+          config,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({ title: 'Game Updated', description: `Game updated successfully` });
+      refreshData();
+    } catch (error: any) {
+      console.error('Update game error:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  }, [refreshData, toast]);
+
   const startGame = useCallback(async (gameId?: string) => {
     const targetGame = gameId ? games.find(g => g.id === gameId) : currentGame;
     if (!targetGame) return;
@@ -586,7 +608,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AdminContext.Provider value={{
       users, transactions, games, currentGame, liveComments, settings, stats, isSimulating, loading,
-      createGame, createGameWithConfig, startGame, endGame, cancelGame, deleteGame, resetGame, pauseSimulation, resumeSimulation,
+      createGame, createGameWithConfig, updateGame, startGame, endGame, cancelGame, deleteGame, resetGame, pauseSimulation, resumeSimulation,
       updateSettings, suspendUser, flagUser, activateUser, approvePayout, triggerWeeklyReset, simulateHighTraffic, refreshData,
     }}>
       {children}

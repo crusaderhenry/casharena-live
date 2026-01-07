@@ -1,4 +1,5 @@
 import { useAdmin } from '@/contexts/AdminContext';
+import { supabase } from '@/integrations/supabase/client';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle, XCircle, Music, Upload } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -84,7 +85,8 @@ export const AdminFingerControl = () => {
     currentGame, 
     games,
     settings, 
-    createGameWithConfig, 
+    createGameWithConfig,
+    updateGame,
     startGame, 
     endGame, 
     cancelGame,
@@ -102,6 +104,8 @@ export const AdminFingerControl = () => {
   } = usePlatformSettings();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingGameId, setEditingGameId] = useState<string | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [cancelGameId, setCancelGameId] = useState<string | null>(null);
@@ -301,6 +305,104 @@ export const AdminFingerControl = () => {
     setShowDeleteDialog(false);
     setDeleteGameId(null);
   };
+
+  // Handle edit game
+  const handleOpenEditDialog = (gameId: string) => {
+    const game = games.find(g => g.id === gameId);
+    if (!game) return;
+
+    // Fetch full game data from supabase to get all fields
+    const fetchGameData = async () => {
+      const { data } = await supabase
+        .from('fastest_finger_games')
+        .select('*')
+        .eq('id', gameId)
+        .single();
+      
+      if (data) {
+        const scheduledDate = data.scheduled_at ? new Date(data.scheduled_at).toISOString().split('T')[0] : getDefaultDateTime().date;
+        const scheduledTime = data.scheduled_at ? new Date(data.scheduled_at).toTimeString().slice(0, 5) : getDefaultDateTime().time;
+        
+        setFormData({
+          name: (data as any).name || 'Fastest Finger',
+          description: (data as any).description || '',
+          entryFee: data.entry_fee,
+          maxDuration: data.max_duration,
+          commentTimer: (data as any).comment_timer || 60,
+          payoutType: ((data as any).payout_type || 'top3') as GameFormData['payoutType'],
+          minParticipants: (data as any).min_participants || 3,
+          entryWaitSeconds: (data as any).entry_wait_seconds || 60,
+          goLiveType: (data as any).go_live_type || 'immediate',
+          scheduledDate,
+          scheduledTime,
+          recurrenceType: (data as any).auto_restart ? 'auto_restart' : ((data as any).recurrence_type || 'none'),
+          recurrenceInterval: (data as any).recurrence_interval || 1,
+          fixedDailyTime: (data as any).fixed_daily_time || '20:00',
+          minParticipantsAction: (data as any).min_participants_action || 'reset',
+          isSponsored: (data as any).is_sponsored || false,
+          sponsoredAmount: (data as any).sponsored_amount || 0,
+          platformCutPercentage: (data as any).platform_cut_percentage || 10,
+          musicType: (data as any).music_type || 'generated',
+          lobbyMusicUrl: (data as any).lobby_music_url || '',
+          arenaMusicUrl: (data as any).arena_music_url || '',
+          tenseMusicUrl: (data as any).tense_music_url || '',
+        });
+        setEditingGameId(gameId);
+        setShowEditDialog(true);
+      }
+    };
+    fetchGameData();
+  };
+
+  const handleEditGame = async () => {
+    if (!editingGameId) return;
+    
+    const game = games.find(g => g.id === editingGameId);
+    if (!game) return;
+
+    // Build scheduled_at if scheduled
+    let scheduledAt: string | null = null;
+    if (formData.goLiveType === 'scheduled') {
+      scheduledAt = new Date(`${formData.scheduledDate}T${formData.scheduledTime}`).toISOString();
+    }
+
+    const isAutoRestart = formData.recurrenceType === 'auto_restart';
+    const actualRecurrenceType = isAutoRestart ? null : (formData.recurrenceType === 'none' ? null : formData.recurrenceType);
+
+    await updateGame(editingGameId, {
+      name: formData.name,
+      entry_fee: formData.isSponsored ? 0 : formData.entryFee,
+      max_duration: formData.maxDuration,
+      comment_timer: formData.commentTimer,
+      payout_type: formData.payoutType,
+      payout_distribution: PAYOUT_PRESETS[formData.payoutType].distribution,
+      min_participants: formData.minParticipants,
+      countdown: formData.entryWaitSeconds,
+      go_live_type: formData.goLiveType,
+      scheduled_at: scheduledAt,
+      recurrence_type: actualRecurrenceType,
+      recurrence_interval: formData.recurrenceType === 'none' || isAutoRestart ? null : formData.recurrenceInterval,
+      is_sponsored: formData.isSponsored,
+      sponsored_amount: formData.isSponsored ? formData.sponsoredAmount : null,
+      platform_cut_percentage: formData.platformCutPercentage,
+      description: formData.description || null,
+      auto_restart: isAutoRestart,
+      fixed_daily_time: formData.recurrenceType === 'daily' ? formData.fixedDailyTime : null,
+      entry_wait_seconds: formData.entryWaitSeconds,
+      min_participants_action: formData.minParticipantsAction,
+      music_type: formData.musicType,
+      lobby_music_url: formData.musicType === 'uploaded' ? formData.lobbyMusicUrl || null : null,
+      arena_music_url: formData.musicType === 'uploaded' ? formData.arenaMusicUrl || null : null,
+      tense_music_url: formData.musicType === 'uploaded' ? formData.tenseMusicUrl || null : null,
+    });
+    
+    setShowEditDialog(false);
+    setEditingGameId(null);
+  };
+
+  // Get the game being edited
+  const editingGame = editingGameId ? games.find(g => g.id === editingGameId) : null;
+  const canEditEntryFee = !editingGame || editingGame.participants === 0;
 
   // Helper to format recurrence description
   const getRecurrenceDescription = () => {
@@ -813,6 +915,232 @@ export const AdminFingerControl = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Game Dialog */}
+        <Dialog open={showEditDialog} onOpenChange={(open) => {
+          setShowEditDialog(open);
+          if (!open) setEditingGameId(null);
+        }}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Edit className="w-5 h-5 text-primary" />
+                Edit Game
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              {/* Warning banner if game has participants */}
+              {editingGame && editingGame.participants > 0 && (
+                <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <p className="text-xs text-yellow-600 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    This game has {editingGame.participants} participant(s). Entry fee cannot be changed.
+                  </p>
+                </div>
+              )}
+
+              {/* Game Name */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Game Name</Label>
+                <Input
+                  id="edit-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., High Rollers, Beginner's Arena"
+                />
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description (optional)</Label>
+                <Input
+                  id="edit-description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Last comment wins the prize!"
+                />
+              </div>
+
+              {/* Sponsored Game Toggle */}
+              <div className="space-y-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="flex items-center gap-2">
+                      <Gift className="w-4 h-4 text-primary" />
+                      Sponsored Game
+                    </Label>
+                    <p className="text-xs text-muted-foreground">Free entry with sponsored prize pool</p>
+                  </div>
+                  <Switch
+                    checked={formData.isSponsored}
+                    onCheckedChange={(checked) => setFormData(prev => ({ 
+                      ...prev, 
+                      isSponsored: checked,
+                      entryFee: checked ? 0 : 700,
+                    }))}
+                    disabled={!canEditEntryFee}
+                  />
+                </div>
+
+                {formData.isSponsored && (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-sponsoredAmount">Sponsored Prize (₦)</Label>
+                    <Input
+                      id="edit-sponsoredAmount"
+                      type="number"
+                      value={formData.sponsoredAmount}
+                      onChange={(e) => setFormData(prev => ({ ...prev, sponsoredAmount: parseInt(e.target.value) || 0 }))}
+                      placeholder="50000"
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {/* Entry Fee - only show if not sponsored */}
+              {!formData.isSponsored && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-entryFee">Entry Fee (₦)</Label>
+                  <Input
+                    id="edit-entryFee"
+                    type="number"
+                    value={formData.entryFee}
+                    onChange={(e) => setFormData(prev => ({ ...prev, entryFee: parseInt(e.target.value) || 0 }))}
+                    disabled={!canEditEntryFee}
+                  />
+                  {!canEditEntryFee && (
+                    <p className="text-xs text-muted-foreground">Cannot change entry fee - participants have joined</p>
+                  )}
+                </div>
+              )}
+              
+              {/* Payout Type */}
+              <div className="space-y-2">
+                <Label>Payout Structure</Label>
+                <Select
+                  value={formData.payoutType}
+                  onValueChange={(value: GameFormData['payoutType']) => setFormData(prev => ({ ...prev, payoutType: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="winner_takes_all">Winner Takes All (100%)</SelectItem>
+                    <SelectItem value="top3">Top 3 (50/30/20)</SelectItem>
+                    <SelectItem value="top5">Top 5 (40/25/15/12/8)</SelectItem>
+                    <SelectItem value="top10">Top 10 (Distributed)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Max Duration & Comment Timer */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-maxDuration">Game Duration (min)</Label>
+                  <Input
+                    id="edit-maxDuration"
+                    type="number"
+                    value={formData.maxDuration}
+                    onChange={(e) => setFormData(prev => ({ ...prev, maxDuration: parseInt(e.target.value) || 20 }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-commentTimer">Comment Timer (sec)</Label>
+                  <Input
+                    id="edit-commentTimer"
+                    type="number"
+                    value={formData.commentTimer}
+                    onChange={(e) => setFormData(prev => ({ ...prev, commentTimer: parseInt(e.target.value) || 60 }))}
+                  />
+                </div>
+              </div>
+
+              {/* Entry Wait Period */}
+              <div className="space-y-2 p-3 bg-blue-500/5 rounded-lg border border-blue-500/20">
+                <Label htmlFor="edit-entryWaitSeconds" className="flex items-center gap-2">
+                  <Timer className="w-4 h-4 text-blue-400" />
+                  Entry/Lobby Period (seconds)
+                </Label>
+                <Input
+                  id="edit-entryWaitSeconds"
+                  type="number"
+                  value={formData.entryWaitSeconds}
+                  onChange={(e) => setFormData(prev => ({ ...prev, entryWaitSeconds: parseInt(e.target.value) || 60 }))}
+                  min={10}
+                />
+              </div>
+              
+              {/* Min Participants */}
+              <div className="space-y-3 p-3 bg-yellow-500/5 rounded-lg border border-yellow-500/20">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-minParticipants" className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-yellow-400" />
+                      Min Players
+                    </Label>
+                    <Input
+                      id="edit-minParticipants"
+                      type="number"
+                      value={formData.minParticipants}
+                      onChange={(e) => setFormData(prev => ({ ...prev, minParticipants: parseInt(e.target.value) || 3 }))}
+                      min={1}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>If Not Met</Label>
+                    <Select
+                      value={formData.minParticipantsAction}
+                      onValueChange={(value: 'reset' | 'cancel' | 'start_anyway') => setFormData(prev => ({ ...prev, minParticipantsAction: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MIN_PARTICIPANTS_ACTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Platform Cut */}
+              <div className="space-y-2 pt-4 border-t border-border">
+                <Label htmlFor="edit-platformCut" className="flex items-center gap-2">
+                  <Percent className="w-4 h-4 text-muted-foreground" />
+                  Platform Cut (%)
+                </Label>
+                <Input
+                  id="edit-platformCut"
+                  type="number"
+                  min={0}
+                  max={50}
+                  value={formData.platformCutPercentage}
+                  onChange={(e) => setFormData(prev => ({ ...prev, platformCutPercentage: parseInt(e.target.value) || 10 }))}
+                />
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <button
+                onClick={() => {
+                  setShowEditDialog(false);
+                  setEditingGameId(null);
+                }}
+                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditGame}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+              >
+                Save Changes
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Active Games Grid */}
@@ -870,6 +1198,13 @@ export const AdminFingerControl = () => {
                   {(game.status === 'scheduled' || game.status === 'open') && (
                     <>
                       <button
+                        onClick={() => handleOpenEditDialog(game.id)}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-medium hover:bg-blue-500/30 transition-colors"
+                        title="Edit Game"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => startGame(game.id)}
                         className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-medium hover:bg-green-500/30 transition-colors"
                       >
@@ -887,6 +1222,13 @@ export const AdminFingerControl = () => {
                   )}
                   {game.status === 'live' && (
                     <>
+                      <button
+                        disabled
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-muted text-muted-foreground rounded-lg font-medium cursor-not-allowed opacity-50"
+                        title="Cannot edit live game"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => endGame(game.id)}
                         className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 transition-colors"
