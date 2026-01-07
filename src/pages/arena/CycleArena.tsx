@@ -7,6 +7,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useCycleHostTTS } from '@/hooks/useCycleHostTTS';
 import { useLiveArenaSimulation } from '@/hooks/useLiveArenaSimulation';
+import { useMockVoiceRoom } from '@/hooks/useMockVoiceRoom';
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceRoomLive } from '@/components/VoiceRoomLive';
 import { CompactHostBanner } from '@/components/CompactHostBanner';
@@ -104,6 +105,15 @@ export const CycleArena = () => {
   }, []);
 
   const isLive = cycle?.status === 'live' || cycle?.status === 'ending';
+  
+  // Fetch mock voice participants from database (for real games, not demo)
+  const { voiceParticipants: mockVoiceParticipants } = useMockVoiceRoom(
+    cycleId || null,
+    isLive && !isDemoMode
+  );
+  
+  // Use simulated voice participants in demo mode, mock DB participants otherwise
+  const voiceParticipantsToPass = isDemoMode ? simVoiceParticipants : mockVoiceParticipants;
   
   // TTS Hook for host commentary
   const { 
@@ -566,7 +576,7 @@ export const CycleArena = () => {
           <div className="mb-4">
             <VoiceRoomLive 
               gameId={cycleId} 
-              simulatedParticipants={isDemoMode ? simVoiceParticipants : undefined}
+              simulatedParticipants={voiceParticipantsToPass.length > 0 ? voiceParticipantsToPass : undefined}
             />
           </div>
         )}
