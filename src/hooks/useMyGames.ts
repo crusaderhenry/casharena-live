@@ -2,24 +2,24 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface MyGame {
+interface MyCycle {
   id: string;
-  name: string;
+  template_name: string;
   status: string;
   entry_fee: number;
   pool_value: number;
   participant_count: number;
   countdown: number;
-  start_time: string | null;
-  scheduled_at: string | null;
-  is_sponsored: boolean;
-  sponsored_amount: number | null;
+  live_start_at: string;
+  entry_open_at: string;
+  sponsored_prize_amount: number | null;
   effective_prize_pool: number;
+  is_spectator: boolean;
 }
 
 export const useMyGames = () => {
   const { user } = useAuth();
-  const [myGames, setMyGames] = useState<MyGame[]>([]);
+  const [myGames, setMyGames] = useState<MyCycle[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchMyGames = useCallback(async () => {
@@ -30,10 +30,10 @@ export const useMyGames = () => {
     }
 
     try {
-      // Get all game IDs the user has joined
+      // Get all cycle IDs the user has joined
       const { data: participations, error: pError } = await supabase
-        .from('fastest_finger_participants')
-        .select('game_id')
+        .from('cycle_participants')
+        .select('cycle_id, is_spectator')
         .eq('user_id', user.id);
 
       if (pError) throw pError;
@@ -44,26 +44,46 @@ export const useMyGames = () => {
         return;
       }
 
-      const gameIds = participations.map(p => p.game_id);
+      const cycleIds = participations.map(p => p.cycle_id);
+      const spectatorMap = new Map(participations.map(p => [p.cycle_id, p.is_spectator]));
 
-      // Fetch only active games (not ended/cancelled)
-      const { data: games, error: gError } = await supabase
-        .from('fastest_finger_games')
-        .select('*')
-        .in('id', gameIds)
-        .in('status', ['scheduled', 'open', 'live'])
-        .order('start_time', { ascending: true, nullsFirst: false });
+      // Fetch only active cycles (not ended/cancelled/settled)
+      const { data: cycles, error: cError } = await supabase
+        .from('game_cycles')
+        .select(`
+          id,
+          status,
+          entry_fee,
+          pool_value,
+          participant_count,
+          countdown,
+          live_start_at,
+          entry_open_at,
+          sponsored_prize_amount,
+          game_templates!inner(name)
+        `)
+        .in('id', cycleIds)
+        .in('status', ['waiting', 'opening', 'live', 'ending'])
+        .order('live_start_at', { ascending: true });
 
-      if (gError) throw gError;
+      if (cError) throw cError;
 
-      const gamesWithPool = (games || []).map(g => ({
-        ...g,
-        effective_prize_pool: g.is_sponsored && g.sponsored_amount
-          ? (g.pool_value || 0) + g.sponsored_amount
-          : (g.pool_value || 0),
+      const cyclesWithPool = (cycles || []).map(c => ({
+        id: c.id,
+        template_name: (c.game_templates as any)?.name || 'Royal Rumble',
+        status: c.status,
+        entry_fee: c.entry_fee,
+        pool_value: c.pool_value,
+        participant_count: c.participant_count,
+        countdown: c.countdown,
+        live_start_at: c.live_start_at,
+        entry_open_at: c.entry_open_at,
+        sponsored_prize_amount: c.sponsored_prize_amount,
+        effective_prize_pool: c.pool_value + (c.sponsored_prize_amount || 0),
+        is_spectator: spectatorMap.get(c.id) || false,
       }));
 
-      setMyGames(gamesWithPool);
+      setMyGames(cyclesWithPool);
     } catch (err) {
       console.error('Error fetching my games:', err);
     } finally {
@@ -78,11 +98,11 @@ export const useMyGames = () => {
     if (!user?.id) return;
 
     const channel = supabase
-      .channel('my-games-realtime')
+      .channel('my-cycles-realtime')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'fastest_finger_participants',
+        table: 'cycle_participants',
         filter: `user_id=eq.${user.id}`,
       }, () => {
         fetchMyGames();
@@ -90,21 +110,22 @@ export const useMyGames = () => {
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
-        table: 'fastest_finger_games',
+        table: 'game_cycles',
       }, (payload) => {
         const updated = payload.new as any;
         setMyGames(prev => prev.map(g => {
           if (g.id === updated.id) {
             return {
               ...g,
-              ...updated,
-              effective_prize_pool: updated.is_sponsored && updated.sponsored_amount
-                ? (updated.pool_value || 0) + updated.sponsored_amount
-                : (updated.pool_value || 0),
+              status: updated.status,
+              pool_value: updated.pool_value,
+              participant_count: updated.participant_count,
+              countdown: updated.countdown,
+              effective_prize_pool: updated.pool_value + (updated.sponsored_prize_amount || 0),
             };
           }
           return g;
-        }).filter(g => ['scheduled', 'open', 'live'].includes(g.status)));
+        }).filter(g => ['waiting', 'opening', 'live', 'ending'].includes(g.status)));
       })
       .subscribe();
 

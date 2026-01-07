@@ -5,21 +5,21 @@ import { adminAudio } from '@/utils/adminAudio';
 import { supabase } from '@/integrations/supabase/client';
 import { useServerTime } from '@/hooks/useServerTime';
 
-interface RealTimeGame {
+interface RealTimeCycle {
   id: string;
-  name: string | null;
+  template_name: string;
   status: string;
   pool_value: number;
   effective_prize_pool: number;
   participant_count: number;
   entry_fee: number;
-  scheduled_at: string | null;
-  start_time: string | null;
-  is_sponsored: boolean | null;
-  seconds_until_open: number;
+  entry_open_at: string;
+  live_start_at: string;
+  sponsored_prize_amount: number | null;
+  seconds_until_opening: number;
   seconds_until_live: number;
   seconds_remaining: number;
-  is_ending_soon: boolean;
+  countdown: number;
 }
 
 interface CronActivity {
@@ -50,20 +50,25 @@ export const AdminLiveMonitor = () => {
   const [broadcastTime, setBroadcastTime] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [realTimeGames, setRealTimeGames] = useState<RealTimeGame[]>([]);
+  const [realTimeCycles, setRealTimeCycles] = useState<RealTimeCycle[]>([]);
   const [cronActivity, setCronActivity] = useState<CronActivity[]>([]);
   const [lastCronRun, setLastCronRun] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const lastCommentCount = useRef(0);
   const lastCountdown = useRef(60);
 
-  // Fetch real-time games from database
-  const fetchActiveGames = useCallback(async () => {
+  // Fetch real-time cycles from database
+  const fetchActiveCycles = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const { data, error } = await supabase.rpc('get_active_games');
+      const { data, error } = await supabase.rpc('get_active_cycles');
       if (error) throw error;
-      setRealTimeGames(data || []);
+      
+      const cycles = (data || []).map((c: any) => ({
+        ...c,
+        effective_prize_pool: c.pool_value + (c.sponsored_prize_amount || 0),
+      }));
+      setRealTimeCycles(cycles);
       
       // Log cron activity
       const now = new Date();
@@ -71,17 +76,17 @@ export const AdminLiveMonitor = () => {
       setCronActivity(prev => [{
         id: `fetch-${now.getTime()}`,
         timestamp: now,
-        action: 'Game state refresh',
+        action: 'Cycle state refresh',
         status: 'success',
-        details: `Found ${data?.length || 0} active games`
+        details: `Found ${cycles.length} active cycles`
       }, ...prev.slice(0, 19)]);
     } catch (error) {
-      console.error('Error fetching games:', error);
+      console.error('Error fetching cycles:', error);
       const now = new Date();
       setCronActivity(prev => [{
         id: `error-${now.getTime()}`,
         timestamp: now,
-        action: 'Game state refresh',
+        action: 'Cycle state refresh',
         status: 'error',
         details: error instanceof Error ? error.message : 'Unknown error'
       }, ...prev.slice(0, 19)]);
@@ -90,44 +95,44 @@ export const AdminLiveMonitor = () => {
     }
   }, []);
 
-  // Subscribe to real-time game updates
+  // Subscribe to real-time cycle updates
   useEffect(() => {
-    fetchActiveGames();
+    fetchActiveCycles();
 
     const channel = supabase
-      .channel('admin-game-monitor')
+      .channel('admin-cycle-monitor')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'fastest_finger_games'
+          table: 'game_cycles'
         },
         (payload) => {
-          console.log('Game update:', payload);
+          console.log('Cycle update:', payload);
           const now = new Date();
           setCronActivity(prev => [{
             id: `db-${now.getTime()}`,
             timestamp: now,
-            action: `Game ${payload.eventType}`,
+            action: `Cycle ${payload.eventType}`,
             status: 'success',
-            details: `Game ID: ${(payload.new as any)?.id?.slice(0, 8) || (payload.old as any)?.id?.slice(0, 8) || 'unknown'}...`
+            details: `Cycle ID: ${(payload.new as any)?.id?.slice(0, 8) || (payload.old as any)?.id?.slice(0, 8) || 'unknown'}...`
           }, ...prev.slice(0, 19)]);
           
-          // Refresh games list
-          fetchActiveGames();
+          // Refresh cycles list
+          fetchActiveCycles();
         }
       )
       .subscribe();
 
     // Refresh every 10 seconds
-    const interval = setInterval(fetchActiveGames, 10000);
+    const interval = setInterval(fetchActiveCycles, 10000);
 
     return () => {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [fetchActiveGames]);
+  }, [fetchActiveCycles]);
 
   // Simulate cron job activity indicator
   useEffect(() => {
@@ -327,10 +332,10 @@ export const AdminLiveMonitor = () => {
 
           {/* Refresh Button */}
           <button
-            onClick={fetchActiveGames}
+            onClick={fetchActiveCycles}
             disabled={isRefreshing}
             className="p-2 rounded-xl bg-muted hover:bg-muted/80 transition-colors disabled:opacity-50"
-            title="Refresh games"
+            title="Refresh cycles"
           >
             <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
@@ -391,13 +396,13 @@ export const AdminLiveMonitor = () => {
         </div>
       </div>
 
-      {/* Real-Time Games Grid */}
+      {/* Real-Time Cycles Grid */}
       <div className="bg-card rounded-xl border border-border p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Activity className="w-5 h-5 text-primary" />
-            <h2 className="font-bold text-foreground">Active Games (Live Backend)</h2>
-            <span className="text-xs text-muted-foreground">({realTimeGames.length} games)</span>
+            <h2 className="font-bold text-foreground">Active Cycles (Live Backend)</h2>
+            <span className="text-xs text-muted-foreground">({realTimeCycles.length} cycles)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -405,26 +410,26 @@ export const AdminLiveMonitor = () => {
           </div>
         </div>
 
-        {realTimeGames.length > 0 ? (
+        {realTimeCycles.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {realTimeGames.map((game) => (
+            {realTimeCycles.map((cycle) => (
               <div
-                key={game.id}
+                key={cycle.id}
                 className={`p-4 rounded-xl border ${
-                  game.is_ending_soon 
+                  cycle.status === 'ending' 
                     ? 'bg-red-500/5 border-red-500/30 animate-pulse' 
-                    : game.status === 'live' 
+                    : cycle.status === 'live' 
                     ? 'bg-card border-primary/30' 
                     : 'bg-card border-border'
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-foreground text-sm truncate">
-                    {game.name || 'Royal Rumble'}
+                    {cycle.template_name || 'Royal Rumble'}
                   </h3>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase flex items-center gap-1 border ${getStatusColor(game.status)}`}>
-                    {getStatusIcon(game.status)}
-                    {game.status.replace('_', ' ')}
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase flex items-center gap-1 border ${getStatusColor(cycle.status)}`}>
+                    {getStatusIcon(cycle.status)}
+                    {cycle.status.replace('_', ' ')}
                   </span>
                 </div>
 
@@ -432,48 +437,48 @@ export const AdminLiveMonitor = () => {
                   <div className="flex items-center gap-1.5">
                     <Users className="w-3 h-3 text-muted-foreground" />
                     <span className="text-muted-foreground">Players:</span>
-                    <span className="font-medium text-foreground">{game.participant_count}</span>
+                    <span className="font-medium text-foreground">{cycle.participant_count}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Trophy className="w-3 h-3 text-primary" />
                     <span className="text-muted-foreground">Prize:</span>
-                    <span className="font-medium text-primary">₦{game.effective_prize_pool.toLocaleString()}</span>
+                    <span className="font-medium text-primary">₦{cycle.effective_prize_pool.toLocaleString()}</span>
                   </div>
                 </div>
 
                 {/* Status-specific info */}
                 <div className="p-2 bg-muted/30 rounded-lg">
-                  {game.status === 'live' && (
+                  {(cycle.status === 'live' || cycle.status === 'ending') && (
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Time Remaining:</span>
-                      <span className={`font-mono font-bold ${game.is_ending_soon ? 'text-red-400' : 'text-foreground'}`}>
-                        {formatCountdown(game.seconds_remaining)}
+                      <span className="text-xs text-muted-foreground">Countdown:</span>
+                      <span className={`font-mono font-bold ${cycle.countdown <= 10 ? 'text-red-400' : 'text-foreground'}`}>
+                        {formatCountdown(cycle.countdown)}
                       </span>
                     </div>
                   )}
-                  {game.status === 'open' && (
+                  {cycle.status === 'opening' && (
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Entry Fee:</span>
                       <span className="font-medium text-foreground">
-                        {game.entry_fee === 0 ? (
+                        {cycle.entry_fee === 0 ? (
                           <span className="text-green-400">FREE (Sponsored)</span>
                         ) : (
-                          `₦${game.entry_fee}`
+                          `₦${cycle.entry_fee}`
                         )}
                       </span>
                     </div>
                   )}
-                  {game.status === 'scheduled' && (
+                  {cycle.status === 'waiting' && (
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Opens in:</span>
                       <span className="font-mono font-medium text-foreground">
-                        {formatCountdown(game.seconds_until_open)}
+                        {formatCountdown(cycle.seconds_until_opening)}
                       </span>
                     </div>
                   )}
                 </div>
 
-                {game.is_sponsored && (
+                {cycle.sponsored_prize_amount && cycle.sponsored_prize_amount > 0 && (
                   <div className="mt-2 px-2 py-1 bg-gold/10 rounded text-[10px] text-gold font-medium text-center">
                     ⭐ SPONSORED
                   </div>
@@ -484,8 +489,8 @@ export const AdminLiveMonitor = () => {
         ) : (
           <div className="text-center py-8 text-muted-foreground">
             <Database className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No active games in the backend</p>
-            <p className="text-xs mt-1">Create a game from Finger Control to see it here</p>
+            <p>No active cycles in the backend</p>
+            <p className="text-xs mt-1">Cycles are created automatically from active templates</p>
           </div>
         )}
       </div>
@@ -843,16 +848,16 @@ export const AdminLiveMonitor = () => {
       )}
 
       {/* Empty state when no test mode game */}
-      {!currentGame?.status && realTimeGames.length === 0 && (
+      {!currentGame?.status && realTimeCycles.length === 0 && (
         <div className="bg-card rounded-xl border border-border p-12 text-center">
           <Monitor className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-30" />
-          <h3 className="text-xl font-bold text-foreground mb-2">No Active Games</h3>
-          <p className="text-muted-foreground mb-6">Create a game from the Finger Control panel to see it here.</p>
+          <h3 className="text-xl font-bold text-foreground mb-2">No Active Cycles</h3>
+          <p className="text-muted-foreground mb-6">Ensure you have active game templates configured.</p>
           <a 
             href="/admin/finger-control"
             className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium"
           >
-            Go to Finger Control
+            Go to Template Control
           </a>
         </div>
       )}
