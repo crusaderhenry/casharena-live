@@ -17,13 +17,7 @@ import { AuthPage } from "@/pages/AuthPage";
 // Main
 import { Home } from "@/pages/Home";
 
-// Royal Rumble (Legacy - keeping for backward compatibility)
-import { FingerMain } from "@/pages/finger/FingerMain";
-import { FingerLobby } from "@/pages/finger/FingerLobby";
-import { FingerArena } from "@/pages/finger/FingerArena";
-import { FingerResults } from "@/pages/finger/FingerResults";
-
-// New Cycle-based Arena
+// Royal Rumble Arena
 import { ArenaListing } from "@/pages/arena/ArenaListing";
 import { CycleArena } from "@/pages/arena/CycleArena";
 import { CycleResults } from "@/pages/arena/CycleResults";
@@ -196,13 +190,11 @@ const AppRoutes = () => (
     {/* Protected Routes */}
     <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
     
-    {/* Royal Rumble - Legacy routes */}
-    <Route path="/finger" element={<ProtectedRoute><FingerMain /></ProtectedRoute>} />
-    <Route path="/finger/lobby" element={<ProtectedRoute><FingerLobby /></ProtectedRoute>} />
-    <Route path="/finger/arena" element={<ProtectedRoute><FingerArena /></ProtectedRoute>} />
-    <Route path="/finger/results" element={<ProtectedRoute><FingerResults /></ProtectedRoute>} />
+    {/* Legacy finger routes - redirect to new arena */}
+    <Route path="/finger" element={<Navigate to="/arena" replace />} />
+    <Route path="/finger/*" element={<Navigate to="/arena" replace />} />
     
-    {/* New Cycle-based Arena routes */}
+    {/* Royal Rumble Arena */}
     <Route path="/arena" element={<ProtectedRoute><ArenaListing /></ProtectedRoute>} />
     <Route path="/arena/:cycleId" element={<ProtectedRoute><CycleArena /></ProtectedRoute>} />
     <Route path="/arena/:cycleId/results" element={<ProtectedRoute><CycleResults /></ProtectedRoute>} />
