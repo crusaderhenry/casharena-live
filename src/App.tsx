@@ -10,6 +10,7 @@ import { NotificationProvider } from "@/components/PushNotification";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { TestModeBanner } from "@/components/wallet/TestModeBanner";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 // Auth
 import { AuthPage } from "@/pages/AuthPage";
@@ -248,6 +249,7 @@ const App = () => (
                 <Sonner />
                 <BrowserRouter>
                   <TestModeBanner />
+                  <PWAInstallPrompt />
                   <AppRoutes />
                 </BrowserRouter>
               </NotificationProvider>
