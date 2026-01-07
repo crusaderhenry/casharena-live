@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { WalletCard } from '@/components/WalletCard';
 import { BottomNav } from '@/components/BottomNav';
-import { TestModeToggle } from '@/components/TestControls';
+import { NotificationCenter } from '@/components/NotificationCenter';
 import { CycleStatusCard } from '@/components/CycleStatusCard';
 import { WinnerStories } from '@/components/WinnerStories';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
@@ -181,7 +181,7 @@ export const Home = () => {
               )}
             </div>
           </div>
-          <TestModeToggle />
+          <NotificationCenter />
         </div>
 
         {/* Notification Ticker */}

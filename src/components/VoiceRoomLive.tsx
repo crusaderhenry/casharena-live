@@ -263,18 +263,6 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Host mute toggle */}
-          <button
-            onClick={toggleHostMute}
-            className={`p-2 rounded-full transition-all ${
-              isHostMuted 
-                ? 'bg-orange-500/20 text-orange-400' 
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
-            title={isHostMuted ? 'Unmute Host' : 'Mute Host'}
-          >
-            <VolumeOff className="w-4 h-4" />
-          </button>
 
           {/* Speaker toggle (voice room) */}
           <button

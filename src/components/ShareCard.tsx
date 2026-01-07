@@ -51,7 +51,9 @@ export const ShareCard = ({ username, avatar, position, amount, gameType }: Shar
     }
   };
 
-  const shareMessage = `🎉 I just won ${formatMoneyFull(amount)} on FortunesHQ! ${getPositionText()} in ${gameType === 'finger' ? 'Royal Rumble' : 'Lucky Pool'}! 🚀\n\nJoin me and win big! 💰`;
+  const appUrl = window.location.origin;
+  const gameLink = `${appUrl}/arena`;
+  const shareMessage = `🎉 I just won ${formatMoneyFull(amount)} on FortunesHQ! ${getPositionText()} in ${gameType === 'finger' ? 'Royal Rumble' : 'Lucky Pool'}! 🚀\n\nJoin me and win big! 💰\n\n🎮 Play now: ${gameLink}`;
 
   const storyCardRef = useRef<HTMLDivElement>(null);
 
@@ -341,20 +343,8 @@ export const ShareCard = ({ username, avatar, position, amount, gameType }: Shar
         </div>
       </div>
 
-      {/* Caption Preview */}
-      <div className="bg-card rounded-xl p-4 border border-border">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Caption</p>
-          <button
-            onClick={handleCopyMessage}
-            className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-          >
-            {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
-        </div>
-        <p className="text-sm text-foreground whitespace-pre-line">{shareMessage}</p>
-      </div>
+      {/* Caption - hidden from preview, auto-included in shares */}
+      <input type="hidden" value={shareMessage} />
 
       {/* Share Buttons */}
       <div className="grid grid-cols-2 gap-3">
