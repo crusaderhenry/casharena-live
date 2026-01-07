@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Zap, Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Zap, Mail, Lock, User, ArrowRight, Eye, EyeOff, Shield } from 'lucide-react';
 import { z } from 'zod';
 
 const emailSchema = z.string().email('Invalid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
 const usernameSchema = z.string().min(3, 'Username must be at least 3 characters').max(20, 'Username too long');
+
+const REMEMBERED_EMAIL_KEY = 'fortunes_remembered_email';
 
 export const AuthPage = () => {
   const navigate = useNavigate();
@@ -16,8 +18,17 @@ export const AuthPage = () => {
   const [username, setUsername] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [memberLoading, setMemberLoading] = useState(false);
+  const [devLoading, setDevLoading] = useState<'member' | 'admin' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rememberEmail, setRememberEmail] = useState(true);
+
+  // Load remembered email on mount
+  useEffect(() => {
+    const remembered = localStorage.getItem(REMEMBERED_EMAIL_KEY);
+    if (remembered) {
+      setEmail(remembered);
+    }
+  }, []);
 
   const validateInputs = () => {
     try {
@@ -59,6 +70,13 @@ export const AuthPage = () => {
           return;
         }
 
+        // Remember email on successful login
+        if (rememberEmail) {
+          localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+        } else {
+          localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+        }
+
         navigate('/home');
       } else {
         // Sign up
@@ -83,6 +101,11 @@ export const AuthPage = () => {
           return;
         }
 
+        // Remember email on successful signup
+        if (rememberEmail) {
+          localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+        }
+
         navigate('/home');
       }
     } catch (err) {
@@ -92,47 +115,71 @@ export const AuthPage = () => {
     }
   };
 
-  // Quick member login for development
-  const handleMemberLogin = async () => {
+  // Quick dev login helper
+  const handleDevLogin = async (type: 'member' | 'admin') => {
     setError(null);
-    setMemberLoading(true);
+    setDevLoading(type);
+    
+    const credentials = type === 'member' 
+      ? { email: 'member@test.com', password: 'member123', username: 'TestMember', avatar: '🧪' }
+      : { email: 'admin@test.com', password: 'admin123', username: 'TestAdmin', avatar: '🛡️' };
     
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: 'member@test.com',
-        password: 'member123',
+      // Try to sign in first
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
       });
       
-      if (error) {
-        // If member doesn't exist, create one
-        if (error.message.includes('Invalid login credentials')) {
-          const { error: signUpError } = await supabase.auth.signUp({
-            email: 'member@test.com',
-            password: 'member123',
-            options: {
-              emailRedirectTo: `${window.location.origin}/home`,
-              data: {
-                username: 'TestMember',
-                avatar: '🧪',
-              },
-            },
-          });
-          
-          if (signUpError) {
-            setError(signUpError.message);
-            return;
-          }
-        } else {
-          setError(error.message);
-          return;
-        }
+      if (!signInError) {
+        navigate('/home');
+        return;
       }
       
-      navigate('/home');
+      // If login fails, try to create the account
+      if (signInError.message.includes('Invalid login credentials')) {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: credentials.email,
+          password: credentials.password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/home`,
+            data: {
+              username: credentials.username,
+              avatar: credentials.avatar,
+            },
+          },
+        });
+        
+        if (signUpError) {
+          // If signup fails because user exists, try login again (email confirmation might be pending)
+          if (signUpError.message.includes('already registered')) {
+            setError(`${type === 'member' ? 'Member' : 'Admin'} account exists but login failed. Check email confirmation.`);
+          } else {
+            setError(signUpError.message);
+          }
+          return;
+        }
+        
+        // After signup, try to login again
+        const { error: retryError } = await supabase.auth.signInWithPassword({
+          email: credentials.email,
+          password: credentials.password,
+        });
+        
+        if (retryError) {
+          // Signup succeeded but login failed - might need email confirmation
+          setError('Account created! Enable auto-confirm in backend settings for instant login.');
+          return;
+        }
+        
+        navigate('/home');
+      } else {
+        setError(signInError.message);
+      }
     } catch (err) {
       setError('An unexpected error occurred');
     } finally {
-      setMemberLoading(false);
+      setDevLoading(null);
     }
   };
 
@@ -213,6 +260,20 @@ export const AuthPage = () => {
               </div>
             </div>
 
+            {/* Remember Email Toggle */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="rememberEmail"
+                checked={rememberEmail}
+                onChange={(e) => setRememberEmail(e.target.checked)}
+                className="w-4 h-4 rounded border-border bg-muted text-primary focus:ring-primary"
+              />
+              <label htmlFor="rememberEmail" className="text-sm text-muted-foreground">
+                Remember my email
+              </label>
+            </div>
+
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
                 <p className="text-sm text-red-400">{error}</p>
@@ -250,18 +311,33 @@ export const AuthPage = () => {
             </p>
           </div>
 
-          {/* Quick Member Login */}
-          <div className="mt-4 pt-4 border-t border-border">
+          {/* Quick Dev Logins */}
+          <div className="mt-4 pt-4 border-t border-border space-y-2">
             <button
               type="button"
-              onClick={handleMemberLogin}
-              disabled={memberLoading}
+              onClick={() => handleDevLogin('member')}
+              disabled={devLoading !== null}
               className="w-full py-3 bg-muted hover:bg-muted/80 text-muted-foreground rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
             >
-              {memberLoading ? (
+              {devLoading === 'member' ? (
                 <div className="w-4 h-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
               ) : (
-                '🧪 Member Login (Dev)'
+                <>🧪 Member Login (Dev)</>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDevLogin('admin')}
+              disabled={devLoading !== null}
+              className="w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              {devLoading === 'admin' ? (
+                <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Shield className="w-4 h-4" />
+                  Admin Login (Dev)
+                </>
               )}
             </button>
           </div>
