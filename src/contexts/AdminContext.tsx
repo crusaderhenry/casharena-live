@@ -562,19 +562,26 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const cancelGame = useCallback(async (gameId: string, reason: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { action: 'cancel_game', gameId, reason },
-      });
+      // Update cycle status to cancelled
+      const { error } = await supabase
+        .from('game_cycles')
+        .update({ 
+          status: 'cancelled',
+          actual_end_at: new Date().toISOString(),
+          settlement_data: { cancelled_reason: reason }
+        })
+        .eq('id', gameId);
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+
+      // TODO: Trigger refunds for participants via cycle-manager if needed
 
       if (gameId === currentGame?.id) {
         setCurrentGame(null);
         setIsSimulating(false);
         setLiveComments([]);
       }
-      toast({ title: 'Game Cancelled', description: 'Game has been cancelled and participants will be refunded' });
+      toast({ title: 'Game Cancelled', description: 'Game has been cancelled' });
       refreshData();
     } catch (error: any) {
       console.error('Cancel game error:', error);
@@ -584,19 +591,50 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteGame = useCallback(async (gameId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { action: 'delete_game', gameId },
-      });
+      // Only allow deleting cycles that are cancelled or settled
+      const { data: cycle } = await supabase
+        .from('game_cycles')
+        .select('status')
+        .eq('id', gameId)
+        .single();
+
+      if (cycle && !['cancelled', 'settled'].includes(cycle.status)) {
+        toast({ title: 'Cannot Delete', description: 'Only cancelled or settled cycles can be deleted', variant: 'destructive' });
+        return;
+      }
+
+      // Delete cycle participants first
+      await supabase
+        .from('cycle_participants')
+        .delete()
+        .eq('cycle_id', gameId);
+
+      // Delete cycle comments
+      await supabase
+        .from('cycle_comments')
+        .delete()
+        .eq('cycle_id', gameId);
+
+      // Delete cycle winners
+      await supabase
+        .from('cycle_winners')
+        .delete()
+        .eq('cycle_id', gameId);
+
+      // Delete the cycle
+      const { error } = await supabase
+        .from('game_cycles')
+        .delete()
+        .eq('id', gameId);
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
 
       if (gameId === currentGame?.id) {
         setCurrentGame(null);
         setIsSimulating(false);
         setLiveComments([]);
       }
-      toast({ title: 'Game Deleted', description: 'Game has been permanently deleted' });
+      toast({ title: 'Cycle Deleted', description: 'Game cycle has been permanently deleted' });
       refreshData();
     } catch (error: any) {
       console.error('Delete game error:', error);
