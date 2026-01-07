@@ -19,13 +19,23 @@ interface VoiceRoomLiveProps {
   onMicToggle?: (enabled: boolean) => void;
   onSpeakerToggle?: (enabled: boolean) => void;
   onHostMuteToggle?: (muted: boolean) => void;
+  simulatedParticipants?: Array<{
+    user_id: string;
+    username: string;
+    avatar: string;
+    is_speaking: boolean;
+    is_muted: boolean;
+  }>;
 }
 
-export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMuteToggle }: VoiceRoomLiveProps) => {
+export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMuteToggle, simulatedParticipants }: VoiceRoomLiveProps) => {
   const { user, profile } = useAuth();
   const { isTestMode } = useGame();
   const { settings: audioSettings, setVoiceRoomMuted, setHostMuted } = useAudio();
   const { mockVoiceParticipants } = useMockSimulation(isTestMode, gameId);
+  
+  // Priority: simulatedParticipants > mockVoiceParticipants > real participants
+  const hasSimulatedParticipants = simulatedParticipants && simulatedParticipants.length > 0;
   
   const [participants, setParticipants] = useState<VoiceParticipant[]>([]);
   const [isMicEnabled, setIsMicEnabled] = useState(false);
@@ -247,10 +257,15 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
   const isSpeakerEnabled = !audioSettings.voiceRoomMuted;
   const isHostMuted = audioSettings.hostMuted;
 
-  // Use mock participants in test mode, real ones otherwise
-  const displaySource = isTestMode ? mockVoiceParticipants : participants;
+  // Use simulated > mock > real participants
+  const displaySource = hasSimulatedParticipants 
+    ? simulatedParticipants 
+    : isTestMode 
+      ? mockVoiceParticipants 
+      : participants;
   const speakingParticipants = displaySource.filter(p => p.is_speaking);
   const displayParticipants = displaySource.slice(0, 6);
+  const totalOnline = displaySource.length;
 
   return (
     <div className="bg-card/80 backdrop-blur-sm rounded-xl p-3 border border-border/50">
@@ -259,7 +274,7 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
         <div className="flex items-center gap-2">
           <Radio className={`w-4 h-4 ${isSpeakerEnabled ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
           <span className="text-sm font-semibold text-foreground">Voice Room</span>
-          <span className="text-xs text-muted-foreground">• {displaySource.length} online</span>
+          <span className="text-xs text-muted-foreground">• {totalOnline} online</span>
         </div>
 
         <div className="flex items-center gap-1.5">
