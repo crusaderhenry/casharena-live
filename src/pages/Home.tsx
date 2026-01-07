@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { WalletCard } from '@/components/WalletCard';
 import { BottomNav } from '@/components/BottomNav';
 import { TestModeToggle } from '@/components/TestControls';
-import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutorial';
+
 import { GameStatusCard } from '@/components/GameStatusCard';
 import { WinnerStories } from '@/components/WinnerStories';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
@@ -25,7 +25,6 @@ export const Home = () => {
   const navigate = useNavigate();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
-  const { showOnboarding, completeOnboarding } = useOnboarding();
   const [recentWinners, setRecentWinners] = useState<any[]>([]);
   const [allGames, setAllGames] = useState<any[]>([]);
   const [activeNotification, setActiveNotification] = useState(0);
@@ -188,7 +187,6 @@ export const Home = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      {showOnboarding && <OnboardingTutorial onComplete={completeOnboarding} />}
       
       {showCelebration && newBadge && (
         <BadgeCelebration badge={newBadge} onDismiss={dismissCelebration} />

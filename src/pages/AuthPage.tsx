@@ -16,6 +16,7 @@ export const AuthPage = () => {
   const [username, setUsername] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [memberLoading, setMemberLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const validateInputs = () => {
@@ -88,6 +89,50 @@ export const AuthPage = () => {
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Quick member login for development
+  const handleMemberLogin = async () => {
+    setError(null);
+    setMemberLoading(true);
+    
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: 'member@test.com',
+        password: 'member123',
+      });
+      
+      if (error) {
+        // If member doesn't exist, create one
+        if (error.message.includes('Invalid login credentials')) {
+          const { error: signUpError } = await supabase.auth.signUp({
+            email: 'member@test.com',
+            password: 'member123',
+            options: {
+              emailRedirectTo: `${window.location.origin}/home`,
+              data: {
+                username: 'TestMember',
+                avatar: '🧪',
+              },
+            },
+          });
+          
+          if (signUpError) {
+            setError(signUpError.message);
+            return;
+          }
+        } else {
+          setError(error.message);
+          return;
+        }
+      }
+      
+      navigate('/home');
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setMemberLoading(false);
     }
   };
 
@@ -203,6 +248,22 @@ export const AuthPage = () => {
                 {isLogin ? 'Sign Up' : 'Sign In'}
               </button>
             </p>
+          </div>
+
+          {/* Quick Member Login */}
+          <div className="mt-4 pt-4 border-t border-border">
+            <button
+              type="button"
+              onClick={handleMemberLogin}
+              disabled={memberLoading}
+              className="w-full py-3 bg-muted hover:bg-muted/80 text-muted-foreground rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              {memberLoading ? (
+                <div className="w-4 h-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+              ) : (
+                '🧪 Member Login (Dev)'
+              )}
+            </button>
           </div>
         </div>
 
