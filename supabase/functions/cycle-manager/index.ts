@@ -400,56 +400,45 @@ async function settleCycle(supabase: any, cycleId: string) {
       prize_amount: prize,
     });
 
-    // Credit wallet
+    // Credit wallet and update stats
     if (prize > 0) {
-      await supabase.rpc('credit_wallet', { p_user_id: userId, p_amount: prize });
+      // Fetch current profile to update incrementally
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('wallet_balance, rank_points, total_wins')
+        .eq('id', userId)
+        .single();
       
-      // Or direct update if RPC doesn't exist
-      const { error: walletError } = await supabase
-        .from('profiles')
-        .update({ wallet_balance: supabase.sql`wallet_balance + ${prize}` })
-        .eq('id', userId);
-
-      if (walletError) {
-        // Fallback: fetch and update
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('wallet_balance')
-          .eq('id', userId)
-          .single();
+      if (profile) {
+        const rankPoints = [100, 60, 30, 10, 10][i] || 5;
         
-        if (profile) {
-          await supabase
-            .from('profiles')
-            .update({ wallet_balance: profile.wallet_balance + prize })
-            .eq('id', userId);
-        }
+        // Update wallet balance and stats
+        await supabase
+          .from('profiles')
+          .update({ 
+            wallet_balance: profile.wallet_balance + prize,
+            rank_points: profile.rank_points + rankPoints,
+            total_wins: profile.total_wins + 1,
+          })
+          .eq('id', userId);
+        
+        // Record transaction
+        await supabase.from('wallet_transactions').insert({
+          user_id: userId,
+          type: 'win',
+          amount: prize,
+          description: `Royal Rumble - Position ${i + 1}`,
+        });
+
+        // Record rank history
+        await supabase.from('rank_history').insert({
+          user_id: userId,
+          points: rankPoints,
+          reason: `Position ${i + 1} in Royal Rumble`,
+        });
+        
+        console.log(`[settle] Credited ₦${prize} + ${rankPoints} rank points to ${userId}`);
       }
-
-      // Record transaction
-      await supabase.from('wallet_transactions').insert({
-        user_id: userId,
-        type: 'win',
-        amount: prize,
-        description: `Royal Rumble - Position ${i + 1}`,
-      });
-
-      // Record rank history
-      const rankPoints = [100, 60, 30, 10, 10][i] || 5;
-      await supabase.from('rank_history').insert({
-        user_id: userId,
-        points: rankPoints,
-        reason: `Position ${i + 1} in Royal Rumble`,
-      });
-
-      // Update profile stats
-      await supabase
-        .from('profiles')
-        .update({
-          rank_points: supabase.sql`rank_points + ${rankPoints}`,
-          total_wins: supabase.sql`total_wins + 1`,
-        })
-        .eq('id', userId);
     }
 
     console.log(`[settle] Winner ${i + 1}: ${userId} wins ₦${prize}`);
@@ -468,10 +457,22 @@ async function settleCycle(supabase: any, cycleId: string) {
     .eq('is_spectator', false);
 
   for (const p of participants || []) {
-    await supabase
+    // Fetch and update games_played
+    const { data: pProfile } = await supabase
       .from('profiles')
-      .update({ games_played: supabase.sql`games_played + 1` })
-      .eq('id', p.user_id);
+      .select('games_played, rank_points')
+      .eq('id', p.user_id)
+      .single();
+    
+    if (pProfile) {
+      await supabase
+        .from('profiles')
+        .update({ 
+          games_played: pProfile.games_played + 1,
+          rank_points: pProfile.rank_points + 5,
+        })
+        .eq('id', p.user_id);
+    }
     
     // Participation rank points
     await supabase.from('rank_history').insert({
