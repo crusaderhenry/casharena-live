@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.verify-kyc]
 verify_jwt = false
+
+[functions.cycle-manager]
+verify_jwt = false
