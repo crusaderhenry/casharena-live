@@ -51,7 +51,7 @@ export const ShareCard = ({ username, avatar, position, amount, gameType }: Shar
     }
   };
 
-  const shareMessage = `🎉 I just won ${formatMoneyFull(amount)} on FortunesHQ! ${getPositionText()} in ${gameType === 'finger' ? 'Fastest Finger' : 'Lucky Pool'}! 🚀\n\nJoin me and win big! 💰`;
+  const shareMessage = `🎉 I just won ${formatMoneyFull(amount)} on FortunesHQ! ${getPositionText()} in ${gameType === 'finger' ? 'Royal Rumble' : 'Lucky Pool'}! 🚀\n\nJoin me and win big! 💰`;
 
   const storyCardRef = useRef<HTMLDivElement>(null);
 

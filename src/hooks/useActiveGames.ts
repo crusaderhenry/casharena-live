@@ -41,8 +41,8 @@ interface UseActiveGamesOptions {
 const mockGames: ActiveGame[] = [
   {
     id: 'mock-1',
-    name: 'Fastest Finger',
-    description: 'Last comment wins!',
+    name: 'Royal Rumble',
+    description: 'Last active player wins!',
     status: 'live',
     pool_value: 35000,
     effective_prize_pool: 35000,
@@ -144,7 +144,7 @@ export const useActiveGames = (isTestMode: boolean = false) => {
 
       const mappedGames: ActiveGame[] = (data || []).map((g: any) => ({
         id: g.id,
-        name: g.name || 'Fastest Finger',
+        name: g.name || 'Royal Rumble',
         description: g.description,
         status: g.status as ActiveGame['status'],
         pool_value: g.pool_value,

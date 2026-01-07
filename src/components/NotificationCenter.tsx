@@ -62,11 +62,11 @@ export const NotificationCenter = () => {
       message = `${getPositionText(activity.position || 1)} place - ₦${(activity.amount || 0).toLocaleString()}`;
     } else if (activity.type === 'game_start') {
       type = 'game_start';
-      title = `⚡ ${activity.gameName || 'Fastest Finger'} is LIVE!`;
+      title = `⚡ ${activity.gameName || 'Royal Rumble'} is LIVE!`;
       message = `Pool: ₦${(activity.amount || 0).toLocaleString()} - Join now!`;
     } else if (activity.type === 'game_end') {
       type = 'game_end';
-      title = `🏁 ${activity.gameName || 'Fastest Finger'} Ended`;
+      title = `🏁 ${activity.gameName || 'Royal Rumble'} Ended`;
       message = 'Check the results!';
     }
 

@@ -367,7 +367,7 @@ export const FingerMain = () => {
                       )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-foreground">{selectedGame.name || 'Fastest Finger'}</h3>
+                      <h3 className="font-bold text-foreground">{selectedGame.name || 'Royal Rumble'}</h3>
                       <p className="text-xs text-muted-foreground">
                         {selectedGame.status === 'live' ? 'Live now' : selectedGame.status === 'open' ? 'Entry open' : 'Coming soon'}
                         {' • '}{getPayoutLabel(selectedGame.payout_type || 'top3')}

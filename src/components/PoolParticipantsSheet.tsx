@@ -52,7 +52,7 @@ SheetTriggerButton.displayName = 'SheetTriggerButton';
 
 export const PoolParticipantsSheet = ({ 
   gameId, 
-  gameName = 'Fastest Finger',
+  gameName = 'Royal Rumble',
   participantCount: initialCount, 
   poolValue: initialPoolValue,
   entryFee = 700,

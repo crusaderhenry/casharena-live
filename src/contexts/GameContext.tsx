@@ -100,7 +100,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [poolValue, setPoolValueState] = useState(250000);
   const [hasJoinedPool, setHasJoinedPool] = useState(false);
   
-  // Activity - Fastest Finger focused
+  // Activity - Royal Rumble focused
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([
     {
       id: '1',

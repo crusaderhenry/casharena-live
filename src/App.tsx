@@ -17,7 +17,7 @@ import { AuthPage } from "@/pages/AuthPage";
 // Main
 import { Home } from "@/pages/Home";
 
-// Fastest Finger
+// Royal Rumble
 import { FingerMain } from "@/pages/finger/FingerMain";
 import { FingerLobby } from "@/pages/finger/FingerLobby";
 import { FingerArena } from "@/pages/finger/FingerArena";
@@ -191,7 +191,7 @@ const AppRoutes = () => (
     {/* Protected Routes */}
     <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
     
-    {/* Fastest Finger - The main game */}
+    {/* Royal Rumble - The main game */}
     <Route path="/finger" element={<ProtectedRoute><FingerMain /></ProtectedRoute>} />
     <Route path="/finger/lobby" element={<ProtectedRoute><FingerLobby /></ProtectedRoute>} />
     <Route path="/finger/arena" element={<ProtectedRoute><FingerArena /></ProtectedRoute>} />

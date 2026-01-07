@@ -326,7 +326,7 @@ export const AdminRumbleControl = () => {
         const scheduledTime = data.scheduled_at ? new Date(data.scheduled_at).toTimeString().slice(0, 5) : getDefaultDateTime().time;
         
         setFormData({
-          name: (data as any).name || 'Fastest Finger',
+          name: (data as any).name || 'Royal Rumble',
           description: (data as any).description || '',
           entryFee: data.entry_fee,
           maxDuration: data.max_duration,
@@ -1292,7 +1292,7 @@ export const AdminRumbleControl = () => {
               <div key={game.id} className="bg-card rounded-xl border border-destructive/20 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="font-bold text-foreground">{game.name || 'Fastest Finger'}</h3>
+                    <h3 className="font-bold text-foreground">{game.name || 'Royal Rumble'}</h3>
                     <p className="text-xs text-muted-foreground">ID: {game.id.slice(0, 8)}...</p>
                   </div>
                   <div className="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-destructive/20 text-destructive border border-destructive/30">
@@ -1356,7 +1356,7 @@ export const AdminRumbleControl = () => {
                 {recentEndedGames.map(game => (
                   <tr key={game.id} className="border-t border-border">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-foreground">{game.name || 'Fastest Finger'}</p>
+                      <p className="font-medium text-foreground">{game.name || 'Royal Rumble'}</p>
                       <p className="text-xs text-muted-foreground">{game.id.slice(0, 12)}...</p>
                     </td>
                     <td className="px-4 py-3 text-foreground">₦{game.entryFee}</td>

@@ -359,7 +359,7 @@ serve(async (req) => {
             user_id: winnerId,
             type: 'win',
             amount: prize,
-            description: `${(game as any).name || 'Fastest Finger'} - Position ${position}`,
+            description: `${(game as any).name || 'Royal Rumble'} - Position ${position}`,
             game_id: gameId,
           });
 
