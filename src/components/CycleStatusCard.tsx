@@ -188,18 +188,16 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
               <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">JOINED</span>
             )}
           </div>
-        ) : cycle.status === 'live' ? (
+        ) : cycle.status === 'live' || cycle.status === 'ending' ? (
           <div className="flex items-center gap-2">
             {isParticipant ? (
               <span className="text-sm font-bold text-green-400 flex items-center gap-1">
                 <Sparkles className="w-4 h-4" /> You're In!
               </span>
-            ) : cycle.allow_spectators ? (
-              <span className="text-sm text-muted-foreground flex items-center gap-1">
-                <Eye className="w-4 h-4" /> Watch Live
-              </span>
             ) : (
-              <span className="text-sm text-muted-foreground">Entries Closed</span>
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <Eye className="w-4 h-4" /> {cycle.allow_spectators ? 'Spectate Available' : 'Entries Closed'}
+              </span>
             )}
           </div>
         ) : (
@@ -210,8 +208,13 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
           </div>
         )}
         
+        {/* CTA - Always leads to Lobby */}
         <div className="flex items-center gap-1 text-primary text-sm font-medium group-hover:translate-x-1 transition-transform">
-          {cycle.status === 'opening' ? 'Join Now' : cycle.status === 'live' ? 'Enter Arena' : 'View'}
+          {cycle.status === 'live' || cycle.status === 'ending' 
+            ? 'Watch Live' 
+            : cycle.status === 'opening' 
+              ? 'Enter Game' 
+              : 'View Lobby'}
           <Zap className="w-4 h-4" />
         </div>
       </div>

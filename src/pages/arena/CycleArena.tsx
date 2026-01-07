@@ -311,9 +311,10 @@ export const CycleArena = () => {
 
         {/* Action Area */}
         <div className="sticky bottom-0 bg-background border-t border-border p-4 space-y-3">
-          {/* Not joined yet */}
+          {/* Not joined yet - State-aware actions */}
           {!participation.isParticipant && (
             <div className="flex gap-3">
+              {/* Opening: Show Enter Game button */}
               {cycle.status === 'opening' && (
                 <button
                   onClick={() => handleJoin(false)}
@@ -325,24 +326,39 @@ export const CycleArena = () => {
                   ) : (
                     <>
                       <Zap className="w-5 h-5" />
-                      Join Now • {cycle.entry_fee > 0 ? formatMoney(cycle.entry_fee) : 'FREE'}
+                      Enter Game • {cycle.entry_fee > 0 ? formatMoney(cycle.entry_fee) : 'FREE'}
                     </>
                   )}
                 </button>
               )}
-              {isLive && cycle.allow_spectators && (
-                <button
-                  onClick={() => handleJoin(true)}
-                  disabled={joining}
-                  className="flex-1 py-3 px-4 rounded-xl bg-muted text-foreground font-medium flex items-center justify-center gap-2"
-                >
-                  <Eye className="w-5 h-5" />
-                  Watch
-                </button>
+              
+              {/* Live: Show Watch as Spectator button if allowed */}
+              {isLive && (
+                <>
+                  {cycle.allow_spectators ? (
+                    <button
+                      onClick={() => handleJoin(true)}
+                      disabled={joining}
+                      className="flex-1 py-3 px-4 rounded-xl bg-muted text-foreground font-medium flex items-center justify-center gap-2"
+                    >
+                      <Eye className="w-5 h-5" />
+                      Watch as Spectator
+                    </button>
+                  ) : (
+                    <div className="flex-1 py-3 px-4 rounded-xl bg-muted text-center">
+                      <p className="text-sm text-muted-foreground">Entry closed • Spectating disabled</p>
+                    </div>
+                  )}
+                </>
               )}
+              
+              {/* Waiting: Entry disabled with clear message */}
               {cycle.status === 'waiting' && (
-                <div className="flex-1 py-3 px-4 rounded-xl bg-muted text-center">
-                  <p className="text-sm text-muted-foreground">Game opens soon</p>
+                <div className="flex-1 py-3 px-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center">
+                  <p className="text-sm text-blue-400 font-medium flex items-center justify-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Entry opens soon
+                  </p>
                 </div>
               )}
             </div>
