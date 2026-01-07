@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCycleJoin } from '@/hooks/useCycleJoin';
 import { useCycleComments } from '@/hooks/useCycleComments';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useCycleHostTTS } from '@/hooks/useCycleHostTTS';
+import { useLiveArenaSimulation } from '@/hooks/useLiveArenaSimulation';
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceRoomLive } from '@/components/VoiceRoomLive';
 import { CompactHostBanner } from '@/components/CompactHostBanner';
@@ -49,12 +50,33 @@ interface CycleData {
 
 export const CycleArena = () => {
   const { cycleId } = useParams<{ cycleId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
   const { joinCycle, joining, checkParticipation } = useCycleJoin();
-  const { comments, sendComment, sending, getOrderedCommenters } = useCycleComments(cycleId || null);
+  const { comments: realComments, sendComment: sendRealComment, sending, getOrderedCommenters: getRealOrderedCommenters } = useCycleComments(cycleId || null);
+  
+  // Demo mode for simulation - enabled via ?demo=true
+  const isDemoMode = searchParams.get('demo') === 'true';
+  
+  // Live arena simulation hook for demo mode
+  const {
+    simulatedComments,
+    voiceParticipants: simVoiceParticipants,
+    countdown: simCountdown,
+    winnerSelected,
+    winner: simWinner,
+    addUserComment,
+    getOrderedCommenters: getSimOrderedCommenters,
+    participantCount: simParticipantCount,
+  } = useLiveArenaSimulation(
+    isDemoMode,
+    cycleId || null,
+    user?.id,
+    profile ? { username: profile.username, avatar: profile.avatar || '🎮' } : undefined
+  );
   
   const [cycle, setCycle] = useState<CycleData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,6 +92,10 @@ export const CycleArena = () => {
   const commentsContainerRef = useRef<HTMLDivElement>(null);
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
+  
+  // Use simulated or real data based on demo mode
+  const comments = isDemoMode ? simulatedComments : realComments;
+  const getOrderedCommenters = isDemoMode ? getSimOrderedCommenters : getRealOrderedCommenters;
   
   // Arena entrance animation
   useEffect(() => {
@@ -136,15 +162,20 @@ export const CycleArena = () => {
     fetchCycle();
   }, [fetchCycle]);
 
-  // Check user participation
+  // Check user participation - in demo mode, always a participant
   useEffect(() => {
+    if (isDemoMode) {
+      setParticipation({ isParticipant: true, isSpectator: false });
+      return;
+    }
+    
     const check = async () => {
       if (!cycleId) return;
       const result = await checkParticipation(cycleId);
       setParticipation(result);
     };
     check();
-  }, [cycleId, checkParticipation]);
+  }, [cycleId, checkParticipation, isDemoMode]);
 
   // Real-time subscription
   useEffect(() => {
@@ -259,9 +290,17 @@ export const CycleArena = () => {
     if (!commentText.trim() || !participation.isParticipant || participation.isSpectator) return;
     
     play('click');
-    const success = await sendComment(commentText);
-    if (success) {
+    
+    if (isDemoMode) {
+      // In demo mode, add comment to simulation
+      addUserComment(commentText);
       setCommentText('');
+    } else {
+      // In real mode, send to database
+      const success = await sendRealComment(commentText);
+      if (success) {
+        setCommentText('');
+      }
     }
   };
 
@@ -304,7 +343,11 @@ export const CycleArena = () => {
   const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
   const canComment = participation.isParticipant && !participation.isSpectator && isLive;
   const orderedCommenters = getOrderedCommenters();
-  const isCountdownCritical = localCountdown <= 10 && isLive;
+  // Use simulated countdown in demo mode
+  const displayCountdown = isDemoMode ? simCountdown : localCountdown;
+  const isCountdownCritical = displayCountdown <= 10 && isLive;
+  // Use simulated participant count in demo mode
+  const displayParticipantCount = isDemoMode ? simParticipantCount : cycle.participant_count;
 
   return (
     <div className={`min-h-screen bg-background flex flex-col transition-all duration-500 ease-out ${isEntering ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
@@ -369,7 +412,7 @@ export const CycleArena = () => {
             <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
               <Users className="w-3 h-3" /> Players
             </p>
-            <p className="text-lg font-bold text-foreground">{cycle.participant_count}</p>
+            <p className="text-lg font-bold text-foreground">{displayParticipantCount}</p>
           </div>
           
           {/* Waiting: Show time until entry opens */}
@@ -455,7 +498,7 @@ export const CycleArena = () => {
                   ⏱️ Comment to Stay Alive
                 </p>
                 <LiveTimer 
-                  seconds={localCountdown} 
+                  seconds={displayCountdown} 
                   size="lg" 
                   warning={isCountdownCritical} 
                 />
@@ -521,7 +564,10 @@ export const CycleArena = () => {
         {/* Voice Room */}
         {isLive && cycleId && (
           <div className="mb-4">
-            <VoiceRoomLive gameId={cycleId} />
+            <VoiceRoomLive 
+              gameId={cycleId} 
+              simulatedParticipants={isDemoMode ? simVoiceParticipants : undefined}
+            />
           </div>
         )}
 
