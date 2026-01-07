@@ -77,11 +77,12 @@ export const PoolParticipantsSheet = ({
     const fetchParticipants = async () => {
       setLoading(true);
       
-      // Fetch real participants
+      // Fetch real participants from cycle_participants
       const { data: realParticipants } = await supabase
-        .from('fastest_finger_participants')
+        .from('cycle_participants')
         .select('*')
-        .eq('game_id', gameId)
+        .eq('cycle_id', gameId)
+        .eq('is_spectator', false)
         .order('joined_at', { ascending: false });
 
       // Fetch mock participants for display
@@ -122,10 +123,11 @@ export const PoolParticipantsSheet = ({
     const channel = supabase
       .channel(`pool-sheet-${gameId}`)
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'fastest_finger_participants', filter: `game_id=eq.${gameId}` },
+        { event: '*', schema: 'public', table: 'cycle_participants', filter: `cycle_id=eq.${gameId}` },
         async (payload) => {
           if (payload.eventType === 'INSERT') {
             const newP = payload.new as any;
+            if (newP.is_spectator) return; // Skip spectators
             const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: newP.user_id });
             setParticipants(prev => [{ ...newP, profile: profileData?.[0] }, ...prev]);
             setParticipantCount(prev => prev + 1);

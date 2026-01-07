@@ -37,11 +37,11 @@ export const ModeratorDashboard = () => {
           .select('*', { count: 'exact', head: true })
           .gte('created_at', yesterday.toISOString());
 
-        // Get active games
+        // Get active cycles
         const { count: gamesCount } = await supabase
-          .from('fastest_finger_games')
+          .from('game_cycles')
           .select('*', { count: 'exact', head: true })
-          .in('status', ['scheduled', 'live']);
+          .in('status', ['waiting', 'opening', 'live']);
 
         setStats({
           totalUsers: usersCount || 0,

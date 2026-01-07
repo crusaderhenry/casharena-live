@@ -16,17 +16,17 @@ export const useRealtimeActivity = (limit = 10) => {
   const [activities, setActivities] = useState<RealActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch recent winners
+  // Fetch recent winners from cycle_winners
   const fetchRecentWinners = useCallback(async () => {
     try {
       const { data: winners, error } = await supabase
-        .from('winners')
+        .from('cycle_winners')
         .select(`
           id,
-          amount_won,
+          prize_amount,
           position,
           created_at,
-          game_id,
+          cycle_id,
           user_id
         `)
         .order('created_at', { ascending: false })
@@ -44,14 +44,14 @@ export const useRealtimeActivity = (limit = 10) => {
 
         const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
-        // Fetch game names
-        const gameIds = [...new Set(winners.map(w => w.game_id))];
-        const { data: games } = await supabase
-          .from('fastest_finger_games')
-          .select('id, name')
-          .in('id', gameIds);
+        // Fetch cycle names via template
+        const cycleIds = [...new Set(winners.map(w => w.cycle_id))];
+        const { data: cycles } = await supabase
+          .from('game_cycles')
+          .select('id, template_id, game_templates!inner(name)')
+          .in('id', cycleIds);
 
-        const gameMap = new Map(games?.map(g => [g.id, g.name || 'Royal Rumble']) || []);
+        const cycleMap = new Map(cycles?.map(c => [c.id, (c.game_templates as any)?.name || 'Royal Rumble']) || []);
 
         const winActivities: RealActivityItem[] = winners.map(w => {
           const profile = profileMap.get(w.user_id);
@@ -60,9 +60,9 @@ export const useRealtimeActivity = (limit = 10) => {
             type: 'finger_win' as const,
             playerName: profile?.username || 'Player',
             playerAvatar: profile?.avatar || '🎮',
-            amount: w.amount_won,
+            amount: w.prize_amount,
             position: w.position,
-            gameName: gameMap.get(w.game_id),
+            gameName: cycleMap.get(w.cycle_id),
             timestamp: new Date(w.created_at),
           };
         });
@@ -76,29 +76,36 @@ export const useRealtimeActivity = (limit = 10) => {
     }
   }, [limit]);
 
-  // Fetch recent game events
+  // Fetch recent game events from game_cycles
   const fetchGameEvents = useCallback(async () => {
     try {
-      const { data: games, error } = await supabase
-        .from('fastest_finger_games')
-        .select('id, name, status, start_time, end_time, pool_value, created_by')
-        .in('status', ['live', 'ended'])
-        .order('start_time', { ascending: false })
+      const { data: cycles, error } = await supabase
+        .from('game_cycles')
+        .select(`
+          id, 
+          status, 
+          live_start_at, 
+          actual_end_at, 
+          pool_value,
+          game_templates!inner(name)
+        `)
+        .in('status', ['live', 'settled'])
+        .order('live_start_at', { ascending: false })
         .limit(5);
 
       if (error) throw error;
 
-      if (games) {
-        const gameActivities: RealActivityItem[] = games
-          .filter(g => g.status === 'live' && g.start_time)
-          .map(g => ({
-            id: `game_start_${g.id}`,
+      if (cycles) {
+        const gameActivities: RealActivityItem[] = cycles
+          .filter(c => c.status === 'live' && c.live_start_at)
+          .map(c => ({
+            id: `game_start_${c.id}`,
             type: 'game_start' as const,
             playerName: 'System',
             playerAvatar: '🎮',
-            gameName: g.name || 'Royal Rumble',
-            amount: g.pool_value,
-            timestamp: new Date(g.start_time!),
+            gameName: (c.game_templates as any)?.name || 'Royal Rumble',
+            amount: c.pool_value,
+            timestamp: new Date(c.live_start_at!),
           }));
 
         setActivities(prev => {
@@ -120,23 +127,23 @@ export const useRealtimeActivity = (limit = 10) => {
     fetchGameEvents();
   }, [fetchRecentWinners, fetchGameEvents]);
 
-  // Subscribe to realtime winners
+  // Subscribe to realtime cycle winners
   useEffect(() => {
     const winnersChannel = supabase
-      .channel('realtime-winners')
+      .channel('realtime-cycle-winners')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'winners',
+          table: 'cycle_winners',
         },
         async (payload) => {
           const winner = payload.new as {
             id: string;
             user_id: string;
-            game_id: string;
-            amount_won: number;
+            cycle_id: string;
+            prize_amount: number;
             position: number;
             created_at: string;
           };
@@ -148,11 +155,11 @@ export const useRealtimeActivity = (limit = 10) => {
             .eq('id', winner.user_id)
             .single();
 
-          // Fetch game name
-          const { data: game } = await supabase
-            .from('fastest_finger_games')
-            .select('name')
-            .eq('id', winner.game_id)
+          // Fetch cycle template name
+          const { data: cycle } = await supabase
+            .from('game_cycles')
+            .select('game_templates!inner(name)')
+            .eq('id', winner.cycle_id)
             .single();
 
           const newActivity: RealActivityItem = {
@@ -160,9 +167,9 @@ export const useRealtimeActivity = (limit = 10) => {
             type: 'finger_win',
             playerName: profile?.username || 'Player',
             playerAvatar: profile?.avatar || '🎮',
-            amount: winner.amount_won,
+            amount: winner.prize_amount,
             position: winner.position,
-            gameName: game?.name || 'Royal Rumble',
+            gameName: (cycle?.game_templates as any)?.name || 'Royal Rumble',
             timestamp: new Date(winner.created_at),
           };
 
@@ -171,47 +178,54 @@ export const useRealtimeActivity = (limit = 10) => {
       )
       .subscribe();
 
-    // Subscribe to game status changes
-    const gamesChannel = supabase
-      .channel('realtime-games-activity')
+    // Subscribe to game cycle status changes
+    const cyclesChannel = supabase
+      .channel('realtime-cycles-activity')
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'fastest_finger_games',
+          table: 'game_cycles',
         },
-        (payload) => {
-          const game = payload.new as {
+        async (payload) => {
+          const cycle = payload.new as {
             id: string;
-            name: string | null;
             status: string;
             pool_value: number;
-            start_time: string | null;
+            template_id: string;
           };
+          const oldCycle = payload.old as { status: string };
 
-          if (game.status === 'live' && payload.old && (payload.old as { status: string }).status !== 'live') {
+          // Fetch template name
+          const { data: template } = await supabase
+            .from('game_templates')
+            .select('name')
+            .eq('id', cycle.template_id)
+            .single();
+
+          if (cycle.status === 'live' && oldCycle.status !== 'live') {
             const newActivity: RealActivityItem = {
-              id: `game_start_${game.id}_${Date.now()}`,
+              id: `game_start_${cycle.id}_${Date.now()}`,
               type: 'game_start',
               playerName: 'System',
               playerAvatar: '🎮',
-              gameName: game.name || 'Royal Rumble',
-              amount: game.pool_value,
+              gameName: template?.name || 'Royal Rumble',
+              amount: cycle.pool_value,
               timestamp: new Date(),
             };
 
             setActivities(prev => [newActivity, ...prev.slice(0, limit - 1)]);
           }
 
-          if (game.status === 'ended' && payload.old && (payload.old as { status: string }).status === 'live') {
+          if (cycle.status === 'settled' && oldCycle.status === 'live') {
             const newActivity: RealActivityItem = {
-              id: `game_end_${game.id}_${Date.now()}`,
+              id: `game_end_${cycle.id}_${Date.now()}`,
               type: 'game_end',
               playerName: 'System',
               playerAvatar: '🏆',
-              gameName: game.name || 'Royal Rumble',
-              amount: game.pool_value,
+              gameName: template?.name || 'Royal Rumble',
+              amount: cycle.pool_value,
               timestamp: new Date(),
             };
 
@@ -223,7 +237,7 @@ export const useRealtimeActivity = (limit = 10) => {
 
     return () => {
       supabase.removeChannel(winnersChannel);
-      supabase.removeChannel(gamesChannel);
+      supabase.removeChannel(cyclesChannel);
     };
   }, [limit]);
 

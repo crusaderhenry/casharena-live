@@ -87,41 +87,50 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     });
   }, [showNotification]);
 
-  // Subscribe to real-time game events
+  // Subscribe to real-time cycle events
   useEffect(() => {
-    const gamesChannel = supabase
-      .channel('notification-games')
+    const cyclesChannel = supabase
+      .channel('notification-cycles')
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'fastest_finger_games',
+          table: 'game_cycles',
         },
-        (payload) => {
-          const game = payload.new as {
+        async (payload) => {
+          const cycle = payload.new as {
             id: string;
-            name: string | null;
+            template_id: string;
             status: string;
             pool_value: number;
           };
-          const oldGame = payload.old as { status: string };
+          const oldCycle = payload.old as { status: string };
+
+          // Fetch template name
+          const { data: template } = await supabase
+            .from('game_templates')
+            .select('name')
+            .eq('id', cycle.template_id)
+            .single();
+
+          const gameName = template?.name || 'Royal Rumble';
 
           // Game just went live
-          if (game.status === 'live' && oldGame.status !== 'live') {
+          if (cycle.status === 'live' && oldCycle.status !== 'live') {
             showNotification({
               type: 'game_starting',
               title: '🎮 Game is LIVE!',
-              message: `${game.name || 'Royal Rumble'} is now live! Pool: ₦${game.pool_value.toLocaleString()}`,
+              message: `${gameName} is now live! Pool: ₦${cycle.pool_value.toLocaleString()}`,
             });
           }
 
-          // Game ended
-          if (game.status === 'ended' && oldGame.status === 'live') {
+          // Game ended (settled)
+          if (cycle.status === 'settled' && oldCycle.status === 'live') {
             showNotification({
               type: 'game_ended',
               title: '🏁 Game Ended',
-              message: `${game.name || 'Royal Rumble'} has ended. Check results!`,
+              message: `${gameName} has ended. Check results!`,
             });
           }
         }
@@ -154,7 +163,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     }
 
     return () => {
-      supabase.removeChannel(gamesChannel);
+      supabase.removeChannel(cyclesChannel);
       if (winnersChannel) {
         supabase.removeChannel(winnersChannel);
       }

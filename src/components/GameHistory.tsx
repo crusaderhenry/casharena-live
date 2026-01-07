@@ -107,33 +107,50 @@ export const GameHistory = ({ isTestMode = false }: GameHistoryProps) => {
     const fetchHistory = async () => {
       setLoading(true);
       
-      const { data: games } = await supabase
-        .from('fastest_finger_games')
-        .select('*')
-        .eq('status', 'ended')
-        .order('end_time', { ascending: false })
+      // Fetch settled cycles with template info
+      const { data: cycles } = await supabase
+        .from('game_cycles')
+        .select(`
+          id,
+          pool_value,
+          participant_count,
+          status,
+          actual_end_at,
+          entry_fee,
+          game_templates!inner(name)
+        `)
+        .eq('status', 'settled')
+        .order('actual_end_at', { ascending: false })
         .limit(20);
 
-      if (games) {
-        const gamesWithWinners = await Promise.all(
-          games.map(async (game) => {
+      if (cycles) {
+        const cyclesWithWinners = await Promise.all(
+          cycles.map(async (cycle) => {
             const { data: winners } = await supabase
-              .from('winners')
+              .from('cycle_winners')
               .select('*')
-              .eq('game_id', game.id)
+              .eq('cycle_id', cycle.id)
               .order('position', { ascending: true });
 
             const winnersWithProfiles = await Promise.all(
               (winners || []).map(async (w) => {
                 const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: w.user_id });
-                return { ...w, profile: profileData?.[0] };
+                return { 
+                  ...w, 
+                  amount_won: w.prize_amount,
+                  profile: profileData?.[0] 
+                };
               })
             );
 
-            return { ...game, winners: winnersWithProfiles };
+            return { 
+              ...cycle, 
+              end_time: cycle.actual_end_at || new Date().toISOString(),
+              winners: winnersWithProfiles 
+            };
           })
         );
-        setHistory(gamesWithWinners);
+        setHistory(cyclesWithWinners as any);
       }
       setLoading(false);
     };
