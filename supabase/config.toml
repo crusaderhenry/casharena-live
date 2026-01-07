@@ -6,9 +6,6 @@ verify_jwt = false
 [functions.crusader-tts]
 verify_jwt = false
 
-[functions.game-manager]
-verify_jwt = false
-
 [functions.game-timer]
 verify_jwt = false
 
