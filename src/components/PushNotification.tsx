@@ -47,7 +47,7 @@ const getIcon = (type: PushNotification['type']) => {
 export const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   const [notifications, setNotifications] = useState<PushNotification[]>([]);
   const { play } = useSounds();
-  const { vibrate } = useHaptics();
+  const { vibrate, prizeWin, gameStart, notification: hapticNotification } = useHaptics();
   const { user } = useAuth();
 
   const showNotification = useCallback((notification: Omit<PushNotification, 'id'>) => {
@@ -57,18 +57,21 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     setNotifications(prev => [newNotification, ...prev]);
     
     if (notification.type === 'win') {
-      play('win');
-      vibrate('success');
+      play('prizeWin');
+      prizeWin();
+    } else if (notification.type === 'game_starting') {
+      play('gameStart');
+      gameStart();
     } else {
       play('notification');
-      vibrate('medium');
+      hapticNotification();
     }
 
     // Auto dismiss after 5 seconds
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, 5000);
-  }, [play, vibrate]);
+  }, [play, prizeWin, gameStart, hapticNotification]);
 
   const dismissNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
@@ -86,6 +89,36 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       message: `You won ₦${amount.toLocaleString()} - ${positionText} Place!`,
     });
   }, [showNotification]);
+
+  // Listen for service worker push notification messages
+  useEffect(() => {
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NOTIFICATION_RECEIVED') {
+        const notificationType = event.data.notificationType;
+        
+        // Play sound/haptic for push notifications received while app is open
+        switch (notificationType) {
+          case 'prize_win':
+            play('prizeWin');
+            prizeWin();
+            break;
+          case 'game_start':
+            play('gameStart');
+            gameStart();
+            break;
+          default:
+            play('notification');
+            hapticNotification();
+        }
+      }
+    };
+
+    navigator.serviceWorker?.addEventListener('message', handleServiceWorkerMessage);
+
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage);
+    };
+  }, [play, prizeWin, gameStart, hapticNotification]);
 
   // Subscribe to real-time cycle events
   useEffect(() => {

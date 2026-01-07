@@ -6,9 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Web Push VAPID keys - generated using web-push library
-// Public key is shared with frontend, private key is secret
-const VAPID_PUBLIC_KEY = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U";
+// Web Push VAPID keys
+// Generate with: npx web-push generate-vapid-keys
+// Public key is shared with frontend, private key must be stored as VAPID_PRIVATE_KEY secret
+const VAPID_PUBLIC_KEY = "BCjTvE7KQPl9RYPh6mYpTvKxWHRLrRCr4HqDQ1jKdNzgxOHjz3KJ4WUE_Pw9kv0J6BQzKhC2h7lZVqJRjXlCBj0";
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") || "";
 const VAPID_SUBJECT = "mailto:hello@fortuneshq.com";
 

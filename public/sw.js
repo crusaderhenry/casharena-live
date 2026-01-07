@@ -77,7 +77,7 @@ self.addEventListener('push', (event) => {
     icon: '/pwa-192x192.png',
     badge: '/pwa-192x192.png',
     tag: 'default',
-    data: { url: '/home' }
+    data: { url: '/home', type: 'general' }
   };
 
   if (event.data) {
@@ -88,19 +88,39 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  // Customize vibration pattern based on notification type
+  let vibrate = [200, 100, 200];
+  if (data.data?.type === 'prize_win') {
+    vibrate = [100, 50, 100, 50, 200, 100, 300]; // Celebratory pattern
+  } else if (data.data?.type === 'game_start') {
+    vibrate = [50, 100, 50, 100, 150]; // Alert pattern
+  }
+
   const options = {
     body: data.body,
     icon: data.icon || '/pwa-192x192.png',
     badge: data.badge || '/pwa-192x192.png',
     tag: data.tag,
-    vibrate: [200, 100, 200],
+    vibrate: vibrate,
     data: data.data,
     actions: data.actions || [],
     requireInteraction: data.requireInteraction || false
   };
 
+  // Notify any open clients to play sound
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    Promise.all([
+      self.registration.showNotification(data.title, options),
+      // Send message to client to play sound
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+        windowClients.forEach((client) => {
+          client.postMessage({
+            type: 'NOTIFICATION_RECEIVED',
+            notificationType: data.data?.type || 'general'
+          });
+        });
+      })
+    ])
   );
 });
 
