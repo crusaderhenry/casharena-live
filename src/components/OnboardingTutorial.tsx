@@ -88,8 +88,8 @@ const TrophyIllustration = () => (
 const steps = [
   {
     illustration: ZapIllustration,
-    title: "Welcome to Fastest Finger!",
-    description: "The live comment battle where the last commenters standing win cash prizes.",
+    title: "Welcome to Royal Rumble!",
+    description: "A live social cash showdown where the last active players win.",
     highlight: "primary",
   },
   {

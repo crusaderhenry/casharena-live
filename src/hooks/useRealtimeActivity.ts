@@ -51,7 +51,7 @@ export const useRealtimeActivity = (limit = 10) => {
           .select('id, name')
           .in('id', gameIds);
 
-        const gameMap = new Map(games?.map(g => [g.id, g.name || 'Fastest Finger']) || []);
+        const gameMap = new Map(games?.map(g => [g.id, g.name || 'Royal Rumble']) || []);
 
         const winActivities: RealActivityItem[] = winners.map(w => {
           const profile = profileMap.get(w.user_id);
@@ -96,7 +96,7 @@ export const useRealtimeActivity = (limit = 10) => {
             type: 'game_start' as const,
             playerName: 'System',
             playerAvatar: '🎮',
-            gameName: g.name || 'Fastest Finger',
+            gameName: g.name || 'Royal Rumble',
             amount: g.pool_value,
             timestamp: new Date(g.start_time!),
           }));
@@ -162,7 +162,7 @@ export const useRealtimeActivity = (limit = 10) => {
             playerAvatar: profile?.avatar || '🎮',
             amount: winner.amount_won,
             position: winner.position,
-            gameName: game?.name || 'Fastest Finger',
+            gameName: game?.name || 'Royal Rumble',
             timestamp: new Date(winner.created_at),
           };
 
@@ -196,7 +196,7 @@ export const useRealtimeActivity = (limit = 10) => {
               type: 'game_start',
               playerName: 'System',
               playerAvatar: '🎮',
-              gameName: game.name || 'Fastest Finger',
+              gameName: game.name || 'Royal Rumble',
               amount: game.pool_value,
               timestamp: new Date(),
             };
@@ -210,7 +210,7 @@ export const useRealtimeActivity = (limit = 10) => {
               type: 'game_end',
               playerName: 'System',
               playerAvatar: '🏆',
-              gameName: game.name || 'Fastest Finger',
+              gameName: game.name || 'Royal Rumble',
               amount: game.pool_value,
               timestamp: new Date(),
             };

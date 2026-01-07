@@ -286,7 +286,7 @@ export const GameHistory = ({ isTestMode = false }: GameHistoryProps) => {
                   {/* Game header */}
                   <div className="flex items-center justify-between mb-3 pb-3 border-b border-border/50">
                     <div>
-                      <p className="font-bold text-foreground">Fastest Finger</p>
+                      <p className="font-bold text-foreground">Royal Rumble</p>
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {formatDate(game.end_time)}

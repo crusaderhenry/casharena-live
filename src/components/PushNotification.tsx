@@ -112,7 +112,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             showNotification({
               type: 'game_starting',
               title: '🎮 Game is LIVE!',
-              message: `${game.name || 'Fastest Finger'} is now live! Pool: ₦${game.pool_value.toLocaleString()}`,
+              message: `${game.name || 'Royal Rumble'} is now live! Pool: ₦${game.pool_value.toLocaleString()}`,
             });
           }
 
@@ -121,7 +121,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             showNotification({
               type: 'game_ended',
               title: '🏁 Game Ended',
-              message: `${game.name || 'Fastest Finger'} has ended. Check results!`,
+              message: `${game.name || 'Royal Rumble'} has ended. Check results!`,
             });
           }
         }

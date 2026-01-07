@@ -5,17 +5,17 @@ import { supabase } from '@/integrations/supabase/client';
 // Crusader - The African bold man voice game host!
 const CRUSADER_PHRASES = {
   lobby_welcome: [
-    "Yo yo yo! Crusader here! Welcome to the arena, legends!",
-    "What's good everyone! Your boy Crusader is hyped for this one!",
+    "Yo yo yo! Crusader here! Welcome to the Royal Rumble!",
+    "What's good everyone! Your boy Crusader is hyped for this Rumble!",
     "Ladies and gentlemen, Crusader in the building! Let's get this money!",
-    "Hey hey! Crusader here, ready to see some CHAOS!",
+    "Hey hey! Crusader here, ready to see some CHAOS in the Rumble!",
   ],
   game_start: [
-    "And we're LIVE! Let the madness begin!",
-    "GO GO GO! Fingers on keyboards, people!",
-    "The game is ON! Show me what you got!",
-    "BOOM! We're live! Fight for that lead!",
-    "Alright legends, it's showtime! Make Crusader proud!",
+    "And we're LIVE! The Royal Rumble has begun!",
+    "GO GO GO! The Rumble is ON!",
+    "The Rumble is LIVE! Show me what you got!",
+    "BOOM! Royal Rumble is happening NOW!",
+    "Alright legends, the Rumble begins! Make Crusader proud!",
   ],
   leader_change: [
     "OH SNAP! {name} just stole the crown!",

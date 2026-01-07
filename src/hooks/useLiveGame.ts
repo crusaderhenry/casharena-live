@@ -101,7 +101,7 @@ export const useLiveGame = (gameId?: string) => {
       const poolValue = data.pool_value || 0;
       return {
         ...data,
-        name: (data as any).name || 'Fastest Finger',
+        name: (data as any).name || 'Royal Rumble',
         comment_timer: (data as any).comment_timer || 60,
         payout_type: (data as any).payout_type || 'top3',
         payout_distribution: (data as any).payout_distribution || [0.5, 0.3, 0.2],
@@ -142,7 +142,7 @@ export const useLiveGame = (gameId?: string) => {
       const poolValue = g.pool_value || 0;
       return {
         ...g,
-        name: (g as any).name || 'Fastest Finger',
+        name: (g as any).name || 'Royal Rumble',
         comment_timer: (g as any).comment_timer || 60,
         payout_type: (g as any).payout_type || 'top3',
         payout_distribution: (g as any).payout_distribution || [0.5, 0.3, 0.2],
@@ -181,7 +181,7 @@ export const useLiveGame = (gameId?: string) => {
     const poolValue = data.pool_value || 0;
     return {
       ...data,
-      name: (data as any).name || 'Fastest Finger',
+      name: (data as any).name || 'Royal Rumble',
       comment_timer: (data as any).comment_timer || 60,
       payout_type: (data as any).payout_type || 'top3',
       payout_distribution: (data as any).payout_distribution || [0.5, 0.3, 0.2],
@@ -459,7 +459,7 @@ export const useLiveGame = (gameId?: string) => {
             const updated = payload.new as any;
             setGame({
               ...updated,
-              name: updated.name || 'Fastest Finger',
+              name: updated.name || 'Royal Rumble',
               comment_timer: updated.comment_timer || 60,
               payout_type: updated.payout_type || 'top3',
               payout_distribution: updated.payout_distribution || [0.5, 0.3, 0.2],

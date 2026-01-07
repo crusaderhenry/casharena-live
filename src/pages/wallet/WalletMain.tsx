@@ -113,7 +113,7 @@ export const WalletMain = () => {
             <div className="card-panel text-center py-8">
               <Zap className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-foreground font-medium">No transactions yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Play Fastest Finger to see activity here!</p>
+              <p className="text-sm text-muted-foreground mt-1">Play Royal Rumble to see activity here!</p>
             </div>
           ) : (
             <div className="space-y-2">

@@ -233,15 +233,15 @@ const getPrizeCalloutPhrases = (hostId: string) => {
 // Default game-aware phrases (used by Crusader and Mark)
 const DEFAULT_GAME_PHRASES = {
   welcome: (participants: number, pool: number) => [
-    `Welcome to the arena! We've got ${participants} players fighting for ${formatPoolForSpeech(pool)} naira! Let's get it!`,
-    `${participants} legends in the building! ${formatPoolForSpeech(pool)} naira on the line! This is gonna be EPIC!`,
-    `${participants} players, ${formatPoolForSpeech(pool)} naira prize pool! Let the battle begin!`,
+    `Welcome to the Royal Rumble! We've got ${participants} players fighting for ${formatPoolForSpeech(pool)} naira! Let's get it!`,
+    `${participants} legends in the Rumble! ${formatPoolForSpeech(pool)} naira on the line! This is gonna be EPIC!`,
+    `${participants} players, ${formatPoolForSpeech(pool)} naira prize pool! Let the Rumble begin!`,
   ],
   
   game_start: (participants: number) => [
-    `And we're LIVE! ${participants} players ready to rumble!`,
-    `GO GO GO! ${participants} of you fighting for glory!`,
-    `The game is ON! Show me what you got, all ${participants} of you!`,
+    `And we're LIVE! The Royal Rumble has ${participants} players ready to fight!`,
+    `GO GO GO! ${participants} of you battling in this Rumble!`,
+    `The Rumble is ON! Show me what you got, all ${participants} of you!`,
   ],
   
   leader_change: (name: string, timer: number) => [
@@ -313,15 +313,15 @@ const DEFAULT_GAME_PHRASES = {
 // Adaobi's warm Igbo-influenced game phrases
 const ADAOBI_GAME_PHRASES = {
   welcome: (participants: number, pool: number) => [
-    `Welcome, my beautiful people! ${participants} players are here, fighting for ${formatPoolForSpeech(pool)} naira! Let us begin!`,
-    `Nwanne m! ${participants} brave hearts in the arena! ${formatPoolForSpeech(pool)} naira prize! May the best person win!`,
-    `${participants} players, ${formatPoolForSpeech(pool)} naira waiting! I am so excited to host you all!`,
+    `Welcome to the Royal Rumble, my beautiful people! ${participants} players are here, fighting for ${formatPoolForSpeech(pool)} naira! Let us begin!`,
+    `Nwanne m! ${participants} brave hearts in the Rumble! ${formatPoolForSpeech(pool)} naira prize! May the best person win!`,
+    `${participants} players, ${formatPoolForSpeech(pool)} naira waiting! I am so excited to host this Rumble!`,
   ],
   
   game_start: (participants: number) => [
-    `We are LIVE! ${participants} players ready to shine!`,
-    `The game begins now! All ${participants} of you, show your best!`,
-    `Go now, my people! ${participants} players, make me proud!`,
+    `We are LIVE! The Royal Rumble has ${participants} players ready to shine!`,
+    `The Rumble begins now! All ${participants} of you, show your best!`,
+    `Go now, my people! ${participants} players in the Rumble, make me proud!`,
   ],
   
   leader_change: (name: string, timer: number) => [
@@ -404,28 +404,28 @@ const generateCoHostWelcome = (host1: HostConfig, host2: HostConfig, participant
   const formattedPool = formatPoolForSpeech(pool);
   return [
     // Natural back-and-forth
-    `[${host1.name}] Welcome everyone to the arena! [${host2.name}] Yes! ${participants} players fighting for ${formattedPool} naira! [${host1.name}] Let us get it!`,
-    `[${host2.name}] ${host1.name}, look at this crowd! [${host1.name}] ${participants} players! [${host2.name}] And ${formattedPool} naira waiting! This is going to be amazing!`,
+    `[${host1.name}] Welcome everyone to the Royal Rumble! [${host2.name}] Yes! ${participants} players fighting for ${formattedPool} naira! [${host1.name}] Let us get it!`,
+    `[${host2.name}] ${host1.name}, look at this crowd! [${host1.name}] ${participants} players! [${host2.name}] And ${formattedPool} naira waiting! This Rumble is going to be amazing!`,
     // Host 1 leads with interruption
-    `[${host1.name}] Good evening everyone! We have got... [${host2.name}] ${participants} warriors ${host1.name}! [${host1.name}] That is right! And ${formattedPool} naira on the line!`,
+    `[${host1.name}] Good evening everyone! Welcome to the Rumble! We have got... [${host2.name}] ${participants} warriors ${host1.name}! [${host1.name}] That is right! And ${formattedPool} naira on the line!`,
     // Host 2 leads
-    `[${host2.name}] ${formattedPool} naira prize pool tonight! [${host1.name}] With ${participants} players ready to battle! [${host2.name}] I love this energy already!`,
+    `[${host2.name}] ${formattedPool} naira prize pool for the Rumble tonight! [${host1.name}] With ${participants} players ready to battle! [${host2.name}] I love this energy already!`,
     // Quick exchanges
-    `[${host1.name}] Arena time! [${host2.name}] ${participants} players! [${host1.name}] ${formattedPool} naira! [${host2.name}] What more could we ask for!`,
+    `[${host1.name}] Rumble time! [${host2.name}] ${participants} players! [${host1.name}] ${formattedPool} naira! [${host2.name}] What more could we ask for!`,
     // Agreement style
-    `[${host1.name}] Can you feel that energy ${host2.name}? [${host2.name}] Absolutely! ${participants} players, ${formattedPool} naira... [${host1.name}] This is why we do what we do!`,
+    `[${host1.name}] Can you feel that Rumble energy ${host2.name}? [${host2.name}] Absolutely! ${participants} players, ${formattedPool} naira... [${host1.name}] This is why we do what we do!`,
     // Excitement building
-    `[${host2.name}] Welcome welcome welcome! [${host1.name}] ${host2.name} is excited tonight! [${host2.name}] How can I not be? ${participants} players for ${formattedPool} naira!`,
+    `[${host2.name}] Welcome to the Royal Rumble! [${host1.name}] ${host2.name} is excited tonight! [${host2.name}] How can I not be? ${participants} players for ${formattedPool} naira!`,
   ];
 };
 
 const generateCoHostGameStart = (host1: HostConfig, host2: HostConfig, participants: number) => [
-  `[${host1.name}] We are LIVE! [${host2.name}] Go go go! ${participants} players, show us what you got!`,
-  `[${host2.name}] The game has started ${host1.name}! [${host1.name}] I can feel the tension! May the best finger win!`,
-  `[${host1.name}] Here we go! ${participants} players... [${host2.name}] Let the battle BEGIN!`,
+  `[${host1.name}] The Rumble is LIVE! [${host2.name}] Go go go! ${participants} players, show us what you got!`,
+  `[${host2.name}] The Royal Rumble has started ${host1.name}! [${host1.name}] I can feel the tension! May the best player win!`,
+  `[${host1.name}] Here we go! ${participants} players in the Rumble... [${host2.name}] Let the battle BEGIN!`,
   `[${host2.name}] And we are off! [${host1.name}] This is it everyone! [${host2.name}] Fight for that crown!`,
-  `[${host1.name}] Game time ${host2.name}! [${host2.name}] My heart is already racing! [${host1.name}] ${participants} players, give us a show!`,
-  `[${host2.name}] It is happening! [${host1.name}] The countdown is done! [${host2.name}] Now we see who really has the fastest finger!`,
+  `[${host1.name}] Rumble time ${host2.name}! [${host2.name}] My heart is already racing! [${host1.name}] ${participants} players, give us a show!`,
+  `[${host2.name}] It is happening! [${host1.name}] The countdown is done! [${host2.name}] Now we see who survives the Royal Rumble!`,
 ];
 
 const generateCoHostLeaderChange = (host1: HostConfig, host2: HostConfig, name: string, timer: number) => [

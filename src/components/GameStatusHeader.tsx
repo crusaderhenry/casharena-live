@@ -146,7 +146,7 @@ export const GameStatusHeader = ({
                <Timer className="w-4 h-4 text-yellow-400" />}
             </div>
             <div>
-              <h3 className="font-bold text-sm text-foreground">{game.name || 'Fastest Finger'}</h3>
+              <h3 className="font-bold text-sm text-foreground">{game.name || 'Royal Rumble'}</h3>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Users className="w-3 h-3" /> {players}
                 {isSpectator && (
@@ -190,7 +190,7 @@ export const GameStatusHeader = ({
             
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-bold text-foreground truncate">{game.name || 'Fastest Finger'}</h3>
+                <h3 className="font-bold text-foreground truncate">{game.name || 'Royal Rumble'}</h3>
                 {game.is_sponsored && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-primary/20 to-gold/20 text-primary border border-primary/30 rounded-full">
                     <Gift className="w-3 h-3" /> FREE

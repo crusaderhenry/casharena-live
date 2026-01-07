@@ -52,7 +52,7 @@ export const RankScreen = () => {
             <div>
               <h1 className="text-xl font-black text-foreground">Leaderboard</h1>
               <p className="text-sm text-muted-foreground">
-                Weekly Fastest Finger rankings
+                Weekly Royal Rumble rankings
                 {isTestMode && <span className="text-primary ml-2">(Test Mode)</span>}
               </p>
             </div>
@@ -175,7 +175,7 @@ export const RankScreen = () => {
             <div>
               <p className="font-semibold text-foreground text-sm">How Rankings Work</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Rankings are based on rank points earned from Fastest Finger wins. 
+                Rankings are based on rank points earned from Royal Rumble wins. 
                 1st: 100 pts, 2nd: 60 pts, 3rd: 30 pts. Top players earn bonus rewards!
               </p>
             </div>

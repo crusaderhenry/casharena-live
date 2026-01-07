@@ -420,7 +420,7 @@ export const AdminLiveMonitor = () => {
               >
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-foreground text-sm truncate">
-                    {game.name || 'Fastest Finger'}
+                    {game.name || 'Royal Rumble'}
                   </h3>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase flex items-center gap-1 border ${getStatusColor(game.status)}`}>
                     {getStatusIcon(game.status)}

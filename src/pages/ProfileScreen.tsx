@@ -210,7 +210,7 @@ export const ProfileScreen = () => {
             <div>
               <h1 className="text-xl font-black text-foreground">Profile</h1>
               <p className="text-sm text-muted-foreground">
-                Your Fastest Finger stats
+                Your Royal Rumble stats
                 {isTestMode && <span className="text-primary ml-2">(Test Mode)</span>}
               </p>
             </div>

@@ -49,7 +49,7 @@ const MOCK_COMMENTS = [
   "Last comment wins!",
   "Come on come on!",
   "I'm winning this!",
-  "Fastest finger!",
+  "Rumble time!",
   "Let's go!",
   "Mine mine mine!",
   "Taking the lead!",
