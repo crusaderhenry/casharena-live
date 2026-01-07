@@ -411,14 +411,25 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const createGame = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { action: 'create_game' },
+      // Get or create a default template
+      const { data: templates } = await supabase
+        .from('game_templates')
+        .select('id')
+        .eq('is_active', true)
+        .limit(1);
+
+      if (!templates || templates.length === 0) {
+        throw new Error('No active game template found');
+      }
+
+      // Trigger cycle-manager to create a new cycle
+      const { error } = await supabase.functions.invoke('cycle-manager', {
+        body: { action: 'create_cycle', templateId: templates[0].id },
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
 
-      toast({ title: 'Game Created', description: 'New game scheduled successfully' });
+      toast({ title: 'Game Created', description: 'New game cycle scheduled successfully' });
       refreshData();
     } catch (error: any) {
       console.error('Create game error:', error);
@@ -428,15 +439,33 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const createGameWithConfig = useCallback(async (config: CreateGameConfig) => {
     try {
-      const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { 
-          action: 'create_game',
-          config,
-        },
+      // Create or update a game template first
+      const { data: template, error: templateError } = await supabase
+        .from('game_templates')
+        .insert({
+          name: config.name,
+          entry_fee: config.entry_fee,
+          max_live_duration: config.max_duration,
+          comment_timer: config.comment_timer,
+          min_participants: config.min_participants,
+          platform_cut_percentage: config.platform_cut_percentage || 10,
+          prize_distribution: config.payout_distribution.map(p => p * 100),
+          winner_count: config.payout_distribution.length,
+          sponsored_prize_amount: config.sponsored_amount || 0,
+          recurrence_type: config.recurrence_type || 'infinity',
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (templateError) throw templateError;
+
+      // Trigger cycle-manager to create first cycle from this template
+      const { error: cycleError } = await supabase.functions.invoke('cycle-manager', {
+        body: { action: 'create_cycle', templateId: template.id },
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (cycleError) throw cycleError;
 
       toast({ title: 'Game Created', description: `${config.name} scheduled successfully` });
       refreshData();
@@ -448,18 +477,26 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const updateGame = useCallback(async (gameId: string, config: Partial<CreateGameConfig>) => {
     try {
-      const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { 
-          action: 'update_game',
-          gameId,
-          config,
-        },
-      });
+      // Update the cycle directly
+      const updateData: Record<string, any> = {};
+      
+      if (config.entry_fee !== undefined) updateData.entry_fee = config.entry_fee;
+      if (config.comment_timer !== undefined) updateData.comment_timer = config.comment_timer;
+      if (config.min_participants !== undefined) updateData.min_participants = config.min_participants;
+      if (config.platform_cut_percentage !== undefined) updateData.platform_cut_percentage = config.platform_cut_percentage;
+      if (config.payout_distribution) {
+        updateData.prize_distribution = config.payout_distribution.map(p => p * 100);
+        updateData.winner_count = config.payout_distribution.length;
+      }
+
+      const { error } = await supabase
+        .from('game_cycles')
+        .update(updateData)
+        .eq('id', gameId);
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
 
-      toast({ title: 'Game Updated', description: `Game updated successfully` });
+      toast({ title: 'Game Updated', description: 'Game cycle updated successfully' });
       refreshData();
     } catch (error: any) {
       console.error('Update game error:', error);
@@ -469,17 +506,23 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const cloneGame = useCallback(async (gameId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { 
-          action: 'clone_game',
-          gameId,
-        },
+      // Get the cycle's template
+      const { data: cycle } = await supabase
+        .from('game_cycles')
+        .select('template_id')
+        .eq('id', gameId)
+        .single();
+
+      if (!cycle) throw new Error('Cycle not found');
+
+      // Create a new cycle from the same template
+      const { error } = await supabase.functions.invoke('cycle-manager', {
+        body: { action: 'create_cycle', templateId: cycle.template_id },
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
 
-      toast({ title: 'Game Cloned', description: `Game duplicated as draft (unpublished)` });
+      toast({ title: 'Game Cloned', description: 'New cycle created from template' });
       refreshData();
     } catch (error: any) {
       console.error('Clone game error:', error);
@@ -489,18 +532,32 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const toggleVisibility = useCallback(async (gameId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { 
-          action: 'toggle_visibility',
-          gameId,
-        },
-      });
+      // Get the cycle's template
+      const { data: cycle } = await supabase
+        .from('game_cycles')
+        .select('template_id')
+        .eq('id', gameId)
+        .single();
+
+      if (!cycle) throw new Error('Cycle not found');
+
+      // Toggle template's is_active status
+      const { data: template } = await supabase
+        .from('game_templates')
+        .select('is_active')
+        .eq('id', cycle.template_id)
+        .single();
+
+      const newStatus = !template?.is_active;
+      
+      const { error } = await supabase
+        .from('game_templates')
+        .update({ is_active: newStatus })
+        .eq('id', cycle.template_id);
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
 
-      const newVisibility = data.visibility === 'public' ? 'Published' : 'Unpublished';
-      toast({ title: 'Visibility Updated', description: `Game is now ${newVisibility}` });
+      toast({ title: 'Visibility Updated', description: `Template is now ${newStatus ? 'active' : 'inactive'}` });
       refreshData();
     } catch (error: any) {
       console.error('Toggle visibility error:', error);
@@ -513,12 +570,16 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     if (!targetGame) return;
     
     try {
-      const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { action: 'start_game', gameId: targetGame.id },
-      });
+      // Update cycle status to live
+      const { error } = await supabase
+        .from('game_cycles')
+        .update({ 
+          status: 'live',
+          countdown: targetGame.commentTimer || 60,
+        })
+        .eq('id', targetGame.id);
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
 
       setIsSimulating(true);
       toast({ title: 'Game Started', description: `${targetGame.name || 'Game'} is now live!` });
@@ -534,8 +595,9 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     if (!targetGame) return;
     
     try {
-      const { data, error } = await supabase.functions.invoke('game-manager', {
-        body: { action: 'end_game', gameId: targetGame.id },
+      // Trigger cycle-manager to settle the cycle
+      const { data, error } = await supabase.functions.invoke('cycle-manager', {
+        body: { action: 'settle', cycleId: targetGame.id },
       });
 
       if (error) throw error;
