@@ -21,6 +21,7 @@ import { Home } from "@/pages/Home";
 
 // Royal Rumble Arena
 import { ArenaListing } from "@/pages/arena/ArenaListing";
+import { CycleLobby } from "@/pages/arena/CycleLobby";
 import { CycleArena } from "@/pages/arena/CycleArena";
 import { CycleResults } from "@/pages/arena/CycleResults";
 
@@ -198,7 +199,8 @@ const AppRoutes = () => (
     
     {/* Royal Rumble Arena */}
     <Route path="/arena" element={<ProtectedRoute><ArenaListing /></ProtectedRoute>} />
-    <Route path="/arena/:cycleId" element={<ProtectedRoute><CycleArena /></ProtectedRoute>} />
+    <Route path="/arena/:cycleId" element={<ProtectedRoute><CycleLobby /></ProtectedRoute>} />
+    <Route path="/arena/:cycleId/live" element={<ProtectedRoute><CycleArena /></ProtectedRoute>} />
     <Route path="/arena/:cycleId/results" element={<ProtectedRoute><CycleResults /></ProtectedRoute>} />
     
     {/* Other screens */}

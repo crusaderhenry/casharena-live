@@ -282,6 +282,18 @@ export const CycleArena = () => {
     );
   }
 
+  // Redirect non-live games to lobby
+  if (cycle.status === 'waiting' || cycle.status === 'opening') {
+    navigate(`/arena/${cycleId}`, { replace: true });
+    return null;
+  }
+
+  // Redirect ended games to results
+  if (cycle.status === 'ended' || cycle.status === 'settled') {
+    navigate(`/arena/${cycleId}/results`, { replace: true });
+    return null;
+  }
+
   const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
   const canComment = participation.isParticipant && !participation.isSpectator && isLive;
   const orderedCommenters = getOrderedCommenters();

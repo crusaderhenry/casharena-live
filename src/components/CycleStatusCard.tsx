@@ -47,7 +47,12 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
   const handleClick = () => {
     play('click');
     buttonClick();
-    navigate(`/arena/${cycle.id}`);
+    // Live games go directly to arena, others go to lobby
+    if (cycle.status === 'live' || cycle.status === 'ending') {
+      navigate(`/arena/${cycle.id}/live`);
+    } else {
+      navigate(`/arena/${cycle.id}`);
+    }
   };
 
   const formatMoney = (amount: number) => {
