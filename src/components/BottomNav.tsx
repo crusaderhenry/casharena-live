@@ -5,7 +5,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 
 const navItems = [
   { icon: Home, label: 'Home', path: '/home' },
-  { icon: Zap, label: 'Arena', path: '/finger' },
+  { icon: Zap, label: 'Arena', path: '/arena' },
   { icon: Trophy, label: 'Rank', path: '/rank' },
   { icon: Wallet, label: 'Wallet', path: '/wallet' },
   { icon: User, label: 'Profile', path: '/profile' },
@@ -28,7 +28,7 @@ export const BottomNav = () => {
       <div className="flex items-center justify-around px-2 py-2 pb-safe max-w-lg mx-auto">
         {navItems.map(({ icon: Icon, label, path }) => {
           const isActive = location.pathname === path || 
-            (path === '/finger' && location.pathname.startsWith('/finger'));
+            (path === '/arena' && location.pathname.startsWith('/arena'));
           return (
             <button
               key={path}
