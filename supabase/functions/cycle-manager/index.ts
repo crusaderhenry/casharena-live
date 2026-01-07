@@ -161,6 +161,21 @@ async function processStateTransition(supabase: any, cycle: GameCycle, now: Date
       if (nowTime >= entryOpenAt) {
         newStatus = 'opening';
         console.log(`[transition] Cycle ${cycle.id}: waiting -> opening`);
+        
+        // Immediately bulk populate 100 mock users when opening
+        try {
+          await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/mock-user-service`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({ action: 'bulk_populate', cycleId: cycle.id, count: 100 }),
+          });
+          console.log(`[opening] Bulk populated 100 mock users to cycle ${cycle.id}`);
+        } catch (e) {
+          console.log('[opening] Bulk populate failed:', e);
+        }
       }
       break;
 
@@ -213,23 +228,21 @@ async function processStateTransition(supabase: any, cycle: GameCycle, now: Date
       }
       updates.countdown = newCountdown;
 
-      // Trigger mock comments more frequently - 70% chance per tick
-      // This keeps the game active and gives real players competition
-      if (Math.random() < 0.7) {
+      // Trigger mock comments aggressively - 90% chance per tick
+      // Use burst_comments for rapid multi-user activity
+      if (Math.random() < 0.9) {
         try {
-          // Trigger 1-3 comments per tick for more activity
-          const commentCount = Math.floor(Math.random() * 3) + 1;
-          for (let i = 0; i < commentCount; i++) {
-            await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/mock-user-service`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-              },
-              body: JSON.stringify({ action: 'trigger_comment', cycleId: cycle.id }),
-            });
-          }
-          console.log(`[live] Triggered ${commentCount} mock comments for cycle ${cycle.id}`);
+          // Trigger 3-8 comments per tick for intense activity
+          const commentCount = Math.floor(Math.random() * 6) + 3;
+          await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/mock-user-service`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({ action: 'burst_comments', cycleId: cycle.id, count: commentCount }),
+          });
+          console.log(`[live] Triggered ${commentCount} burst comments for cycle ${cycle.id}`);
         } catch (e) {
           console.log('[live] Mock comment trigger failed:', e);
         }

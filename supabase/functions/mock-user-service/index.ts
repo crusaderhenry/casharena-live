@@ -13,42 +13,14 @@ const MOCK_COMMENTS = [
   "Let's gooo!", "Watch me!", "Here we go!", "Boom!", "Yes!",
   "Another one!", "Keep up!", "My turn!", "👆", "⚡", "🏆",
   "Quick!", "Now!", "Again!", "This is it!", "🎯", "💨",
+  "No chance!", "Catch me!", "Top 3!", "Winner!", "Stay sharp!", 
+  "Focus!", "Clutch time!", "Send it!", "My moment!", "Taking over!",
+  "Champion moves!", "Lightning fast!", "On fire today!", "Can't stop me!",
 ];
 
 // Get random comment
 const getRandomComment = (): string => {
   return MOCK_COMMENTS[Math.floor(Math.random() * MOCK_COMMENTS.length)];
-};
-
-// Get delay based on personality and activity level
-const getCommentDelay = (personality: string, activityLevel: string): number => {
-  let baseDelay = 5000;
-  
-  switch (activityLevel) {
-    case 'high':
-      baseDelay = 2000;
-      break;
-    case 'medium':
-      baseDelay = 5000;
-      break;
-    case 'low':
-      baseDelay = 10000;
-      break;
-  }
-  
-  switch (personality) {
-    case 'aggressive':
-      baseDelay *= 0.5;
-      break;
-    case 'passive':
-      baseDelay *= 2;
-      break;
-    case 'random':
-      baseDelay *= (0.5 + Math.random() * 2);
-      break;
-  }
-  
-  return baseDelay + (Math.random() * baseDelay * 0.5);
 };
 
 serve(async (req) => {
@@ -61,7 +33,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { action, gameId, cycleId } = await req.json();
+    const { action, gameId, cycleId, count } = await req.json();
     
     // Support both gameId and cycleId for backwards compatibility
     const targetCycleId = cycleId || gameId;
@@ -79,6 +51,163 @@ serve(async (req) => {
     }
 
     switch (action) {
+      // Bulk populate 100 mock users to a cycle immediately
+      case 'bulk_populate': {
+        if (!targetCycleId) throw new Error('Missing cycleId');
+        
+        const targetCount = count || 100;
+        console.log(`[bulk_populate] Adding ${targetCount} mock users to cycle ${targetCycleId}`);
+
+        // Get current participants in this cycle
+        const { data: existingParticipants } = await supabase
+          .from('cycle_participants')
+          .select('user_id')
+          .eq('cycle_id', targetCycleId);
+
+        const existingIds = new Set(existingParticipants?.map(p => p.user_id) || []);
+
+        // Get all active mock users not already in this cycle
+        const { data: availableMocks } = await supabase
+          .from('mock_users')
+          .select('id, username')
+          .eq('is_active', true);
+
+        if (!availableMocks || availableMocks.length === 0) {
+          return new Response(JSON.stringify({ success: false, message: 'No active mock users' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Filter out those already participating
+        const eligibleMocks = availableMocks.filter(m => !existingIds.has(m.id));
+        const toJoin = eligibleMocks.slice(0, targetCount);
+
+        if (toJoin.length === 0) {
+          return new Response(JSON.stringify({ success: true, joined: 0, message: 'All mock users already joined' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Get cycle info
+        const { data: cycle } = await supabase
+          .from('game_cycles')
+          .select('pool_value, participant_count, entry_fee')
+          .eq('id', targetCycleId)
+          .single();
+
+        if (!cycle) {
+          return new Response(JSON.stringify({ success: false, error: 'Cycle not found' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Batch insert participants
+        const participants = toJoin.map(m => ({
+          cycle_id: targetCycleId,
+          user_id: m.id,
+          is_spectator: false,
+        }));
+
+        const { error: insertError } = await supabase
+          .from('cycle_participants')
+          .insert(participants);
+
+        if (insertError) {
+          console.error('[bulk_populate] Insert error:', insertError);
+          return new Response(JSON.stringify({ success: false, error: insertError.message }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Update cycle pool and count
+        await supabase
+          .from('game_cycles')
+          .update({
+            pool_value: cycle.pool_value + (cycle.entry_fee * toJoin.length),
+            participant_count: cycle.participant_count + toJoin.length,
+          })
+          .eq('id', targetCycleId);
+
+        console.log(`[bulk_populate] Added ${toJoin.length} mock users to cycle ${targetCycleId}`);
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          joined: toJoin.length,
+          users: toJoin.map(m => ({ id: m.id, username: m.username })),
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Trigger multiple rapid comments from different mock users
+      case 'burst_comments': {
+        if (!targetCycleId) throw new Error('Missing cycleId');
+
+        const burstCount = count || 5;
+        
+        // Get all mock user IDs
+        const { data: allMockUsers } = await supabase
+          .from('mock_users')
+          .select('id, username')
+          .eq('is_active', true);
+
+        if (!allMockUsers || allMockUsers.length === 0) {
+          return new Response(JSON.stringify({ success: true, commented: 0 }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const mockUserIds = allMockUsers.map(m => m.id);
+        const mockUserMap = new Map(allMockUsers.map(m => [m.id, m.username]));
+
+        // Get mock participants in this cycle
+        const { data: participants } = await supabase
+          .from('cycle_participants')
+          .select('user_id')
+          .eq('cycle_id', targetCycleId)
+          .eq('is_spectator', false);
+
+        const mockParticipants = (participants || []).filter(p => mockUserIds.includes(p.user_id));
+
+        if (mockParticipants.length === 0) {
+          return new Response(JSON.stringify({ success: true, commented: 0, message: 'No mock participants' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Shuffle and pick random mock users
+        const shuffled = [...mockParticipants].sort(() => Math.random() - 0.5);
+        const commenters = shuffled.slice(0, Math.min(burstCount, mockParticipants.length));
+
+        // Insert comments
+        const comments = commenters.map(p => ({
+          cycle_id: targetCycleId,
+          user_id: p.user_id,
+          content: getRandomComment(),
+        }));
+
+        const { error: commentError } = await supabase
+          .from('cycle_comments')
+          .insert(comments);
+
+        if (commentError) {
+          console.error('[burst_comments] Error:', commentError);
+          return new Response(JSON.stringify({ success: false, error: commentError.message }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        console.log(`[burst_comments] ${commenters.length} mock users commented in cycle ${targetCycleId}`);
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          commented: commenters.length,
+          users: commenters.map(c => mockUserMap.get(c.user_id)),
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'trigger_joins': {
         // Triggered when a real user joins or cycle needs activity
         if (!targetCycleId) throw new Error('Missing cycleId');
@@ -91,13 +220,18 @@ serve(async (req) => {
         }
 
         // Get current mock participation count for this cycle
-        const { count: currentMockCount } = await supabase
-          .from('cycle_participants')
-          .select('*', { count: 'exact', head: true })
-          .eq('cycle_id', targetCycleId)
-          .in('user_id', (await supabase.from('mock_users').select('id')).data?.map((m: any) => m.id) || []);
+        const { data: mockIds } = await supabase.from('mock_users').select('id');
+        const mockUserIdList = mockIds?.map((m: any) => m.id) || [];
 
-        const remainingSlots = settings.max_mock_users_per_game - (currentMockCount || 0);
+        const { data: existingMockParts } = await supabase
+          .from('cycle_participants')
+          .select('user_id')
+          .eq('cycle_id', targetCycleId)
+          .in('user_id', mockUserIdList);
+
+        const currentMockCount = existingMockParts?.length || 0;
+        const remainingSlots = settings.max_mock_users_per_game - currentMockCount;
+        
         if (remainingSlots <= 0) {
           return new Response(JSON.stringify({ success: true, joined: 0, message: 'Max mock users reached' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -107,9 +241,9 @@ serve(async (req) => {
         // Determine how many to add based on activity level
         let toAdd = 2;
         if (settings.activity_level === 'high') {
-          toAdd = Math.min(5, remainingSlots);
+          toAdd = Math.min(10, remainingSlots);
         } else if (settings.activity_level === 'medium') {
-          toAdd = Math.min(3, remainingSlots);
+          toAdd = Math.min(5, remainingSlots);
         }
 
         // Get mock users already in this cycle
@@ -325,9 +459,9 @@ serve(async (req) => {
         });
       }
 
-      // Auto-populate mock users for active cycles
+      // Auto-populate mock users for active cycles - enhanced version
       case 'auto_populate': {
-        // Get all opening cycles
+        // Get all opening cycles that need mock users
         const { data: openCycles } = await supabase
           .from('game_cycles')
           .select('id, participant_count, entry_fee, pool_value')
@@ -342,47 +476,61 @@ serve(async (req) => {
         let totalJoined = 0;
 
         for (const cycle of openCycles) {
-          // Randomly add 3-8 mock users per cycle
-          const toAdd = Math.floor(Math.random() * 6) + 3;
-          
-          // Get available mock users
-          const { data: existingParticipants } = await supabase
+          // Check how many mock users are already in this cycle
+          const { data: mockIds } = await supabase.from('mock_users').select('id');
+          const mockUserIdList = mockIds?.map((m: any) => m.id) || [];
+
+          const { data: existingMockParts } = await supabase
             .from('cycle_participants')
             .select('user_id')
-            .eq('cycle_id', cycle.id);
+            .eq('cycle_id', cycle.id)
+            .in('user_id', mockUserIdList);
 
-          const existingIds = existingParticipants?.map(p => p.user_id) || [];
+          const currentMockCount = existingMockParts?.length || 0;
+          
+          // If we have less than 100 mock users, bulk add more
+          if (currentMockCount < 100) {
+            const toAdd = 100 - currentMockCount;
+            
+            // Get existing participant IDs
+            const { data: existingParticipants } = await supabase
+              .from('cycle_participants')
+              .select('user_id')
+              .eq('cycle_id', cycle.id);
 
-          let query = supabase
-            .from('mock_users')
-            .select('*')
-            .eq('is_active', true);
+            const existingIds = new Set(existingParticipants?.map(p => p.user_id) || []);
 
-          if (existingIds.length > 0) {
-            query = query.not('id', 'in', `(${existingIds.join(',')})`);
-          }
+            // Get available mock users
+            const { data: availableMocks } = await supabase
+              .from('mock_users')
+              .select('id, username')
+              .eq('is_active', true);
 
-          const { data: availableMocks } = await query.limit(toAdd);
+            const eligibleMocks = (availableMocks || []).filter(m => !existingIds.has(m.id));
+            const toJoinList = eligibleMocks.slice(0, toAdd);
 
-          if (availableMocks && availableMocks.length > 0) {
-            for (const mockUser of availableMocks) {
-              await supabase.from('cycle_participants').insert({
+            if (toJoinList.length > 0) {
+              // Batch insert
+              const participants = toJoinList.map(m => ({
                 cycle_id: cycle.id,
-                user_id: mockUser.id,
+                user_id: m.id,
                 is_spectator: false,
-              });
+              }));
+
+              await supabase.from('cycle_participants').insert(participants);
+
+              // Update cycle
+              await supabase
+                .from('game_cycles')
+                .update({
+                  pool_value: cycle.pool_value + (cycle.entry_fee * toJoinList.length),
+                  participant_count: cycle.participant_count + toJoinList.length,
+                })
+                .eq('id', cycle.id);
+
+              totalJoined += toJoinList.length;
+              console.log(`[auto_populate] Added ${toJoinList.length} mock users to cycle ${cycle.id}`);
             }
-
-            await supabase
-              .from('game_cycles')
-              .update({
-                pool_value: cycle.pool_value + (cycle.entry_fee * availableMocks.length),
-                participant_count: cycle.participant_count + availableMocks.length,
-              })
-              .eq('id', cycle.id);
-
-            totalJoined += availableMocks.length;
-            console.log(`Auto-populated ${availableMocks.length} mock users to cycle ${cycle.id}`);
           }
         }
 
