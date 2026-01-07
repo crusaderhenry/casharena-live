@@ -41,6 +41,9 @@ export const ArenaListing = () => {
     fetchParticipations();
   }, [user, cycles]);
 
+  // Order: Live → Open → Coming Soon (same as Home)
+  const orderedCycles = [...liveCycles, ...openingCycles, ...waitingCycles];
+
   const getFilteredCycles = () => {
     switch (filter) {
       case 'live':
@@ -50,7 +53,7 @@ export const ArenaListing = () => {
       case 'waiting':
         return waitingCycles;
       default:
-        return cycles;
+        return orderedCycles;
     }
   };
 
