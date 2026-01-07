@@ -2,16 +2,14 @@ import { useState, useEffect } from 'react';
 import { WalletCard } from '@/components/WalletCard';
 import { BottomNav } from '@/components/BottomNav';
 import { TestModeToggle } from '@/components/TestControls';
-
-import { GameStatusCard } from '@/components/GameStatusCard';
+import { CycleStatusCard } from '@/components/CycleStatusCard';
 import { WinnerStories } from '@/components/WinnerStories';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
-import { Zap, Trophy, ChevronRight, Flame, Bell, TrendingUp, Calendar, Sparkles, Crown, Radio, Play, Swords, Gamepad2 } from 'lucide-react';
+import { Zap, Trophy, ChevronRight, Bell, TrendingUp, Calendar, Sparkles, Crown, Radio, Play, Swords, Clock } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLiveGame } from '@/hooks/useLiveGame';
-import { useMyGames } from '@/hooks/useMyGames';
+import { useActiveCycles } from '@/hooks/useActiveCycles';
 import { useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -19,116 +17,50 @@ import { supabase } from '@/integrations/supabase/client';
 
 export const Home = () => {
   const { isTestMode } = useGame();
-  const { profile } = useAuth();
-  const { fetchAllActiveGames } = useLiveGame();
-  const { myGames } = useMyGames();
+  const { profile, user } = useAuth();
+  const { cycles, waitingCycles, openingCycles, liveCycles, loading, refetch } = useActiveCycles();
   const navigate = useNavigate();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
   const [recentWinners, setRecentWinners] = useState<any[]>([]);
-  const [allGames, setAllGames] = useState<any[]>([]);
   const [activeNotification, setActiveNotification] = useState(0);
+  const [userParticipations, setUserParticipations] = useState<Set<string>>(new Set());
 
   const { newBadge, showCelebration, dismissCelebration } = useBadgeUnlock({
     total_wins: profile?.total_wins || 0,
     games_played: profile?.games_played || 0,
   });
 
-  // Fetch games and subscribe to updates
+  // Fetch user's current participations
   useEffect(() => {
-    const loadGames = async () => {
-      const games = await fetchAllActiveGames();
-      // Compute effective_prize_pool for display consistency
-      const gamesWithPool = games.map(g => ({
-        ...g,
-        effective_prize_pool: g.is_sponsored && g.sponsored_amount 
-          ? (g.pool_value || 0) + g.sponsored_amount 
-          : (g.pool_value || 0),
-      }));
-      setAllGames(gamesWithPool);
+    const fetchParticipations = async () => {
+      if (!user) return;
+      
+      const cycleIds = cycles.map(c => c.id);
+      if (cycleIds.length === 0) return;
+
+      const { data } = await supabase
+        .from('cycle_participants')
+        .select('cycle_id')
+        .eq('user_id', user.id)
+        .in('cycle_id', cycleIds);
+
+      setUserParticipations(new Set(data?.map(p => p.cycle_id) || []));
     };
-    loadGames();
 
-    const gamesChannel = supabase
-      .channel('home-games-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fastest_finger_games' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newGame = payload.new as any;
-            const withPool = {
-              ...newGame,
-              effective_prize_pool: newGame.is_sponsored && newGame.sponsored_amount 
-                ? (newGame.pool_value || 0) + newGame.sponsored_amount 
-                : (newGame.pool_value || 0),
-            };
-            setAllGames(prev => [withPool, ...prev]);
-          } else if (payload.eventType === 'UPDATE') {
-            const updated = payload.new as any;
-            setAllGames(prev => prev.map(g => {
-              if (g.id === updated.id) {
-                return { 
-                  ...g, 
-                  ...updated,
-                  effective_prize_pool: updated.is_sponsored && updated.sponsored_amount 
-                    ? (updated.pool_value || 0) + updated.sponsored_amount 
-                    : (updated.pool_value || 0),
-                };
-              }
-              return g;
-            }).filter(g => ['live', 'scheduled', 'open'].includes(g.status)));
-          } else if (payload.eventType === 'DELETE') {
-            setAllGames(prev => prev.filter(g => g.id !== (payload.old as any).id));
-          }
-        }
-      )
-      .subscribe();
+    fetchParticipations();
+  }, [user, cycles]);
 
-    const participantsChannel = supabase
-      .channel('home-participants-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fastest_finger_participants' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newP = payload.new as any;
-            setAllGames(prev => prev.map(g => {
-              if (g.id === newP.game_id) {
-                return { 
-                  ...g, 
-                  participant_count: (g.participant_count || 0) + 1,
-                  pool_value: (g.pool_value || 0) + (g.entry_fee || 700)
-                };
-              }
-              return g;
-            }));
-          }
-        }
-      )
-      .subscribe();
-
-    const winnersChannel = supabase
-      .channel('home-winners-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'winners' },
-        async (payload) => {
-          const winner = payload.new as any;
-          const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: winner.user_id });
-          if (profileData?.[0]) {
-            setRecentWinners(prev => [{ ...winner, profile: profileData[0] }, ...prev].slice(0, 5));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(gamesChannel);
-      supabase.removeChannel(winnersChannel);
-      supabase.removeChannel(participantsChannel);
-    };
-  }, [fetchAllActiveGames]);
-
-  // Fetch recent winners
+  // Fetch recent winners from cycle_winners
   useEffect(() => {
     const fetchRecentWinners = async () => {
-      const { data } = await supabase.from('winners').select('*').order('created_at', { ascending: false }).limit(5);
-      if (data) {
+      const { data } = await supabase
+        .from('cycle_winners')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (data && data.length > 0) {
         const winnersWithProfiles = await Promise.all(
           data.map(async (w) => {
             const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: w.user_id });
@@ -136,23 +68,57 @@ export const Home = () => {
           })
         );
         setRecentWinners(winnersWithProfiles);
+      } else {
+        // Fallback to old winners table for historical data
+        const { data: oldWinners } = await supabase
+          .from('winners')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        
+        if (oldWinners) {
+          const winnersWithProfiles = await Promise.all(
+            oldWinners.map(async (w) => {
+              const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: w.user_id });
+              return { ...w, prize_amount: w.amount_won, profile: profileData?.[0] };
+            })
+          );
+          setRecentWinners(winnersWithProfiles);
+        }
       }
     };
     fetchRecentWinners();
   }, []);
 
-  // Categorize games
-  const liveGames = allGames.filter(g => g.status === 'live');
-  const openGames = allGames.filter(g => g.status === 'open');
-  const scheduledGames = allGames.filter(g => g.status === 'scheduled');
+  // Real-time updates for cycles
+  useEffect(() => {
+    const channel = supabase
+      .channel('home-cycles-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_cycles' }, () => {
+        refetch();
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cycle_winners' }, async (payload) => {
+        const winner = payload.new as any;
+        const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: winner.user_id });
+        if (profileData?.[0]) {
+          setRecentWinners(prev => [{ ...winner, profile: profileData[0] }, ...prev].slice(0, 5));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch]);
+
   const userRank = profile?.weekly_rank || Math.ceil((profile?.rank_points || 0) / 100) || 1;
 
   // Notifications
-  const upcomingCount = openGames.length + scheduledGames.length;
   const notifications = [
-    liveGames.length > 0 && `🎮 ${liveGames.length} game${liveGames.length > 1 ? 's' : ''} LIVE now!`,
-    upcomingCount > 0 && `⏰ ${upcomingCount} game${upcomingCount > 1 ? 's' : ''} starting soon`,
-    recentWinners[0]?.profile?.username && `🏆 ${recentWinners[0].profile.username} won ₦${recentWinners[0].amount_won?.toLocaleString()}!`,
+    liveCycles.length > 0 && `🎮 ${liveCycles.length} game${liveCycles.length > 1 ? 's' : ''} LIVE now!`,
+    openingCycles.length > 0 && `⏰ ${openingCycles.length} game${openingCycles.length > 1 ? 's' : ''} open for entry`,
+    waitingCycles.length > 0 && `📅 ${waitingCycles.length} game${waitingCycles.length > 1 ? 's' : ''} coming soon`,
+    recentWinners[0]?.profile?.username && `🏆 ${recentWinners[0].profile.username} won ₦${(recentWinners[0].prize_amount || recentWinners[0].amount_won)?.toLocaleString()}!`,
   ].filter(Boolean) as string[];
 
   useEffect(() => {
@@ -172,18 +138,18 @@ export const Home = () => {
   const handleViewAllGames = () => {
     play('click');
     buttonClick();
-    navigate('/finger');
+    navigate('/arena');
   };
 
   const displayActivity = recentWinners.map((w) => ({
     id: w.id,
     playerName: w.profile?.username || 'Unknown',
     playerAvatar: w.profile?.avatar || '🎮',
-    amount: w.amount_won,
+    amount: w.prize_amount || w.amount_won,
     position: w.position,
   }));
 
-  const totalPool = allGames.reduce((sum, g) => sum + (g.pool_value || 0), 0);
+  const totalPool = cycles.reduce((sum, c) => sum + c.pool_value + (c.sponsored_prize_amount || 0), 0);
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -201,16 +167,16 @@ export const Home = () => {
               <Sparkles className="w-5 h-5 text-gold" />
             </h1>
             <div className="flex items-center gap-3 mt-1">
-              {liveGames.length > 0 && (
+              {liveCycles.length > 0 && (
                 <span className="flex items-center gap-1.5 text-xs font-medium text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                  {liveGames.length} Live
+                  {liveCycles.length} Live
                 </span>
               )}
-              {upcomingCount > 0 && (
+              {(openingCycles.length + waitingCycles.length) > 0 && (
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Calendar className="w-3 h-3" />
-                  {upcomingCount} Soon
+                  {openingCycles.length + waitingCycles.length} Upcoming
                 </span>
               )}
             </div>
@@ -274,114 +240,98 @@ export const Home = () => {
           </div>
         </div>
 
-        {/* Winner Stories - Instagram style */}
+        {/* Winner Stories */}
         <WinnerStories winners={displayActivity} />
 
-        {/* My Active Games */}
-        {myGames.length > 0 && (
+        {/* Live Games */}
+        {liveCycles.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center">
-                  <Gamepad2 className="w-3.5 h-3.5 text-primary" />
+                <div className="w-6 h-6 rounded-lg bg-red-500/20 flex items-center justify-center">
+                  <Radio className="w-3.5 h-3.5 text-red-400" />
                 </div>
-                My Games
+                Live Now
               </h2>
-              {myGames.length > 3 && (
-                <button onClick={handleViewAllGames} className="text-xs text-primary font-medium flex items-center gap-1">
-                  +{myGames.length - 3} more <ChevronRight className="w-3 h-3" />
-                </button>
-              )}
             </div>
             
-            {myGames.slice(0, 3).map((g) => (
-              <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
+            {liveCycles.map((cycle) => (
+              <CycleStatusCard 
+                key={cycle.id} 
+                cycle={cycle} 
+                isParticipant={userParticipations.has(cycle.id)}
+              />
             ))}
           </div>
         )}
 
-        {/* Live Games */}
-        {liveGames.length > 0 && (
+        {/* Open for Entry */}
+        {openingCycles.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <div className="w-6 h-6 rounded-lg bg-green-500/20 flex items-center justify-center">
-                  <Radio className="w-3.5 h-3.5 text-green-400" />
-                </div>
-                Live Now
-              </h2>
-              {liveGames.length > 3 && (
-                <button onClick={handleViewAllGames} className="text-xs text-primary font-medium flex items-center gap-1">
-                  View all <ChevronRight className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-            
-            {liveGames.slice(0, 3).map((g) => (
-              <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
-            ))}
-          </div>
-        )}
-
-        {/* Open Games */}
-        {openGames.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-yellow-500/20 flex items-center justify-center">
-                  <Play className="w-3.5 h-3.5 text-yellow-400" />
+                  <Play className="w-3.5 h-3.5 text-green-400" />
                 </div>
                 Open for Entry
               </h2>
-              {openGames.length > 3 && (
-                <button onClick={handleViewAllGames} className="text-xs text-primary font-medium flex items-center gap-1">
-                  View all <ChevronRight className="w-3 h-3" />
-                </button>
-              )}
             </div>
             
-            {openGames.slice(0, 3).map((g) => (
-              <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
+            {openingCycles.map((cycle) => (
+              <CycleStatusCard 
+                key={cycle.id} 
+                cycle={cycle}
+                isParticipant={userParticipations.has(cycle.id)}
+              />
             ))}
           </div>
         )}
 
-        {/* Coming Soon / Scheduled */}
-        {scheduledGames.length > 0 && (
+        {/* Waiting / Coming Soon */}
+        {waitingCycles.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <div className="w-6 h-6 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                  <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                  <Clock className="w-3.5 h-3.5 text-blue-400" />
                 </div>
                 Coming Soon
               </h2>
-              {scheduledGames.length > 3 && (
-                <button onClick={handleViewAllGames} className="text-xs text-primary font-medium flex items-center gap-1">
-                  View all <ChevronRight className="w-3 h-3" />
-                </button>
-              )}
             </div>
             
-            {scheduledGames.slice(0, 3).map((g) => (
-              <GameStatusCard key={g.id} game={g} isTestMode={isTestMode} />
+            {waitingCycles.map((cycle) => (
+              <CycleStatusCard 
+                key={cycle.id} 
+                cycle={cycle}
+                isParticipant={userParticipations.has(cycle.id)}
+              />
             ))}
           </div>
         )}
 
+        {/* Loading State */}
+        {loading && cycles.length === 0 && (
+          <div className="rounded-2xl border border-border bg-card/50 p-8 text-center">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4 animate-pulse">
+              <Zap className="w-6 h-6 text-primary" />
+            </div>
+            <p className="text-sm text-muted-foreground">Loading games...</p>
+          </div>
+        )}
+
         {/* No Games State */}
-        {allGames.length === 0 && (
+        {!loading && cycles.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border bg-card/50 p-12 text-center">
             <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
               <Zap className="w-8 h-8 text-muted-foreground" />
             </div>
             <h3 className="font-bold text-foreground mb-2">No Games Available</h3>
-            <p className="text-sm text-muted-foreground">Check back soon for exciting new games!</p>
+            <p className="text-sm text-muted-foreground">New Royal Rumble starting soon!</p>
           </div>
         )}
 
         {/* View All Games CTA */}
-        {allGames.length > 0 && (
+        {cycles.length > 0 && (
           <button
             onClick={handleViewAllGames}
             className="w-full py-4 rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 to-transparent text-primary font-bold flex items-center justify-center gap-2 hover:bg-primary/20 transition-colors"
