@@ -121,8 +121,8 @@ export const AuthPage = () => {
     setDevLoading(type);
     
     const credentials = type === 'member' 
-      ? { email: 'member@test.com', password: 'member123', username: 'TestMember', avatar: '🧪' }
-      : { email: 'admin@test.com', password: 'admin123', username: 'TestAdmin', avatar: '🛡️' };
+      ? { email: 'member@test.com', password: 'Member@Test2024!', username: 'TestMember', avatar: '🧪' }
+      : { email: 'admin@test.com', password: 'Admin@Test2024!', username: 'TestAdmin', avatar: '🛡️' };
     
     try {
       // Try to sign in first
