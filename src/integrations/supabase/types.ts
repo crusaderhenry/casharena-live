@@ -79,6 +79,108 @@ export type Database = {
           },
         ]
       }
+      cycle_comments: {
+        Row: {
+          content: string
+          created_at: string
+          cycle_id: string
+          id: string
+          server_timestamp: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          cycle_id: string
+          id?: string
+          server_timestamp?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          cycle_id?: string
+          id?: string
+          server_timestamp?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cycle_comments_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "game_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cycle_participants: {
+        Row: {
+          cycle_id: string
+          id: string
+          is_spectator: boolean
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          cycle_id: string
+          id?: string
+          is_spectator?: boolean
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          cycle_id?: string
+          id?: string
+          is_spectator?: boolean
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cycle_participants_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "game_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cycle_winners: {
+        Row: {
+          created_at: string
+          cycle_id: string
+          id: string
+          position: number
+          prize_amount: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cycle_id: string
+          id?: string
+          position: number
+          prize_amount?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cycle_id?: string
+          id?: string
+          position?: number
+          prize_amount?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cycle_winners_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "game_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fastest_finger_games: {
         Row: {
           arena_music_url: string | null
@@ -224,6 +326,164 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      game_cycles: {
+        Row: {
+          actual_end_at: string | null
+          allow_spectators: boolean
+          comment_timer: number
+          countdown: number
+          created_at: string
+          entry_close_at: string
+          entry_fee: number
+          entry_open_at: string
+          id: string
+          live_end_at: string
+          live_start_at: string
+          min_participants: number
+          participant_count: number
+          platform_cut_percentage: number
+          pool_value: number
+          prize_distribution: number[]
+          real_pool_value: number
+          settled_at: string | null
+          settlement_data: Json | null
+          sponsored_prize_amount: number | null
+          status: string
+          template_id: string
+          winner_count: number
+        }
+        Insert: {
+          actual_end_at?: string | null
+          allow_spectators?: boolean
+          comment_timer?: number
+          countdown?: number
+          created_at?: string
+          entry_close_at: string
+          entry_fee?: number
+          entry_open_at: string
+          id?: string
+          live_end_at: string
+          live_start_at: string
+          min_participants?: number
+          participant_count?: number
+          platform_cut_percentage?: number
+          pool_value?: number
+          prize_distribution?: number[]
+          real_pool_value?: number
+          settled_at?: string | null
+          settlement_data?: Json | null
+          sponsored_prize_amount?: number | null
+          status?: string
+          template_id: string
+          winner_count?: number
+        }
+        Update: {
+          actual_end_at?: string | null
+          allow_spectators?: boolean
+          comment_timer?: number
+          countdown?: number
+          created_at?: string
+          entry_close_at?: string
+          entry_fee?: number
+          entry_open_at?: string
+          id?: string
+          live_end_at?: string
+          live_start_at?: string
+          min_participants?: number
+          participant_count?: number
+          platform_cut_percentage?: number
+          pool_value?: number
+          prize_distribution?: number[]
+          real_pool_value?: number
+          settled_at?: string | null
+          settlement_data?: Json | null
+          sponsored_prize_amount?: number | null
+          status?: string
+          template_id?: string
+          winner_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_cycles_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "game_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_templates: {
+        Row: {
+          allow_spectators: boolean
+          comment_timer: number
+          created_at: string
+          created_by: string | null
+          entry_fee: number
+          entry_mode: string
+          game_type: string
+          id: string
+          is_active: boolean
+          max_live_duration: number
+          min_participants: number
+          name: string
+          open_entry_duration: number
+          platform_cut_percentage: number
+          prize_distribution: number[]
+          recurrence_start_time: string | null
+          recurrence_type: string
+          sponsored_prize_amount: number | null
+          updated_at: string
+          waiting_duration: number
+          winner_count: number
+        }
+        Insert: {
+          allow_spectators?: boolean
+          comment_timer?: number
+          created_at?: string
+          created_by?: string | null
+          entry_fee?: number
+          entry_mode?: string
+          game_type?: string
+          id?: string
+          is_active?: boolean
+          max_live_duration?: number
+          min_participants?: number
+          name?: string
+          open_entry_duration?: number
+          platform_cut_percentage?: number
+          prize_distribution?: number[]
+          recurrence_start_time?: string | null
+          recurrence_type?: string
+          sponsored_prize_amount?: number | null
+          updated_at?: string
+          waiting_duration?: number
+          winner_count?: number
+        }
+        Update: {
+          allow_spectators?: boolean
+          comment_timer?: number
+          created_at?: string
+          created_by?: string | null
+          entry_fee?: number
+          entry_mode?: string
+          game_type?: string
+          id?: string
+          is_active?: boolean
+          max_live_duration?: number
+          min_participants?: number
+          name?: string
+          open_entry_duration?: number
+          platform_cut_percentage?: number
+          prize_distribution?: number[]
+          recurrence_start_time?: string | null
+          recurrence_type?: string
+          sponsored_prize_amount?: number | null
+          updated_at?: string
+          waiting_duration?: number
+          winner_count?: number
+        }
+        Relationships: []
       }
       mock_game_participation: {
         Row: {
@@ -692,6 +952,31 @@ export type Database = {
     }
     Functions: {
       calculate_prize_pool: { Args: { game_id: string }; Returns: number }
+      get_active_cycles: {
+        Args: never
+        Returns: {
+          allow_spectators: boolean
+          countdown: number
+          entry_close_at: string
+          entry_fee: number
+          entry_open_at: string
+          game_type: string
+          id: string
+          live_end_at: string
+          live_start_at: string
+          participant_count: number
+          pool_value: number
+          prize_distribution: number[]
+          seconds_remaining: number
+          seconds_until_live: number
+          seconds_until_opening: number
+          sponsored_prize_amount: number
+          status: string
+          template_id: string
+          template_name: string
+          winner_count: number
+        }[]
+      }
       get_active_games: {
         Args: never
         Returns: {
@@ -787,6 +1072,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      join_cycle_atomic: {
+        Args: {
+          p_as_spectator?: boolean
+          p_cycle_id: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       join_game_atomic: {
         Args: { p_game_id: string; p_user_id: string }
