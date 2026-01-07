@@ -33,7 +33,7 @@ import { DepositCallback } from "@/pages/wallet/DepositCallback";
 // Admin
 import { AdminLayout } from "@/pages/admin/AdminLayout";
 import { AdminDashboard } from "@/pages/admin/AdminDashboard";
-import { AdminFingerControl } from "@/pages/admin/AdminFingerControl";
+import { AdminRumbleControl } from "@/pages/admin/AdminFingerControl";
 import { AdminLiveMonitor } from "@/pages/admin/AdminLiveMonitor";
 import { AdminUsers } from "@/pages/admin/AdminUsers";
 import { AdminMockUsers } from "@/pages/admin/AdminMockUsers";
@@ -207,7 +207,7 @@ const AppRoutes = () => (
     {/* Admin Dashboard - Requires admin role */}
     <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
       <Route index element={<AdminDashboard />} />
-      <Route path="finger-control" element={<AdminFingerControl />} />
+      <Route path="finger-control" element={<AdminRumbleControl />} />
       <Route path="live-monitor" element={<AdminLiveMonitor />} />
       <Route path="users" element={<AdminUsers />} />
       <Route path="mock-users" element={<AdminMockUsers />} />

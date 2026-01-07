@@ -43,6 +43,7 @@ interface AdminGame {
   commentTimer: number;
   maxDuration: number;
   minParticipants: number;
+  visibility: 'public' | 'private';
 }
 
 interface LiveComment {
@@ -122,6 +123,8 @@ interface AdminContextType {
   createGame: () => Promise<void>;
   createGameWithConfig: (config: CreateGameConfig) => Promise<void>;
   updateGame: (gameId: string, config: Partial<CreateGameConfig>) => Promise<void>;
+  cloneGame: (gameId: string) => Promise<void>;
+  toggleVisibility: (gameId: string) => Promise<void>;
   startGame: (gameId?: string) => Promise<void>;
   endGame: (gameId?: string) => Promise<void>;
   cancelGame: (gameId: string, reason: string) => Promise<void>;
@@ -232,6 +235,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
           commentTimer: (g as any).comment_timer || 60,
           maxDuration: g.max_duration,
           minParticipants: (g as any).min_participants || 3,
+          visibility: ((g as any).visibility || 'public') as AdminGame['visibility'],
         }));
         setGames(mappedGames);
         
@@ -460,6 +464,47 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [refreshData, toast]);
 
+  const cloneGame = useCallback(async (gameId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('game-manager', {
+        body: { 
+          action: 'clone_game',
+          gameId,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({ title: 'Game Cloned', description: `Game duplicated as draft (unpublished)` });
+      refreshData();
+    } catch (error: any) {
+      console.error('Clone game error:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  }, [refreshData, toast]);
+
+  const toggleVisibility = useCallback(async (gameId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('game-manager', {
+        body: { 
+          action: 'toggle_visibility',
+          gameId,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const newVisibility = data.visibility === 'public' ? 'Published' : 'Unpublished';
+      toast({ title: 'Visibility Updated', description: `Game is now ${newVisibility}` });
+      refreshData();
+    } catch (error: any) {
+      console.error('Toggle visibility error:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  }, [refreshData, toast]);
+
   const startGame = useCallback(async (gameId?: string) => {
     const targetGame = gameId ? games.find(g => g.id === gameId) : currentGame;
     if (!targetGame) return;
@@ -608,7 +653,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AdminContext.Provider value={{
       users, transactions, games, currentGame, liveComments, settings, stats, isSimulating, loading,
-      createGame, createGameWithConfig, updateGame, startGame, endGame, cancelGame, deleteGame, resetGame, pauseSimulation, resumeSimulation,
+      createGame, createGameWithConfig, updateGame, cloneGame, toggleVisibility, startGame, endGame, cancelGame, deleteGame, resetGame, pauseSimulation, resumeSimulation,
       updateSettings, suspendUser, flagUser, activateUser, approvePayout, triggerWeeklyReset, simulateHighTraffic, refreshData,
     }}>
       {children}

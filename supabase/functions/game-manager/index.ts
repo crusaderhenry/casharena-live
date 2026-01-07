@@ -88,8 +88,8 @@ serve(async (req) => {
     console.log(`Game action: ${action}`, { gameId, userId, config, reason });
 
     // Actions that require authentication
-    const authRequiredActions = ['join', 'create_game', 'update_game', 'start_game', 'end_game', 'cancel_game', 'delete_game', 'reset_weekly_ranks'];
-    const adminRequiredActions = ['create_game', 'update_game', 'start_game', 'end_game', 'cancel_game', 'delete_game', 'reset_weekly_ranks'];
+    const authRequiredActions = ['join', 'create_game', 'update_game', 'clone_game', 'toggle_visibility', 'start_game', 'end_game', 'cancel_game', 'delete_game', 'reset_weekly_ranks'];
+    const adminRequiredActions = ['create_game', 'update_game', 'clone_game', 'toggle_visibility', 'start_game', 'end_game', 'cancel_game', 'delete_game', 'reset_weekly_ranks'];
 
     let authenticatedUser = null;
 
@@ -134,7 +134,7 @@ serve(async (req) => {
           .from('fastest_finger_games')
           .insert({
             status: 'scheduled',
-            name: gameConfig.name || 'Fastest Finger',
+            name: gameConfig.name || 'Royal Rumble',
             description: gameConfig.description || null,
             entry_fee: entryFee,
             max_duration: gameConfig.max_duration || 20,
@@ -153,7 +153,7 @@ serve(async (req) => {
             is_sponsored: gameConfig.is_sponsored || false,
             sponsored_amount: gameConfig.sponsored_amount || 0,
             platform_cut_percentage: gameConfig.platform_cut_percentage || 10,
-            visibility: 'public',
+            visibility: gameConfig.visibility || 'public',
             // New automation fields
             auto_restart: gameConfig.auto_restart || false,
             fixed_daily_time: gameConfig.fixed_daily_time || null,
@@ -560,6 +560,106 @@ serve(async (req) => {
         
         console.log('Game updated by admin:', authenticatedUser?.id, gameId);
         return new Response(JSON.stringify({ success: true, game: updatedGame }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'clone_game': {
+        // Admin only - already verified above
+        if (!gameId) throw new Error('Missing gameId');
+
+        const { data: game, error: gameError } = await supabase
+          .from('fastest_finger_games')
+          .select('*')
+          .eq('id', gameId)
+          .single();
+
+        if (gameError || !game) throw new Error('Game not found');
+
+        // Create a clone with visibility set to private (unpublished/draft)
+        const { data: clonedGame, error: cloneError } = await supabase
+          .from('fastest_finger_games')
+          .insert({
+            status: 'scheduled',
+            name: `${(game as any).name || 'Royal Rumble'} (Copy)`,
+            description: (game as any).description || null,
+            entry_fee: game.entry_fee,
+            max_duration: game.max_duration,
+            pool_value: 0,
+            participant_count: 0,
+            countdown: (game as any).entry_wait_seconds || game.countdown || 60,
+            comment_timer: (game as any).comment_timer || 60,
+            payout_type: (game as any).payout_type || 'top3',
+            payout_distribution: (game as any).payout_distribution || [0.5, 0.3, 0.2],
+            min_participants: (game as any).min_participants || 3,
+            created_by: authenticatedUser?.id,
+            go_live_type: (game as any).go_live_type || 'immediate',
+            scheduled_at: null, // Clear schedule for clone
+            recurrence_type: (game as any).recurrence_type || null,
+            recurrence_interval: (game as any).recurrence_interval || null,
+            is_sponsored: (game as any).is_sponsored || false,
+            sponsored_amount: (game as any).sponsored_amount || 0,
+            platform_cut_percentage: (game as any).platform_cut_percentage || 10,
+            visibility: 'private', // Cloned games are unpublished by default
+            auto_restart: (game as any).auto_restart || false,
+            fixed_daily_time: (game as any).fixed_daily_time || null,
+            entry_wait_seconds: (game as any).entry_wait_seconds || 60,
+            min_participants_action: (game as any).min_participants_action || 'reset',
+            music_type: (game as any).music_type || 'generated',
+            lobby_music_url: (game as any).lobby_music_url || null,
+            arena_music_url: (game as any).arena_music_url || null,
+            tense_music_url: (game as any).tense_music_url || null,
+          })
+          .select()
+          .single();
+
+        if (cloneError) throw cloneError;
+        
+        // Log audit action
+        await logAuditAction(supabase, authenticatedUser!.id, 'clone_game', 'game', clonedGame.id, { source_game_id: gameId }, clientIp);
+        
+        console.log('Game cloned by admin:', authenticatedUser?.id, 'from', gameId, 'to', clonedGame.id);
+        return new Response(JSON.stringify({ success: true, game: clonedGame }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'toggle_visibility': {
+        // Admin only - already verified above
+        if (!gameId) throw new Error('Missing gameId');
+
+        const { data: game, error: gameError } = await supabase
+          .from('fastest_finger_games')
+          .select('visibility, status')
+          .eq('id', gameId)
+          .single();
+
+        if (gameError || !game) throw new Error('Game not found');
+        
+        // Cannot toggle visibility of live games
+        if (game.status === 'live') {
+          return new Response(JSON.stringify({ error: 'Cannot change visibility of live games' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const newVisibility = (game as any).visibility === 'public' ? 'private' : 'public';
+
+        const { data: updatedGame, error } = await supabase
+          .from('fastest_finger_games')
+          .update({ visibility: newVisibility })
+          .eq('id', gameId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        
+        // Log audit action
+        await logAuditAction(supabase, authenticatedUser!.id, 'toggle_visibility', 'game', gameId, { new_visibility: newVisibility }, clientIp);
+        
+        console.log('Game visibility toggled by admin:', authenticatedUser?.id, gameId, newVisibility);
+        return new Response(JSON.stringify({ success: true, game: updatedGame, visibility: newVisibility }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }

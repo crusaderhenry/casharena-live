@@ -1,7 +1,7 @@
 import { useAdmin } from '@/contexts/AdminContext';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
-import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle, XCircle, Music, Upload } from 'lucide-react';
+import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle, XCircle, Music, Upload, Copy, Eye, EyeOff } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -80,13 +80,15 @@ interface GameFormData {
   tenseMusicUrl: string;
 }
 
-export const AdminFingerControl = () => {
+export const AdminRumbleControl = () => {
   const { 
     currentGame, 
     games,
     settings, 
     createGameWithConfig,
     updateGame,
+    cloneGame,
+    toggleVisibility,
     startGame, 
     endGame, 
     cancelGame,
@@ -133,7 +135,7 @@ export const AdminFingerControl = () => {
   };
 
   const [formData, setFormData] = useState<GameFormData>({
-    name: 'Fastest Finger',
+    name: 'Royal Rumble',
     description: '',
     entryFee: defaultEntryFee,
     maxDuration: defaultMaxDuration,
@@ -238,7 +240,7 @@ export const AdminFingerControl = () => {
     // Reset form
     const defaults = getDefaultDateTime();
     setFormData({
-      name: 'Fastest Finger',
+      name: 'Royal Rumble',
       description: '',
       entryFee: 700,
       maxDuration: 20,
@@ -429,7 +431,7 @@ export const AdminFingerControl = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-foreground">Fastest Finger Control</h1>
+          <h1 className="text-2xl font-black text-foreground">Royal Rumble Control</h1>
           <p className="text-sm text-muted-foreground">Manage game lifecycle and settings</p>
         </div>
         
@@ -1161,7 +1163,14 @@ export const AdminFingerControl = () => {
               <div key={game.id} className="bg-card rounded-xl border border-border p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="font-bold text-foreground">{game.name || 'Fastest Finger'}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-foreground">{game.name || 'Royal Rumble'}</h3>
+                      {game.visibility === 'private' && (
+                        <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground rounded-full">
+                          Draft
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">ID: {game.id.slice(0, 8)}...</p>
                   </div>
                   <div className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
@@ -1194,9 +1203,27 @@ export const AdminFingerControl = () => {
                   </div>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   {(game.status === 'scheduled' || game.status === 'open') && (
                     <>
+                      <button
+                        onClick={() => toggleVisibility(game.id)}
+                        className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-medium transition-colors ${
+                          game.visibility === 'public' 
+                            ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                        title={game.visibility === 'public' ? 'Unpublish Game' : 'Publish Game'}
+                      >
+                        {game.visibility === 'public' ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onClick={() => cloneGame(game.id)}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-purple-500/20 text-purple-400 rounded-lg font-medium hover:bg-purple-500/30 transition-colors"
+                        title="Clone Game"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => handleOpenEditDialog(game.id)}
                         className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-medium hover:bg-blue-500/30 transition-colors"
@@ -1209,7 +1236,7 @@ export const AdminFingerControl = () => {
                         className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-medium hover:bg-green-500/30 transition-colors"
                       >
                         <Play className="w-4 h-4" />
-                        Start Now
+                        Start
                       </button>
                       <button
                         onClick={() => handleOpenCancelDialog(game.id)}
