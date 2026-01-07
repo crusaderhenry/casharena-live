@@ -46,6 +46,7 @@ export const CycleLobby = () => {
   const [participation, setParticipation] = useState<{ isParticipant: boolean; isSpectator: boolean }>({ isParticipant: false, isSpectator: false });
   const [timeUntilOpening, setTimeUntilOpening] = useState(0);
   const [timeUntilLive, setTimeUntilLive] = useState(0);
+  const [transitioning, setTransitioning] = useState(false);
 
   // Fetch cycle data
   const fetchCycle = useCallback(async () => {
@@ -111,12 +112,15 @@ export const CycleLobby = () => {
           const updated = payload.new as CycleData;
           setCycle(prev => prev ? { ...prev, ...updated } : null);
 
-          // Redirect to arena when game goes live
+          // Redirect to arena when game goes live - with transition
           if (updated.status === 'live') {
             play('gameStart');
             hapticSuccess();
             toast.success('Game is now LIVE!');
-            navigate(`/arena/${cycleId}/live`);
+            setTransitioning(true);
+            setTimeout(() => {
+              navigate(`/arena/${cycleId}/live`);
+            }, 500);
           }
         }
       )
@@ -211,7 +215,7 @@ export const CycleLobby = () => {
   const hasBalance = (profile?.wallet_balance || 0) >= cycle.entry_fee;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className={`min-h-screen bg-background flex flex-col transition-all duration-500 ${transitioning ? 'opacity-0 scale-105' : 'opacity-100 scale-100 animate-fade-in'}`}>
       {/* Header */}
       <div className="p-4 flex items-center gap-4">
         <button

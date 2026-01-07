@@ -66,9 +66,16 @@ export const CycleArena = () => {
   const [timeUntilLive, setTimeUntilLive] = useState(0);
   const [hostIsSpeaking, setHostIsSpeaking] = useState(false);
   const [showLeaveWarning, setShowLeaveWarning] = useState(false);
+  const [isEntering, setIsEntering] = useState(true);
   const commentsContainerRef = useRef<HTMLDivElement>(null);
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
+  
+  // Arena entrance animation
+  useEffect(() => {
+    const timer = setTimeout(() => setIsEntering(false), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const isLive = cycle?.status === 'live' || cycle?.status === 'ending';
   
@@ -300,7 +307,7 @@ export const CycleArena = () => {
   const isCountdownCritical = localCountdown <= 10 && isLive;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className={`min-h-screen bg-background flex flex-col transition-all duration-500 ease-out ${isEntering ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
       {/* Live Header */}
       <div className="sticky top-0 z-20 bg-gradient-to-b from-background via-background to-transparent">
         {/* Top Bar */}
