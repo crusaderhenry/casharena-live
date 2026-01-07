@@ -189,13 +189,13 @@ Deno.serve(async (req) => {
             type: 'win',
             amount: prize,
             game_id: gameId,
-            description: `${gameForEnd.name || 'Fastest Finger'} - Position ${i + 1}`,
+            description: `${gameForEnd.name || 'Royal Rumble'} - Position ${i + 1}`,
           });
 
           await supabase.from('rank_history').insert({
             user_id: winnerId,
             points: [100, 60, 30, 10, 10, 10, 10, 10, 10, 10][i] || 10,
-            reason: `Position ${i + 1} in ${gameForEnd.name || 'Fastest Finger'}`,
+            reason: `Position ${i + 1} in ${gameForEnd.name || 'Royal Rumble'}`,
             game_id: gameId,
           });
         }
