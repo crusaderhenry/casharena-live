@@ -35,9 +35,9 @@ export const useAudio = () => {
 
 // Ambient sound generators using Web Audio API
 const createAmbientSound = (ctx: AudioContext, type: 'lobby' | 'arena' | 'tense') => {
-  const gainNode = ctx.createGain();
-  gainNode.connect(ctx.destination);
-  gainNode.gain.value = 0.03;
+  const masterGain = ctx.createGain();
+  masterGain.connect(ctx.destination);
+  masterGain.gain.value = 0.15; // Increased master volume
 
   // Create low frequency oscillator for ambient hum
   const lfo = ctx.createOscillator();
@@ -45,10 +45,10 @@ const createAmbientSound = (ctx: AudioContext, type: 'lobby' | 'arena' | 'tense'
   lfo.frequency.value = type === 'tense' ? 55 : type === 'arena' ? 80 : 60;
   
   const lfoGain = ctx.createGain();
-  lfoGain.gain.value = 0.02;
+  lfoGain.gain.value = 0.4; // Increased from 0.02
   
   lfo.connect(lfoGain);
-  lfoGain.connect(gainNode);
+  lfoGain.connect(masterGain);
   
   // Add subtle pulse
   const pulse = ctx.createOscillator();
@@ -56,23 +56,38 @@ const createAmbientSound = (ctx: AudioContext, type: 'lobby' | 'arena' | 'tense'
   pulse.frequency.value = type === 'tense' ? 110 : 100;
   
   const pulseGain = ctx.createGain();
-  pulseGain.gain.value = 0.01;
+  pulseGain.gain.value = 0.2; // Increased from 0.01
   
   pulse.connect(pulseGain);
-  pulseGain.connect(gainNode);
+  pulseGain.connect(masterGain);
+
+  // Add a third layer for richer sound
+  const pad = ctx.createOscillator();
+  pad.type = 'sine';
+  pad.frequency.value = type === 'tense' ? 220 : type === 'arena' ? 160 : 120;
+  
+  const padGain = ctx.createGain();
+  padGain.gain.value = 0.1;
+  
+  pad.connect(padGain);
+  padGain.connect(masterGain);
 
   return { 
     start: () => {
       lfo.start();
       pulse.start();
+      pad.start();
+      console.log('[Audio] Ambient sound started:', type);
     },
     stop: () => {
       try {
         lfo.stop();
         pulse.stop();
+        pad.stop();
+        console.log('[Audio] Ambient sound stopped');
       } catch {}
     },
-    gainNode,
+    gainNode: masterGain,
   };
 };
 
@@ -98,8 +113,12 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   }, [settings]);
 
   const getContext = useCallback(() => {
-    if (!audioContextRef.current) {
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    // Resume if suspended (requires user interaction)
+    if (audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume();
     }
     return audioContextRef.current;
   }, []);
@@ -131,7 +150,12 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const playBackgroundMusic = useCallback((type: 'lobby' | 'arena' | 'tense', customUrl?: string | null) => {
-    if (!settings.musicEnabled) return;
+    if (!settings.musicEnabled) {
+      console.log('[Audio] Music disabled, not playing');
+      return;
+    }
+    
+    console.log('[Audio] Playing background music:', type, customUrl ? '(custom)' : '(generated)');
     
     // Stop existing music (both generated and uploaded)
     if (ambientRef.current) {
@@ -149,26 +173,26 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       try {
         const audio = new Audio(customUrl);
         audio.loop = true;
-        audio.volume = settings.volume * 0.3; // Background music at 30% of master volume
+        audio.volume = settings.volume * 0.3;
         audio.play().catch(err => {
-          console.warn('Failed to play custom music:', err);
+          console.warn('[Audio] Failed to play custom music:', err);
           // Fallback to generated audio
           const ctx = getContext();
           ambientRef.current = createAmbientSound(ctx, type);
-          ambientRef.current.gainNode.gain.value = settings.volume * 0.05;
+          ambientRef.current.gainNode.gain.value = settings.volume * 0.15;
           ambientRef.current.start();
         });
         audioElementRef.current = audio;
         return;
       } catch (err) {
-        console.warn('Error loading custom music, falling back to generated:', err);
+        console.warn('[Audio] Error loading custom music, falling back to generated:', err);
       }
     }
 
     // Use generated ambient sounds
     const ctx = getContext();
     ambientRef.current = createAmbientSound(ctx, type);
-    ambientRef.current.gainNode.gain.value = settings.volume * 0.05;
+    ambientRef.current.gainNode.gain.value = settings.volume * 0.15;
     ambientRef.current.start();
   }, [settings.musicEnabled, settings.volume, getContext]);
 
