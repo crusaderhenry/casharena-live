@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback, memo } from 'react';
 import { Share2, MessageCircle, Download, Loader2, Instagram, Facebook, X, Crown, Users, Trophy, Sparkles } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -13,35 +13,35 @@ interface GameShareModalProps {
   variant?: 'card' | 'live' | 'lobby';
 }
 
-export const GameShareModal = ({ open, onOpenChange, cycle, variant = 'card' }: GameShareModalProps) => {
+export const GameShareModal = memo(function GameShareModal({ open, onOpenChange, cycle, variant = 'card' }: GameShareModalProps) {
   const { toast } = useToast();
   const cardRef = useRef<HTMLDivElement>(null);
   const storyCardRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
-  const formatMoney = (value: number) => {
+  const formatMoney = useCallback((value: number) => {
     if (value >= 1_000_000) return `₦${(value / 1_000_000).toFixed(1)}M`;
     if (value >= 1_000) return `₦${(value / 1_000).toFixed(0)}K`;
     return `₦${value.toLocaleString()}`;
-  };
+  }, []);
 
   const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
   const appUrl = window.location.origin;
   const gameLink = `${appUrl}/arena/${cycle.id}`;
 
-  const getStatusLabel = () => {
+  const getStatusLabel = useCallback(() => {
     switch (cycle.status) {
       case 'live': return '🔴 LIVE NOW';
       case 'ending': return '⏰ ENDING SOON';
       case 'opening': return '🟢 OPEN FOR ENTRY';
       default: return '📅 COMING SOON';
     }
-  };
+  }, [cycle.status]);
 
   const shareMessage = `🎮 ${cycle.template_name} - ${getStatusLabel()}\n\n💰 Prize Pool: ${formatMoney(effectivePrizePool)}\n👥 ${cycle.participant_count} players competing\n🏆 Top ${cycle.winner_count} win!\n\nJoin me on FortunesHQ! 🚀\n\n🎯 Play now: ${gameLink}`;
 
   // Capture the card as an image
-  const captureCard = async (forStory = false): Promise<Blob | null> => {
+  const captureCard = useCallback(async (forStory = false): Promise<Blob | null> => {
     const ref = forStory ? storyCardRef.current : cardRef.current;
     if (!ref) return null;
     
@@ -67,10 +67,10 @@ export const GameShareModal = ({ open, onOpenChange, cycle, variant = 'card' }: 
       setIsCapturing(false);
       return null;
     }
-  };
+  }, []);
 
-  // Download the image
-  const handleDownload = async () => {
+  // Download the image (fallback only)
+  const handleDownload = useCallback(async () => {
     const blob = await captureCard();
     if (!blob) {
       toast({ title: 'Error', description: 'Failed to create image', variant: 'destructive' });
@@ -87,57 +87,88 @@ export const GameShareModal = ({ open, onOpenChange, cycle, variant = 'card' }: 
     URL.revokeObjectURL(url);
     
     toast({ title: 'Downloaded!', description: 'Share the game on social media!' });
-  };
+  }, [captureCard, cycle.template_name, toast]);
 
-  // Share with Web Share API (mobile-friendly)
-  const handleNativeShare = async () => {
+  // Share with Web Share API (mobile-friendly) - PRIMARY method
+  const handleNativeShare = useCallback(async () => {
     const blob = await captureCard();
     
     if (navigator.share) {
       try {
         const files = blob ? [new File([blob], 'fortuneshq-game.png', { type: 'image/png' })] : [];
+        const canShareFiles = files.length > 0 && navigator.canShare?.({ files });
         
         await navigator.share({
           title: `${cycle.template_name} on FortunesHQ`,
           text: shareMessage,
           url: gameLink,
-          files: files.length > 0 && navigator.canShare?.({ files }) ? files : undefined,
+          ...(canShareFiles ? { files } : {}),
         });
         
         toast({ title: 'Shared!', description: 'Thanks for sharing!' });
       } catch (error: any) {
         if (error.name !== 'AbortError') {
           console.error('Share failed:', error);
-          handleDownload();
+          // Just copy the message
+          try {
+            await navigator.clipboard.writeText(shareMessage);
+            toast({ title: 'Caption copied!', description: 'Paste it when sharing' });
+          } catch {
+            toast({ title: 'Share unavailable', description: 'Please copy manually', variant: 'destructive' });
+          }
         }
       }
     } else {
-      handleDownload();
+      // Desktop fallback
+      try {
+        await navigator.clipboard.writeText(shareMessage);
+        toast({ title: 'Caption copied!', description: 'Paste it when sharing' });
+      } catch {
+        handleDownload();
+      }
     }
-  };
+  }, [captureCard, cycle.template_name, shareMessage, gameLink, toast, handleDownload]);
 
-  // Share to WhatsApp
-  const handleWhatsApp = async () => {
-    await handleDownload();
+  // Share to WhatsApp - text only
+  const handleWhatsApp = useCallback(() => {
     const url = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
     window.open(url, '_blank');
-  };
+    toast({ title: 'Opening WhatsApp...', description: 'Share this game!' });
+  }, [shareMessage, toast]);
 
-  // Share to Twitter/X
-  const handleTwitter = async () => {
-    await handleDownload();
+  // Share to Twitter/X - text only
+  const handleTwitter = useCallback(() => {
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}`;
     window.open(url, '_blank');
-  };
+    toast({ title: 'Opening Twitter...', description: 'Share this game!' });
+  }, [shareMessage, toast]);
 
-  // Share to Instagram Story
-  const handleInstagramStory = async () => {
+  // Share to Instagram Story - uses native share
+  const handleInstagramStory = useCallback(async () => {
     const blob = await captureCard(true);
     if (!blob) {
       toast({ title: 'Error', description: 'Failed to create story image', variant: 'destructive' });
       return;
     }
     
+    // Try native share first
+    if (navigator.share && navigator.canShare) {
+      const file = new File([blob], 'fortuneshq-story.png', { type: 'image/png' });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'FortunesHQ Game',
+          });
+          toast({ title: 'Shared!', description: 'Select Instagram Stories' });
+          return;
+        } catch (error: any) {
+          if (error.name === 'AbortError') return;
+        }
+      }
+    }
+    
+    // Fallback: download
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -151,23 +182,23 @@ export const GameShareModal = ({ open, onOpenChange, cycle, variant = 'card' }: 
       title: 'Story Image Saved!', 
       description: 'Open Instagram and share to your story' 
     });
-  };
+  }, [captureCard, cycle.template_name, toast]);
 
-  // Share to Facebook
-  const handleFacebook = async () => {
-    await handleDownload();
+  // Share to Facebook - link with quote
+  const handleFacebook = useCallback(() => {
     const facebookShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(gameLink)}&quote=${encodeURIComponent(shareMessage)}`;
     window.open(facebookShareUrl, '_blank', 'width=600,height=400');
-  };
+    toast({ title: 'Opening Facebook...', description: 'Share this game!' });
+  }, [gameLink, shareMessage, toast]);
 
-  const getStatusColor = () => {
+  const getStatusColor = useCallback(() => {
     switch (cycle.status) {
       case 'live': return '#ef4444';
       case 'ending': return '#f97316';
       case 'opening': return '#22c55e';
       default: return '#3b82f6';
     }
-  };
+  }, [cycle.status]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -413,4 +444,4 @@ export const GameShareModal = ({ open, onOpenChange, cycle, variant = 'card' }: 
       </DialogContent>
     </Dialog>
   );
-};
+});
