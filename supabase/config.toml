@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.cycle-status-check]
 verify_jwt = false
+
+[functions.elevenlabs-music]
+verify_jwt = false
