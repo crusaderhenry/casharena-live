@@ -1,7 +1,7 @@
 import { useAdmin } from '@/contexts/AdminContext';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
-import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle, XCircle, Music, Upload, Copy, Eye, EyeOff, Bot } from 'lucide-react';
+import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle, XCircle, Music, Upload, Copy, Eye, EyeOff, Bot, FileText, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -117,6 +117,74 @@ export const AdminRumbleControl = () => {
   const [deleteGameId, setDeleteGameId] = useState<string | null>(null);
   const [cancelReasonType, setCancelReasonType] = useState('');
   const [cancelReasonCustom, setCancelReasonCustom] = useState('');
+  
+  // Templates state
+  interface GameTemplate {
+    id: string;
+    name: string;
+    entry_fee: number;
+    max_live_duration: number;
+    comment_timer: number;
+    min_participants: number;
+    winner_count: number;
+    recurrence_type: string;
+    is_active: boolean;
+    created_at: string;
+    sponsored_prize_amount: number | null;
+  }
+  const [templates, setTemplates] = useState<GameTemplate[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  
+  // Fetch templates
+  const fetchTemplates = async () => {
+    setLoadingTemplates(true);
+    const { data, error } = await supabase
+      .from('game_templates')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (data && !error) {
+      setTemplates(data);
+    }
+    setLoadingTemplates(false);
+  };
+  
+  useEffect(() => {
+    fetchTemplates();
+  }, []);
+  
+  // Toggle template active status
+  const toggleTemplateActive = async (templateId: string, currentStatus: boolean) => {
+    const { error } = await supabase
+      .from('game_templates')
+      .update({ is_active: !currentStatus })
+      .eq('id', templateId);
+    
+    if (!error) {
+      setTemplates(prev => prev.map(t => 
+        t.id === templateId ? { ...t, is_active: !currentStatus } : t
+      ));
+      // If activating, trigger cycle creation
+      if (!currentStatus) {
+        await supabase.functions.invoke('cycle-manager', {
+          body: { action: 'create_cycle', templateId },
+        });
+        refreshData();
+      }
+    }
+  };
+  
+  // Delete template
+  const deleteTemplate = async (templateId: string) => {
+    const { error } = await supabase
+      .from('game_templates')
+      .delete()
+      .eq('id', templateId);
+    
+    if (!error) {
+      setTemplates(prev => prev.filter(t => t.id !== templateId));
+    }
+  };
 
   const CANCEL_REASONS = [
     { value: 'not_enough_players', label: 'Not enough players' },
@@ -1508,6 +1576,115 @@ export const AdminRumbleControl = () => {
         </div>
       )}
 
+
+      {/* Game Templates */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <FileText className="w-5 h-5 text-primary" />
+            Game Templates
+          </h2>
+          <button
+            onClick={fetchTemplates}
+            className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+            title="Refresh templates"
+          >
+            <RefreshCw className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+        
+        {loadingTemplates ? (
+          <div className="bg-card rounded-xl border border-border p-8 text-center">
+            <p className="text-muted-foreground">Loading templates...</p>
+          </div>
+        ) : templates.length === 0 ? (
+          <div className="bg-card rounded-xl border border-border p-8 text-center">
+            <p className="text-muted-foreground">No templates found. Create a new game to generate a template.</p>
+          </div>
+        ) : (
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-muted/30">
+                <tr>
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Template</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Entry Fee</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Duration</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Winners</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Recurrence</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Status</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {templates.map(template => (
+                  <tr key={template.id} className="border-t border-border">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-foreground">{template.name}</p>
+                      <p className="text-xs text-muted-foreground">{template.id.slice(0, 12)}...</p>
+                    </td>
+                    <td className="px-4 py-3 text-foreground">
+                      {template.sponsored_prize_amount && template.sponsored_prize_amount > 0 ? (
+                        <span className="text-gold flex items-center gap-1">
+                          <Gift className="w-3 h-3" />
+                          Sponsored
+                        </span>
+                      ) : (
+                        `₦${template.entry_fee.toLocaleString()}`
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-foreground">{template.max_live_duration}min</td>
+                    <td className="px-4 py-3 text-foreground">Top {template.winner_count}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        template.recurrence_type === 'infinity' 
+                          ? 'bg-primary/20 text-primary' 
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {template.recurrence_type || 'manual'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                        template.is_active 
+                          ? 'bg-green-500/20 text-green-400' 
+                          : 'bg-destructive/20 text-destructive'
+                      }`}>
+                        {template.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => toggleTemplateActive(template.id, template.is_active)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            template.is_active 
+                              ? 'bg-destructive/10 text-destructive hover:bg-destructive/20' 
+                              : 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
+                          }`}
+                          title={template.is_active ? 'Deactivate template' : 'Activate template'}
+                        >
+                          {template.is_active ? (
+                            <ToggleRight className="w-4 h-4" />
+                          ) : (
+                            <ToggleLeft className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => deleteTemplate(template.id)}
+                          className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                          title="Delete template"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Game Settings */}
       <div className="bg-card rounded-xl border border-border p-6">
