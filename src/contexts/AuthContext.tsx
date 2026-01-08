@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { triggerConfetti } from '@/hooks/useGlobalConfetti';
+import { triggerSound } from '@/hooks/useSounds';
 
 interface Profile {
   id: string;
@@ -76,8 +77,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // Small delay to let the UI settle
         setTimeout(() => {
-          // Trigger confetti first
+          // Trigger confetti and sound
           triggerConfetti(4000);
+          triggerSound('welcomeBonus');
           
           // Then show toast
           toast.success(`🎉 Welcome Bonus: ₦${profileData.wallet_balance.toLocaleString()} credited!`, {

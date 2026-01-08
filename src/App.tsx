@@ -13,6 +13,7 @@ import { TestModeBanner } from "@/components/wallet/TestModeBanner";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { PushNotificationBanner } from "@/components/PushNotificationBanner";
 import { GlobalConfetti } from "@/components/GlobalConfetti";
+import { GlobalSoundPlayer } from "@/components/GlobalSoundPlayer";
 
 // Auth
 import { AuthPage } from "@/pages/AuthPage";
@@ -253,6 +254,7 @@ const App = () => (
                 <Toaster />
                 <Sonner />
                 <GlobalConfetti />
+                <GlobalSoundPlayer />
                 <BrowserRouter>
                   <TestModeBanner />
                   <PWAInstallPrompt />
