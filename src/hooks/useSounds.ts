@@ -1,4 +1,5 @@
 import { useCallback, useRef, useEffect } from 'react';
+import { useAudio } from '@/contexts/AudioContext';
 
 type SoundType = 'click' | 'success' | 'win' | 'error' | 'timer' | 'countdown' | 'notification' | 'coin' | 'send' | 'tick' | 'urgent' | 'gameOver' | 'leaderChange' | 'prizeWin' | 'gameStart' | 'drumroll' | 'crowdCheer' | 'victoryFanfare' | 'tenseCrescendo';
 
@@ -10,7 +11,7 @@ const createAudioContext = () => {
 
 export const useSounds = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
-  const enabledRef = useRef(true);
+  const { settings } = useAudio();
 
   useEffect(() => {
     return () => {
@@ -29,7 +30,7 @@ export const useSounds = () => {
 
   const playTone = useCallback((frequency: number, duration: number, type: OscillatorType = 'sine', volume = 0.1) => {
     const ctx = getContext();
-    if (!ctx || !enabledRef.current) return;
+    if (!ctx || !settings.sfxEnabled) return;
 
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();
@@ -40,15 +41,17 @@ export const useSounds = () => {
     oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
     oscillator.type = type;
 
-    gainNode.gain.setValueAtTime(volume, ctx.currentTime);
+    // Apply master volume to all sound effects
+    const adjustedVolume = volume * settings.volume;
+    gainNode.gain.setValueAtTime(adjustedVolume, ctx.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
 
     oscillator.start();
     oscillator.stop(ctx.currentTime + duration);
-  }, [getContext]);
+  }, [getContext, settings.sfxEnabled, settings.volume]);
 
   const play = useCallback((sound: SoundType) => {
-    if (!enabledRef.current) return;
+    if (!settings.sfxEnabled) return;
 
     switch (sound) {
       case 'click':
@@ -172,11 +175,7 @@ export const useSounds = () => {
         }, 2000);
         break;
     }
-  }, [playTone]);
+  }, [playTone, settings.sfxEnabled]);
 
-  const setEnabled = useCallback((enabled: boolean) => {
-    enabledRef.current = enabled;
-  }, []);
-
-  return { play, setEnabled };
+  return { play };
 };
