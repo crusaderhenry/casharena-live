@@ -138,6 +138,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.warn('[Auth] Invalid session detected, signing out:', userError.message);
           // Clear all local state and storage
           await supabase.auth.signOut({ scope: 'local' });
+          toast.error('Session expired', {
+            description: 'Please log in again to continue.',
+            duration: 5000,
+          });
           setSession(null);
           setUser(null);
           setProfile(null);
