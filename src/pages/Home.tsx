@@ -177,7 +177,7 @@ export const Home = () => {
   const totalPool = cycles.reduce((sum, c) => sum + c.pool_value + (c.sponsored_prize_amount || 0), 0);
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-background pb-24 overflow-auto">
+    <div ref={containerRef} className="min-h-screen bg-background pb-24 overflow-auto scroll-smooth-ios">
 
       {/* Username prompt for OAuth users */}
       {user?.id && needsUsername && (
@@ -198,61 +198,66 @@ export const Home = () => {
         pullDistance={pullDistance} 
       />
       
-      <div className="p-4 space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between pt-2">
-          <div>
-            <Logo size="lg" />
-            <div className="flex items-center gap-3 mt-1">
-              {liveCycles.length > 0 && (
-                <span className="flex items-center gap-1.5 text-xs font-medium text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                  {liveCycles.length} Live
-                </span>
-              )}
-              {(openingCycles.length + waitingCycles.length) > 0 && (
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Calendar className="w-3 h-3" />
-                  {openingCycles.length + waitingCycles.length} Upcoming
-                </span>
-              )}
-              {activeUsersCount > 0 && (
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Users className="w-3 h-3" />
-                  {activeUsersCount.toLocaleString()} Users
-                </span>
-              )}
-            </div>
-          </div>
-          
-          {/* Notification Center */}
-          <NotificationCenter />
-        </div>
-
-        {/* Notification Ticker */}
-        {notifications.length > 0 && (
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 px-4 py-3">
-            <div className="relative flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <Bell className="w-4 h-4 text-primary" />
+      {/* Sticky Header Container */}
+      <div className="sticky-header border-b border-border/30">
+        <div className="p-4 space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between pt-2">
+            <div>
+              <Logo size="lg" />
+              <div className="flex items-center gap-3 mt-1">
+                {liveCycles.length > 0 && (
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    {liveCycles.length} Live
+                  </span>
+                )}
+                {(openingCycles.length + waitingCycles.length) > 0 && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Calendar className="w-3 h-3" />
+                    {openingCycles.length + waitingCycles.length} Upcoming
+                  </span>
+                )}
+                {activeUsersCount > 0 && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Users className="w-3 h-3" />
+                    {activeUsersCount.toLocaleString()} Users
+                  </span>
+                )}
               </div>
-              <p className="text-sm font-medium text-foreground truncate flex-1">
-                {notifications[activeNotification]}
-              </p>
-              {notifications.length > 1 && (
-                <div className="flex gap-1">
-                  {notifications.map((_, i) => (
-                    <span key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === activeNotification ? 'bg-primary w-3' : 'bg-muted'}`} />
-                  ))}
-                </div>
-              )}
             </div>
+            
+            {/* Notification Center */}
+            <NotificationCenter />
           </div>
-        )}
 
-        {/* Wallet */}
-        <WalletCard compact />
+          {/* Notification Ticker */}
+          {notifications.length > 0 && (
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 px-4 py-3">
+              <div className="relative flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <Bell className="w-4 h-4 text-primary" />
+                </div>
+                <p className="text-sm font-medium text-foreground truncate flex-1">
+                  {notifications[activeNotification]}
+                </p>
+                {notifications.length > 1 && (
+                  <div className="flex gap-1">
+                    {notifications.map((_, i) => (
+                      <span key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === activeNotification ? 'bg-primary w-3' : 'bg-muted'}`} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
+          {/* Wallet */}
+          <WalletCard compact />
+        </div>
+      </div>
+
+      <div className="p-4 space-y-5">
         {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-3">
           <button

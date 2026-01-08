@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Download, Smartphone, Share, Plus } from "lucide-react";
+import { X, Download, Smartphone, Share, Plus, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -16,7 +16,11 @@ export function PWAInstallPrompt() {
 
   useEffect(() => {
     // Check if already installed
-    if (window.matchMedia("(display-mode: standalone)").matches) {
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches 
+      || (window.navigator as any).standalone 
+      || document.referrer.includes('android-app://');
+    
+    if (isStandalone) {
       setIsInstalled(true);
       return;
     }
@@ -28,16 +32,16 @@ export function PWAInstallPrompt() {
     // Check if user dismissed before (with 7-day cooldown)
     const dismissedAt = localStorage.getItem("pwa-install-dismissed");
     if (dismissedAt) {
-      const dismissedDate = new Date(dismissedAt);
-      const daysSinceDismissed = (Date.now() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSinceDismissed < 7) {
+      const dismissedTime = parseInt(dismissedAt, 10);
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      if (Date.now() - dismissedTime < sevenDays) {
         return;
       }
     }
 
     // For iOS, show the banner after a delay
     if (isIOSDevice) {
-      setTimeout(() => setShowBanner(true), 3000);
+      setTimeout(() => setShowBanner(true), 5000);
       return;
     }
 
@@ -45,7 +49,7 @@ export function PWAInstallPrompt() {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setTimeout(() => setShowBanner(true), 3000);
+      setTimeout(() => setShowBanner(true), 5000);
     };
 
     const handleAppInstalled = () => {
@@ -71,19 +75,23 @@ export function PWAInstallPrompt() {
 
     if (!deferredPrompt) return;
 
-    await deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
+    try {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
 
-    if (outcome === "accepted") {
-      setShowBanner(false);
+      if (outcome === "accepted") {
+        setShowBanner(false);
+      }
+      setDeferredPrompt(null);
+    } catch (error) {
+      console.error('Error showing install prompt:', error);
     }
-    setDeferredPrompt(null);
   };
 
   const handleDismiss = () => {
     setShowBanner(false);
     setShowIOSInstructions(false);
-    localStorage.setItem("pwa-install-dismissed", new Date().toISOString());
+    localStorage.setItem("pwa-install-dismissed", Date.now().toString());
   };
 
   if (!showBanner || isInstalled) {
@@ -98,102 +106,124 @@ export function PWAInstallPrompt() {
   // iOS Instructions Modal
   if (showIOSInstructions) {
     return (
-      <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="w-full max-w-sm bg-card rounded-2xl p-5 shadow-2xl border border-border animate-in slide-in-from-bottom-4 duration-300">
+      <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="w-full max-w-lg bg-card border-t border-border rounded-t-3xl p-6 pb-safe animate-slide-up">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-foreground">Install FortunesHQ</h3>
+            <button 
+              onClick={handleDismiss}
+              className="w-8 h-8 rounded-full bg-muted flex items-center justify-center active:scale-95 active:opacity-80 transition-transform"
+            >
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </div>
+          
+          <div className="space-y-6">
+            {/* Step 1 */}
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-primary font-bold">1</span>
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-foreground mb-2">Tap the Share button</p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Share className="w-5 h-5 text-primary" />
+                  <span>at the bottom of Safari</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Arrow indicator */}
+            <div className="flex justify-center">
+              <ChevronDown className="w-6 h-6 text-muted-foreground animate-bounce" />
+            </div>
+
+            {/* Step 2 */}
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-primary font-bold">2</span>
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-foreground mb-2">Tap "Add to Home Screen"</p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
+                    <Plus className="w-4 h-4" />
+                  </div>
+                  <span>from the share menu</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Visual hint for share button location */}
+            <div className="relative mt-4 p-4 bg-muted/50 rounded-xl border border-border/50">
+              <p className="text-center text-sm text-muted-foreground mb-3">
+                The Share button is here ↓
+              </p>
+              <div className="flex justify-center">
+                <div className="w-12 h-12 rounded-xl bg-primary/20 border-2 border-primary border-dashed flex items-center justify-center animate-pulse">
+                  <Share className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <button
             onClick={handleDismiss}
-            className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-muted transition-colors"
+            className="w-full mt-6 py-4 rounded-xl bg-muted text-foreground font-medium active:scale-[0.98] active:opacity-90 transition-transform"
           >
-            <X className="h-5 w-5 text-muted-foreground" />
+            Got it
           </button>
-          
-          <div className="text-center mb-5">
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-              <Smartphone className="h-7 w-7 text-primary" />
-            </div>
-            <h3 className="font-bold text-foreground text-lg">Install FortunesHQ</h3>
-            <p className="text-muted-foreground text-sm mt-1">
-              Add to your home screen in 2 easy steps
-            </p>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-xl">
-              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm font-bold text-primary">1</span>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">Tap the Share button</p>
-                <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                  Look for <Share className="w-3 h-3 inline" /> at the bottom of Safari
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-xl">
-              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm font-bold text-primary">2</span>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">Add to Home Screen</p>
-                <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                  Scroll and tap <Plus className="w-3 h-3 inline" /> "Add to Home Screen"
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <Button
-            onClick={handleDismiss}
-            className="w-full mt-5"
-            variant="outline"
-          >
-            Got it!
-          </Button>
         </div>
       </div>
     );
   }
 
+  // Main Install Banner
   return (
-    <div className="fixed bottom-20 left-4 right-4 z-50 animate-in slide-in-from-bottom-4 duration-300">
-      <div className="bg-gradient-to-r from-primary/90 to-accent/90 backdrop-blur-lg rounded-2xl p-4 shadow-2xl border border-white/20">
-        <button
-          onClick={handleDismiss}
-          className="absolute top-2 right-2 p-1 rounded-full hover:bg-white/20 transition-colors"
-        >
-          <X className="h-4 w-4 text-white/80" />
-        </button>
+    <div className="fixed bottom-20 left-4 right-4 z-50 animate-slide-up">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/20 via-card to-card border border-primary/30 p-4 shadow-xl">
+        {/* Glow effect */}
+        <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/20 rounded-full blur-3xl" />
         
-        <div className="flex items-center gap-4">
-          <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-            <Smartphone className="h-6 w-6 text-white" />
+        <div className="relative flex items-center gap-4">
+          {/* App Icon */}
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center flex-shrink-0 shadow-lg">
+            <span className="text-2xl">⚡</span>
           </div>
           
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-white text-sm">Install FortunesHQ</h3>
-            <p className="text-white/80 text-xs mt-0.5">
-              {isIOS ? "Add to home screen for the full app experience" : "Add to home screen for the best experience"}
+            <h4 className="font-bold text-foreground">Install FortunesHQ</h4>
+            <p className="text-sm text-muted-foreground truncate">
+              {isIOS ? "Add to Home Screen for the best experience" : "Install for faster access & offline play"}
             </p>
           </div>
-          
-          <Button
-            onClick={handleInstall}
-            size="sm"
-            className="flex-shrink-0 bg-white text-primary hover:bg-white/90 font-semibold gap-1.5"
-          >
-            {isIOS ? (
-              <>
-                <Share className="h-4 w-4" />
-                How?
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4" />
-                Install
-              </>
-            )}
-          </Button>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={handleDismiss}
+              className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center active:scale-95 active:opacity-80 transition-transform"
+              aria-label="Dismiss"
+            >
+              <X className="w-5 h-5 text-muted-foreground" />
+            </button>
+            <Button
+              onClick={handleInstall}
+              size="sm"
+              className="px-4 py-2.5 font-bold text-sm gap-2"
+            >
+              {isIOS ? (
+                <>
+                  <Share className="w-4 h-4" />
+                  How
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  Install
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

@@ -69,7 +69,7 @@ export const WalletMain = () => {
   };
 
   return (
-    <div ref={containerRef} className={`min-h-screen bg-background pb-24 overflow-auto ${isTestMode ? 'pt-10' : ''}`}>
+    <div ref={containerRef} className={`min-h-screen bg-background pb-24 overflow-auto scroll-smooth-ios ${isTestMode ? 'pt-10' : ''}`}>
       <TestModeBanner />
       
       <PullToRefreshIndicator 
@@ -78,38 +78,43 @@ export const WalletMain = () => {
         pullDistance={pullDistance} 
       />
       
-      <div className="p-4 space-y-5">
-        {/* Header */}
-        <div className="flex items-center gap-3 pt-2">
-          <button 
-            onClick={() => navigate('/home')}
-            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
-          >
-            <ArrowLeft className="w-5 h-5 text-foreground" />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-xl font-black text-foreground">Wallet</h1>
-            <p className="text-sm text-muted-foreground">Manage your funds</p>
+      {/* Sticky Header + Balance */}
+      <div className="sticky-header border-b border-border/30">
+        <div className="p-4 space-y-4">
+          {/* Header */}
+          <div className="flex items-center gap-3 pt-2">
+            <button 
+              onClick={() => navigate('/home')}
+              className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50 touch-feedback"
+            >
+              <ArrowLeft className="w-5 h-5 text-foreground" />
+            </button>
+            <div className="flex-1">
+              <h1 className="text-xl font-black text-foreground">Wallet</h1>
+              <p className="text-sm text-muted-foreground">Manage your funds</p>
+            </div>
+            <button
+              onClick={handleManualRefresh}
+              disabled={isManualRefreshing}
+              className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50 hover:border-primary/40 transition-colors disabled:opacity-50 touch-feedback"
+            >
+              <RefreshCw className={`w-5 h-5 text-muted-foreground ${isManualRefreshing ? 'animate-spin' : ''}`} />
+            </button>
           </div>
-          <button
-            onClick={handleManualRefresh}
-            disabled={isManualRefreshing}
-            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50 hover:border-primary/40 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-5 h-5 text-muted-foreground ${isManualRefreshing ? 'animate-spin' : ''}`} />
-          </button>
+
+          {/* Balance Card */}
+          <WalletCard 
+            onDepositClick={() => setDepositOpen(true)}
+            onWithdrawClick={() => setWithdrawOpen(true)}
+          />
         </div>
+      </div>
 
-        {/* Balance Card */}
-        <WalletCard 
-          onDepositClick={() => setDepositOpen(true)}
-          onWithdrawClick={() => setWithdrawOpen(true)}
-        />
-
+      <div className="p-4 space-y-5">
         {/* Quick Actions */}
         <button
           onClick={() => navigate('/wallet/history')}
-          className="card-panel flex items-center justify-between py-4 hover:border-primary/40 transition-all w-full"
+          className="card-panel flex items-center justify-between py-4 hover:border-primary/40 transition-all w-full touch-feedback"
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">

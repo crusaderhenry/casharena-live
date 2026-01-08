@@ -327,42 +327,47 @@ export const ProfileScreen = () => {
   }
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-background pb-24 overflow-auto">
+    <div ref={containerRef} className="min-h-screen bg-background pb-24 overflow-auto scroll-smooth-ios">
       <PullToRefreshIndicator 
         pullProgress={pullProgress} 
         isRefreshing={isRefreshing} 
         pullDistance={pullDistance} 
       />
       
-      <div className="p-4 space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={handleBack} 
-              className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50"
-            >
-              <ArrowLeft className="w-5 h-5 text-foreground" />
-            </button>
-            <div>
-              <h1 className="text-xl font-black text-foreground">Profile</h1>
-              <p className="text-sm text-muted-foreground">
-                Your Royal Rumble stats
-              </p>
+      {/* Sticky Header */}
+      <div className="sticky-header border-b border-border/30">
+        <div className="p-4">
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handleBack} 
+                className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50 touch-feedback"
+              >
+                <ArrowLeft className="w-5 h-5 text-foreground" />
+              </button>
+              <div>
+                <h1 className="text-xl font-black text-foreground">Profile</h1>
+                <p className="text-sm text-muted-foreground">
+                  Your Royal Rumble stats
+                </p>
+              </div>
             </div>
+            
+            {/* Admin/Mod Badge */}
+            {(isAdmin || isModerator) && (
+              <button
+                onClick={() => navigate(isAdmin ? '/admin' : '/moderator')}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/20 border border-primary/30 text-primary text-sm font-medium touch-feedback"
+              >
+                <Shield className="w-4 h-4" />
+                {isAdmin ? 'Admin' : 'Mod'}
+              </button>
+            )}
           </div>
-          
-          {/* Admin/Mod Badge */}
-          {(isAdmin || isModerator) && (
-            <button
-              onClick={() => navigate(isAdmin ? '/admin' : '/moderator')}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/20 border border-primary/30 text-primary text-sm font-medium"
-            >
-              <Shield className="w-4 h-4" />
-              {isAdmin ? 'Admin' : 'Mod'}
-            </button>
-          )}
         </div>
+      </div>
+      
+      <div className="p-4 space-y-5">
 
         {/* Profile Card */}
         <div className="card-panel border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card">
