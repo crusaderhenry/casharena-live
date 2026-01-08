@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Zap, Mail, User, ArrowRight, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
+import { FunctionsHttpError, FunctionsFetchError, FunctionsRelayError } from '@supabase/supabase-js';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
@@ -10,6 +11,42 @@ const emailSchema = z.string().email('Invalid email address');
 const usernameSchema = z.string().min(3, 'Username must be at least 3 characters').max(20, 'Username too long');
 
 const REMEMBERED_EMAIL_KEY = 'fortunes_remembered_email';
+
+const tryExtractJsonError = (message: string): string | null => {
+  const match = message.match(/\{[\s\S]*\}$/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[0]);
+    if (parsed && typeof parsed === 'object' && typeof parsed.error === 'string') return parsed.error;
+  } catch {
+    // ignore
+  }
+  return null;
+};
+
+const getEdgeFunctionErrorMessage = async (err: unknown): Promise<string> => {
+  if (err instanceof FunctionsHttpError) {
+    try {
+      const body = await err.context.json();
+      if (body && typeof body === 'object' && 'error' in body && typeof (body as any).error === 'string') {
+        return (body as any).error;
+      }
+    } catch {
+      // ignore
+    }
+    return tryExtractJsonError(err.message) ?? 'Request failed';
+  }
+
+  if (err instanceof FunctionsRelayError || err instanceof FunctionsFetchError) {
+    return tryExtractJsonError(err.message) ?? err.message;
+  }
+
+  if (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string') {
+    return tryExtractJsonError((err as any).message) ?? (err as any).message;
+  }
+
+  return 'Request failed';
+};
 
 // Google icon component
 const GoogleIcon = () => (
@@ -75,10 +112,8 @@ export const AuthPage = () => {
         body: { email },
       });
 
-      // Handle edge function errors - extract message from response body if available
       if (invokeError) {
-        const errorMessage = data?.error || invokeError.message || 'Failed to send verification code';
-        setError(errorMessage);
+        setError(await getEdgeFunctionErrorMessage(invokeError));
         return;
       }
 
@@ -116,11 +151,8 @@ export const AuthPage = () => {
         body: { email, code: otp },
       });
 
-      // Handle edge function errors - extract message from response body if available
       if (invokeError) {
-        // Try to parse error message from the response
-        const errorMessage = data?.error || invokeError.message || 'Verification failed';
-        setError(errorMessage);
+        setError(await getEdgeFunctionErrorMessage(invokeError));
         return;
       }
 
@@ -221,10 +253,8 @@ export const AuthPage = () => {
         body: { email },
       });
 
-      // Handle edge function errors - extract message from response body if available
       if (invokeError) {
-        const errorMessage = data?.error || invokeError.message || 'Failed to resend code';
-        setError(errorMessage);
+        setError(await getEdgeFunctionErrorMessage(invokeError));
         return;
       }
 
