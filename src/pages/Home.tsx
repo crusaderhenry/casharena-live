@@ -7,7 +7,7 @@ import { WinnerStories } from '@/components/WinnerStories';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { UsernamePromptModal } from '@/components/UsernamePromptModal';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
-import { useCrusaderWelcome } from '@/hooks/useCrusaderWelcome';
+
 import { useOAuthUsername } from '@/hooks/useOAuthUsername';
 import { Zap, Trophy, ChevronRight, Bell, TrendingUp, Calendar, Sparkles, Crown, Radio, Play, Swords, Clock } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
@@ -37,11 +37,6 @@ export const Home = () => {
   // Check if OAuth user needs to set username
   const { needsUsername, markComplete } = useOAuthUsername(user?.id);
 
-  // Welcome new users with Crusader's voice
-  useCrusaderWelcome({
-    username: profile?.username,
-    userId: user?.id,
-  });
 
   // Fetch user's current participations
   useEffect(() => {
