@@ -315,15 +315,19 @@
     opacity: 0.9;
   }
 
-  /* Sticky Header Container */
+  /* Sticky Header Container - iOS Safari optimized */
   .sticky-header {
+    position: -webkit-sticky;
     position: sticky;
     top: 0;
-    z-index: 20;
-    background: hsl(var(--background) / 0.95);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    z-index: 50;
+    background: hsl(var(--background) / 0.97);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     padding-top: env(safe-area-inset-top, 0);
+    will-change: transform;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
   }
 
   /* Smooth iOS Scrolling */
