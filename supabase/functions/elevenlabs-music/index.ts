@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     );
 
     // Generate cache key based on type and style
-    const cacheKey = `${type || 'lobby'}_${style || 'chill'}`;
+    const cacheKey = `v2_${type || 'lobby'}_${style || 'chill'}`;
     const bucketName = 'game-audio';
     const filePath = `music/${cacheKey}.mp3`;
 
@@ -52,19 +52,19 @@ Deno.serve(async (req) => {
     // Generate music prompts based on type and style
     const prompts: Record<string, Record<string, string>> = {
       lobby: {
-        chill: 'Relaxing ambient electronic music with soft synth pads, gentle beats at 80 BPM, perfect for a waiting room or lobby. Lo-fi hip hop vibes with warm bass.',
-        intense: 'Epic orchestral buildup music with anticipation, suspenseful strings and brass, 100 BPM, building tension before an exciting event.',
-        retro: '8-bit chiptune arcade music, nostalgic video game lobby theme, cheerful arpeggios and catchy melody at 110 BPM.',
+        chill: 'Smooth Afro-lofi / amapiano-inspired chill beat. Warm bass, soft keys, gentle percussion, 92 BPM. No vocals. Designed to loop seamlessly for a game lobby.',
+        intense: 'Hype Afro-electronic lobby build-up. Tight drums, big synth risers, 118 BPM. Stadium energy but still pre-game. No vocals. Loopable.',
+        retro: 'Arcade chiptune groove with Afro-inspired drum rhythm. Bright 8-bit leads, catchy hook, 112 BPM. No vocals. Loopable lobby theme.',
       },
       arena: {
-        chill: 'Upbeat electronic dance music with positive energy, 120 BPM, suitable for competition with inspiring synths and rhythmic bass.',
-        intense: 'High energy aggressive electronic music, intense drops and powerful beats at 140 BPM, competitive gaming atmosphere with dramatic builds.',
-        retro: 'Fast-paced 16-bit action game music, exciting chiptune battle theme, 130 BPM with heroic melodies and driving rhythm.',
+        chill: 'Upbeat Afro-house / electronic groove for competition. Clean punchy drums, confident bassline, 124 BPM. No vocals. Loopable.',
+        intense: 'High-energy arena anthem: Afro-fusion + trap drums + EDM drops. Aggressive bass, sharp synth stabs, 140 BPM. No vocals. Designed for intense gameplay and looping.',
+        retro: 'Fast 16-bit action game battle theme with crunchy chiptune leads and driving rhythm, 132 BPM. No vocals. Loopable.',
       },
       tense: {
-        chill: 'Suspenseful ambient music with subtle tension, mysterious pads and minimal beats, 90 BPM, countdown timer vibes.',
-        intense: 'Heart-pounding dramatic music with urgent percussion, racing strings at 150 BPM, final countdown tension and excitement.',
-        retro: 'Tense 8-bit boss battle music approaching, urgent chiptune with warning tones, 140 BPM pulse-pounding finale.',
+        chill: 'Minimal cinematic tension bed for a countdown. Dark pads, subtle pulse, 90 BPM. No vocals. Loopable and suspenseful.',
+        intense: 'Final countdown intensity: cinematic percussion + racing synth arpeggios, 150 BPM. Urgent, dramatic, no vocals. Loopable.',
+        retro: '8-bit boss warning countdown track. Urgent chiptune rhythm, sharp beeps, 142 BPM. No vocals. Loopable.',
       },
     };
 
@@ -84,9 +84,10 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         prompt,
-        duration_seconds: 30, // 30 seconds of music (will loop on client)
+        duration_seconds: 15, // short track; loops on client
       }),
     });
+
 
     if (!response.ok) {
       const errorText = await response.text();

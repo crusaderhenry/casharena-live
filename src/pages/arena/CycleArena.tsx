@@ -56,6 +56,7 @@ interface CycleData {
   live_start_at: string;
   live_end_at: string;
   template_name?: string;
+  ambient_music_style?: 'chill' | 'intense' | 'retro' | 'none';
 }
 
 export const CycleArena = () => {
@@ -131,16 +132,18 @@ export const CycleArena = () => {
   }, []);
 
   const isLive = cycle?.status === 'live' || cycle?.status === 'ending';
+  const arenaAmbientStyle = cycle?.ambient_music_style || 'intense';
   
   // Start arena music when live
   useEffect(() => {
     if (isLive) {
-      playBackgroundMusic('arena');
+      playBackgroundMusic('arena', null, arenaAmbientStyle);
     }
     return () => {
       stopBackgroundMusic();
     };
-  }, [isLive, playBackgroundMusic, stopBackgroundMusic]);
+  }, [isLive, arenaAmbientStyle, playBackgroundMusic, stopBackgroundMusic]);
+
   
   // Fetch mock voice participants from database
   const { voiceParticipants: mockVoiceParticipants } = useMockVoiceRoom(
