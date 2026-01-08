@@ -10,7 +10,7 @@ interface TTSOptions {
   onSpeakingChange?: (isSpeaking: boolean) => void;
 }
 
-// Dynamic commentary phrases for varied, engaging commentary
+// Dynamic commentary phrases for varied, engaging commentary - MORE VARIETY!
 const COMMENT_PHRASES = {
   newComment: [
     (name: string, content: string) => `${name} drops in with: ${content.substring(0, 40)}`,
@@ -19,6 +19,19 @@ const COMMENT_PHRASES = {
     (name: string) => `${name} enters the fray!`,
     (name: string) => `Here comes ${name}!`,
     (name: string) => `${name} is hungry for that win!`,
+    (name: string) => `${name} just reset the timer! The battle continues!`,
+    (name: string) => `Oooh! ${name} is fighting for that crown!`,
+    (name: string) => `${name} is NOT backing down!`,
+    (name: string) => `The pressure is on, but ${name} is pushing through!`,
+    (name: string) => `${name}, you legend! Keep it going!`,
+    (name: string) => `Watch out everyone, ${name} is ON FIRE!`,
+  ],
+  timerActivated: [
+    (name: string) => `${name} activated the timer! THE BATTLE BEGINS!`,
+    (name: string) => `FIRST COMMENT from ${name}! Game ON people!`,
+    (name: string) => `${name} just started the countdown! Let's GOOO!`,
+    (name: string) => `The wait is over! ${name} kicks things off!`,
+    (name: string) => `${name} fires the first shot! The timer is now LIVE!`,
   ],
   leaderChange: [
     (name: string, timer: number) => `${name} takes the lead with ${timer} seconds left!`,
@@ -27,55 +40,94 @@ const COMMENT_PHRASES = {
     (name: string) => `OH! ${name} snatches the lead!`,
     (name: string) => `It's ${name}'s game now!`,
     (name: string) => `${name} is in control!`,
+    (name: string) => `LEADER CHANGE! ${name} takes the throne!`,
+    (name: string) => `Wetin dey happen?! ${name} don collect am!`,
+    (name: string) => `${name} just did THAT! New leader!`,
+    (name: string) => `The crown has moved! ${name} is wearing it now!`,
   ],
   timerWarning30: [
     (leader: string | null) => leader ? `30 seconds left! ${leader} is holding on!` : `30 seconds on the clock!`,
     (leader: string | null) => leader ? `Half a minute! Can anyone stop ${leader}?` : `30 seconds remaining! The tension is real!`,
     (leader: string | null) => `30 seconds! This is getting intense!`,
+    (leader: string | null) => leader ? `30 ticks on the clock! ${leader} is sweating!` : `30 seconds! Things are heating up!`,
   ],
   timerWarning10: [
     (leader: string | null) => leader ? `10 seconds! ${leader} is sweating!` : `10 seconds! This is it!`,
     (leader: string | null) => leader ? `Final countdown! ${leader} better watch out!` : `10 seconds remaining!`,
     (leader: string | null) => `10 seconds! The pressure is REAL!`,
+    (leader: string | null) => leader ? `TEN SECONDS! Will ${leader} hold on?!` : `10 seconds left! Someone better TYPE!`,
+    (leader: string | null) => `CRITICAL! 10 seconds to go!`,
   ],
   timerWarning5: [
     () => `5 seconds! Type something NOW!`,
     () => `5! 4! 3!...`,
     () => `FINAL SECONDS!`,
+    () => `This is IT! 5 seconds!`,
+    () => `SOMEBODY DO SOMETHING! 5 seconds!`,
   ],
   gameOver: [
     (winner: string, prize: string) => `Game over! ${winner} wins ${prize}! What a match!`,
     (winner: string, prize: string) => `${winner} takes home ${prize}! Incredible!`,
     (winner: string, prize: string) => `Congratulations ${winner}! ${prize} is yours!`,
     (winner: string, prize: string) => `AND THE WINNER IS ${winner} with ${prize}!`,
+    (winner: string, prize: string) => `${winner} has done it! ${prize} in the bag!`,
+    (winner: string, prize: string) => `What a performance! ${winner} claims ${prize}!`,
+  ],
+  periodicHype: [
+    () => `The energy in here is UNMATCHED!`,
+    () => `Keep those comments coming people!`,
+    () => `This is what we live for! Pure competition!`,
+    () => `The arena is ALIVE right now!`,
+    () => `I can feel the tension through the screen!`,
+    () => `Nobody wants to lose! I love this energy!`,
+  ],
+  welcome: [
+    (name: string) => `Welcome to the arena, ${name}! Get ready to rumble!`,
+    (name: string) => `${name} has entered the battle! Let's see what you've got!`,
+    (name: string) => `Good luck ${name}! May the fastest finger win!`,
   ],
 };
 
-// Co-host banter phrases for natural interactions
+// Co-host banter phrases for natural interactions - MORE ENERGY!
 const COHOST_BANTER = {
   reaction: [
     (hostName: string) => `Did you see that ${hostName}?!`,
     () => `Wow, I did NOT see that coming!`,
     () => `This is absolutely WILD!`,
     () => `The crowd is going crazy!`,
+    () => `I can't believe what I'm seeing!`,
+    () => `That was INSANE!`,
   ],
   agreement: [
     () => `Absolutely! This is peak entertainment!`,
     () => `Couldn't have said it better myself!`,
     () => `100%! These players are on fire!`,
     () => `Right?! The energy is unmatched!`,
+    () => `Facts! This is incredible!`,
+    () => `Exactly what I was thinking!`,
   ],
   tension: [
     () => `I can barely watch!`,
     () => `My heart is racing here!`,
     () => `The suspense is killing me!`,
     () => `This is too close to call!`,
+    () => `I'm literally on the edge of my seat!`,
+    () => `The tension is PALPABLE!`,
   ],
   excitement: [
     () => `Let's GOOO!`,
     () => `This is what we came for!`,
     () => `ELECTRIC atmosphere!`,
     () => `The arena is on FIRE!`,
+    () => `THIS IS AMAZING!`,
+    () => `I'm losing my mind over here!`,
+    () => `PURE ENTERTAINMENT!`,
+  ],
+  firstComment: [
+    () => `HERE WE GO! It's started!`,
+    () => `Finally! The wait is over!`,
+    () => `Game time! Let's see who wants it more!`,
+    () => `The timer is live! This is getting REAL!`,
   ],
 };
 
@@ -230,13 +282,34 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     }, 500);
   }, [isCoHostMode, coHost, host.name, audioSettings.hostMuted, queueMessage]);
 
-  // Announce new comment with dynamic phrases
-  const announceComment = useCallback((username: string, content: string, commentId: string) => {
+  // Track if first comment has been announced
+  const firstCommentAnnouncedRef = useRef(false);
+  const periodicHypeIntervalRef = useRef<number | null>(null);
+  const commentCountRef = useRef(0);
+  
+  // Reset first comment flag when cycle changes
+  useEffect(() => {
+    firstCommentAnnouncedRef.current = false;
+    commentCountRef.current = 0;
+  }, [cycleId]);
+
+  // Announce new comment with dynamic phrases - MUCH HIGHER FREQUENCY
+  const announceComment = useCallback((username: string, content: string, commentId: string, isTimerPaused?: boolean) => {
     if (commentId === lastCommentIdRef.current || audioSettings.hostMuted) return;
     lastCommentIdRef.current = commentId;
+    commentCountRef.current += 1;
 
-    // 15% chance to announce
-    const shouldAnnounce = Math.random() < 0.15;
+    // Special announcement for FIRST COMMENT (timer activation)
+    if (!firstCommentAnnouncedRef.current) {
+      firstCommentAnnouncedRef.current = true;
+      const phrase = getRandomPhrase(COMMENT_PHRASES.timerActivated, username);
+      speakText(phrase);
+      addCoHostBanter('firstComment');
+      return;
+    }
+
+    // 45% chance to announce regular comments (up from 15%)
+    const shouldAnnounce = Math.random() < 0.45;
     if (!shouldAnnounce) return;
 
     // Alternate between hosts if co-host mode
@@ -251,9 +324,33 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     
     queueMessage(phrase, useCoHost);
     
-    // Maybe add co-host reaction
-    addCoHostBanter('reaction');
-  }, [audioSettings.hostMuted, queueMessage, isCoHostMode, coHost, addCoHostBanter]);
+    // Maybe add co-host reaction (50% chance, up from 40%)
+    if (Math.random() < 0.5) {
+      addCoHostBanter('reaction');
+    }
+  }, [audioSettings.hostMuted, queueMessage, speakText, isCoHostMode, coHost, addCoHostBanter]);
+  
+  // Announce periodic hype during active games
+  const announcePeriodicHype = useCallback(() => {
+    if (audioSettings.hostMuted || !isLive) return;
+    
+    // 60% chance to announce periodic hype
+    if (Math.random() > 0.6) return;
+    
+    const phrase = getRandomPhrase(COMMENT_PHRASES.periodicHype);
+    queueMessage(phrase, false);
+    
+    // Add co-host excitement
+    addCoHostBanter('excitement');
+  }, [audioSettings.hostMuted, isLive, queueMessage, addCoHostBanter]);
+  
+  // Announce welcome message for new users
+  const announceWelcome = useCallback((username: string) => {
+    if (audioSettings.hostMuted) return;
+    
+    const phrase = getRandomPhrase(COMMENT_PHRASES.welcome, username);
+    queueMessage(phrase, false);
+  }, [audioSettings.hostMuted, queueMessage]);
 
   // Announce leader change with excitement
   const announceLeaderChange = useCallback((leaderName: string, timer: number) => {
@@ -347,6 +444,8 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     announceLeaderChange,
     announceTimerWarning,
     announceGameOver,
+    announceWelcome,
+    announcePeriodicHype,
     addCoHostBanter,
     stopSpeaking: useCallback(() => {
       if (audioRef.current) {

@@ -634,12 +634,13 @@ export const CycleArena = () => {
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">
-                      Comment to reset
+                      {comments.length === 0 ? 'Waiting for first comment' : 'Comment to reset'}
                     </p>
                     <p className={`text-2xl font-bold tabular-nums tracking-tight ${
+                      comments.length === 0 ? 'text-primary animate-pulse' :
                       isCountdownCritical ? 'text-destructive' : 'text-foreground'
                     }`}>
-                      {formatTime(displayCountdown)}
+                      {comments.length === 0 ? 'PAUSED' : formatTime(displayCountdown)}
                     </p>
                   </div>
                 </div>

@@ -217,6 +217,7 @@ async function processStateTransition(supabase: any, cycle: GameCycle, now: Date
 
     case 'live':
       // Calculate countdown based on time since last comment
+      // CRITICAL: Timer is PAUSED until first comment is made
       const { data: lastComment } = await supabase
         .from('cycle_comments')
         .select('server_timestamp')
@@ -225,15 +226,28 @@ async function processStateTransition(supabase: any, cycle: GameCycle, now: Date
         .limit(1)
         .maybeSingle();
 
+      // Check if there are any comments at all
+      const { count: commentCount } = await supabase
+        .from('cycle_comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('cycle_id', cycle.id);
+
       let newCountdown: number;
-      if (lastComment) {
+      const hasComments = (commentCount || 0) > 0;
+      
+      if (!hasComments) {
+        // NO COMMENTS YET - Timer stays at max value (paused state)
+        // The game waits for the first comment to activate the countdown
+        newCountdown = cycle.comment_timer;
+        console.log(`[live] Cycle ${cycle.id}: Timer PAUSED - waiting for first comment`);
+      } else if (lastComment) {
+        // Comments exist - calculate countdown from last comment
         const lastCommentTime = new Date(lastComment.server_timestamp).getTime();
         const elapsedSinceComment = Math.floor((nowTime - lastCommentTime) / 1000);
         newCountdown = Math.max(0, cycle.comment_timer - elapsedSinceComment);
       } else {
-        // No comments yet - countdown from live_start_at
-        const elapsedSinceLive = Math.floor((nowTime - liveStartAt) / 1000);
-        newCountdown = Math.max(0, cycle.comment_timer - elapsedSinceLive);
+        // Fallback - should not happen but keep timer at max
+        newCountdown = cycle.comment_timer;
       }
       updates.countdown = newCountdown;
 
@@ -241,25 +255,28 @@ async function processStateTransition(supabase: any, cycle: GameCycle, now: Date
       if (cycle.mock_users_enabled && Math.random() < 0.9) {
         try {
           // Trigger 3-8 comments per tick for intense activity
-          const commentCount = Math.floor(Math.random() * 6) + 3;
+          const mockCommentCount = Math.floor(Math.random() * 6) + 3;
           await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/mock-user-service`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
             },
-            body: JSON.stringify({ action: 'burst_comments', cycleId: cycle.id, count: commentCount }),
+            body: JSON.stringify({ action: 'burst_comments', cycleId: cycle.id, count: mockCommentCount }),
           });
-          console.log(`[live] Triggered ${commentCount} burst comments for cycle ${cycle.id}`);
+          console.log(`[live] Triggered ${mockCommentCount} burst comments for cycle ${cycle.id}`);
         } catch (e) {
           console.log('[live] Mock comment trigger failed:', e);
         }
       }
 
-      // Check if countdown hit zero OR max duration exceeded
-      if (newCountdown <= 0 || nowTime >= liveEndAt) {
+      // Only end game if:
+      // 1. Comments exist AND countdown hit zero, OR
+      // 2. Max duration exceeded (game time limit)
+      // Never end the game if no comments have been made yet
+      if ((hasComments && newCountdown <= 0) || nowTime >= liveEndAt) {
         newStatus = 'ending';
-        console.log(`[transition] Cycle ${cycle.id}: live -> ending (countdown: ${newCountdown}, time exceeded: ${nowTime >= liveEndAt})`);
+        console.log(`[transition] Cycle ${cycle.id}: live -> ending (countdown: ${newCountdown}, hasComments: ${hasComments}, time exceeded: ${nowTime >= liveEndAt})`);
       }
       break;
 
