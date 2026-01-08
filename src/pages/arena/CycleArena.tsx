@@ -9,6 +9,7 @@ import { useCycleHostTTS } from '@/hooks/useCycleHostTTS';
 import { useLiveArenaSimulation } from '@/hooks/useLiveArenaSimulation';
 import { useMockVoiceRoom } from '@/hooks/useMockVoiceRoom';
 import { useMobileFullscreen } from '@/hooks/useMobileFullscreen';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAudio } from '@/contexts/AudioContext';
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceRoomLive } from '@/components/VoiceRoomLive';
@@ -70,8 +71,11 @@ export const CycleArena = () => {
   // Demo mode for simulation
   const isDemoMode = searchParams.get('demo') === 'true';
   
-  // Mobile fullscreen hook
-  const { isFullscreen, isMobile, toggleFullscreen } = useMobileFullscreen(true);
+  // Platform settings for winner screen duration
+  const { winnerScreenDuration } = usePlatformSettings();
+  
+  // Mobile fullscreen hook - auto fullscreen disabled
+  const { isFullscreen, isMobile, toggleFullscreen } = useMobileFullscreen(false);
   
   // Live arena simulation hook for demo mode
   const {
@@ -457,7 +461,7 @@ export const CycleArena = () => {
           winnerAvatar={gameWinner.avatar}
           prizeAmount={gameWinner.prize}
           onComplete={handleFreezeComplete}
-          freezeDuration={5}
+          freezeDuration={winnerScreenDuration}
         />
       )}
 

@@ -41,6 +41,7 @@ export const AdminSettings = () => {
     enableCoHostBanter: true,
     leaveWindowMinutes: 5,
     googleAuthEnabled: false,
+    winnerScreenDuration: 10,
     // Welcome settings
     welcomeMessage: 'Welcome to FortunesHQ! 🎉 Get ready to play and win!',
     welcomeBonusAmount: 5000,
@@ -70,6 +71,7 @@ export const AdminSettings = () => {
         enableCoHostBanter: dbSettings.enable_cohost_banter ?? true,
         leaveWindowMinutes: dbSettings.leave_window_minutes ?? 5,
         googleAuthEnabled: dbSettings.google_auth_enabled ?? false,
+        winnerScreenDuration: (dbSettings as any).winner_screen_duration ?? 10,
         // Welcome settings
         welcomeMessage: (dbSettings as any).welcome_message ?? 'Welcome to FortunesHQ! 🎉 Get ready to play and win!',
         welcomeBonusAmount: (dbSettings as any).welcome_bonus_amount ?? 5000,
@@ -116,6 +118,7 @@ export const AdminSettings = () => {
       enable_cohost_banter: localSettings.enableCoHostBanter,
       leave_window_minutes: localSettings.leaveWindowMinutes,
       google_auth_enabled: localSettings.googleAuthEnabled,
+      winner_screen_duration: localSettings.winnerScreenDuration,
       // Welcome settings
       welcome_message: localSettings.welcomeMessage,
       welcome_bonus_amount: localSettings.welcomeBonusAmount,
@@ -345,6 +348,25 @@ export const AdminSettings = () => {
             />
             <p className="text-[10px] text-muted-foreground mt-1">
               Spectators can join the pool until this many minutes remain. Default: 10 minutes.
+            </p>
+          </div>
+
+          {/* Winner Screen Duration */}
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-gold" />
+              Winner Screen Duration (seconds)
+            </label>
+            <input
+              type="number"
+              value={localSettings.winnerScreenDuration}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, winnerScreenDuration: parseInt(e.target.value) || 10 }))}
+              className="w-full max-w-md px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={3}
+              max={30}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              How long to display the "Game Over" winner celebration screen. Default: 10 seconds.
             </p>
           </div>
         </div>
