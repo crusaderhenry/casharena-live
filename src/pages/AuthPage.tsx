@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Zap, Mail, User, ArrowRight, ArrowLeft, Gift } from 'lucide-react';
+import { Zap, Mail, User, ArrowRight, ArrowLeft, Gift, X } from 'lucide-react';
 import { z } from 'zod';
 import { FunctionsHttpError, FunctionsFetchError, FunctionsRelayError } from '@supabase/supabase-js';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
+import { Button } from '@/components/ui/button';
 
 const emailSchema = z.string().email('Invalid email address');
 const usernameSchema = z.string().min(3, 'Username must be at least 3 characters').max(20, 'Username too long');
@@ -336,8 +337,24 @@ export const AuthPage = () => {
     setStep('email');
   };
 
+  const handleSkip = () => {
+    navigate('/home');
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative">
+      {/* Skip/Close Button - only show on email step */}
+      {step === 'email' && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleSkip}
+          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+        >
+          <X className="w-5 h-5" />
+        </Button>
+      )}
+
       {/* Logo */}
       <div className="mb-8 text-center">
         <div className="w-20 h-20 rounded-3xl bg-primary/20 flex items-center justify-center mx-auto mb-4 glow-primary">

@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Bell, X, Trophy, Zap, Clock, Flag } from 'lucide-react';
+import { Bell, X, Trophy, Zap, Clock, Flag, Wallet, Users, CheckCircle, XCircle, Gift } from 'lucide-react';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useRealtimeActivity } from '@/hooks/useRealtimeActivity';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Notification {
   id: string;
-  type: 'win' | 'game_start' | 'game_end' | 'reminder';
+  type: 'win' | 'game_start' | 'game_end' | 'reminder' | 'deposit' | 'withdrawal' | 'join' | 'bonus' | 'refund';
   title: string;
   message: string;
   timestamp: Date;
@@ -21,10 +22,19 @@ const getIcon = (type: Notification['type']) => {
       return <Zap className="w-5 h-5 text-primary" />;
     case 'game_end':
       return <Flag className="w-5 h-5 text-secondary" />;
+    case 'deposit':
+      return <Wallet className="w-5 h-5 text-green-500" />;
+    case 'withdrawal':
+      return <Wallet className="w-5 h-5 text-orange-500" />;
+    case 'join':
+      return <Users className="w-5 h-5 text-primary" />;
+    case 'bonus':
+      return <Gift className="w-5 h-5 text-gold" />;
+    case 'refund':
+      return <CheckCircle className="w-5 h-5 text-blue-500" />;
     case 'reminder':
-      return <Clock className="w-5 h-5 text-muted-foreground" />;
     default:
-      return <Bell className="w-5 h-5 text-muted-foreground" />;
+      return <Clock className="w-5 h-5 text-muted-foreground" />;
   }
 };
 
@@ -45,40 +55,211 @@ const getPositionText = (position: number) => {
 
 export const NotificationCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
-  const { activities } = useRealtimeActivity(10);
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
+  const { user } = useAuth();
 
-  // Transform activities to notifications
-  const notifications: Notification[] = activities.map(activity => {
-    let title = '';
-    let message = '';
-    let type: Notification['type'] = 'reminder';
+  // Fetch user's recent activity from wallet_transactions and game participations
+  const fetchUserNotifications = useCallback(async () => {
+    if (!user) return;
 
-    if (activity.type === 'finger_win') {
-      type = 'win';
-      title = `🏆 ${activity.playerName} Won!`;
-      message = `${getPositionText(activity.position || 1)} place - ₦${(activity.amount || 0).toLocaleString()}`;
-    } else if (activity.type === 'game_start') {
-      type = 'game_start';
-      title = `⚡ ${activity.gameName || 'Royal Rumble'} is LIVE!`;
-      message = `Pool: ₦${(activity.amount || 0).toLocaleString()} - Join now!`;
-    } else if (activity.type === 'game_end') {
-      type = 'game_end';
-      title = `🏁 ${activity.gameName || 'Royal Rumble'} Ended`;
-      message = 'Check the results!';
+    const notifications: Notification[] = [];
+
+    // Fetch wallet transactions (deposits, withdrawals, wins, refunds, bonus)
+    const { data: transactions } = await supabase
+      .from('wallet_transactions')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (transactions) {
+      transactions.forEach((tx) => {
+        let type: Notification['type'] = 'reminder';
+        let title = '';
+        let message = '';
+
+        if (tx.type === 'deposit' && tx.status === 'completed') {
+          type = 'deposit';
+          title = '💰 Deposit Successful';
+          message = `₦${Math.abs(tx.amount).toLocaleString()} added to wallet`;
+        } else if (tx.type === 'withdrawal' && tx.status === 'completed') {
+          type = 'withdrawal';
+          title = '💸 Withdrawal Complete';
+          message = `₦${Math.abs(tx.amount).toLocaleString()} sent to bank`;
+        } else if (tx.type === 'withdrawal' && tx.status === 'processing') {
+          type = 'withdrawal';
+          title = '⏳ Withdrawal Processing';
+          message = `₦${Math.abs(tx.amount).toLocaleString()} being processed`;
+        } else if (tx.type === 'withdrawal' && tx.status === 'failed') {
+          type = 'refund';
+          title = '❌ Withdrawal Failed';
+          message = `₦${Math.abs(tx.amount).toLocaleString()} refunded`;
+        } else if (tx.type === 'win') {
+          type = 'win';
+          title = '🏆 You Won!';
+          message = `₦${Math.abs(tx.amount).toLocaleString()} prize won`;
+        } else if (tx.type === 'bonus') {
+          type = 'bonus';
+          title = '🎁 Bonus Received';
+          message = `₦${Math.abs(tx.amount).toLocaleString()} bonus credited`;
+        } else if (tx.type === 'refund') {
+          type = 'refund';
+          title = '🔄 Refund Received';
+          message = `₦${Math.abs(tx.amount).toLocaleString()} refunded`;
+        } else if (tx.type === 'entry') {
+          type = 'join';
+          title = '🎮 Joined Game';
+          message = `Entry fee: ₦${Math.abs(tx.amount).toLocaleString()}`;
+        } else {
+          return; // Skip unknown types
+        }
+
+        notifications.push({
+          id: tx.id,
+          type,
+          title,
+          message,
+          timestamp: new Date(tx.created_at),
+          read: readIds.has(tx.id),
+        });
+      });
     }
 
-    return {
-      id: activity.id,
-      type,
-      title,
-      message,
-      timestamp: activity.timestamp,
-      read: readIds.has(activity.id),
+    // Fetch recent cycle winners (global activity)
+    const { data: recentWinners } = await supabase
+      .from('cycle_winners')
+      .select('id, prize_amount, position, created_at, user_id')
+      .neq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (recentWinners) {
+      // Get profiles for winners
+      const userIds = recentWinners.map(w => w.user_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('id', userIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.id, p.username]) || []);
+
+      recentWinners.forEach((winner) => {
+        notifications.push({
+          id: `winner_${winner.id}`,
+          type: 'win',
+          title: `🏆 ${profileMap.get(winner.user_id) || 'Player'} Won!`,
+          message: `${getPositionText(winner.position)} place - ₦${winner.prize_amount.toLocaleString()}`,
+          timestamp: new Date(winner.created_at),
+          read: readIds.has(`winner_${winner.id}`),
+        });
+      });
+    }
+
+    // Fetch game status changes (games going live)
+    const { data: liveCycles } = await supabase
+      .from('game_cycles')
+      .select('id, status, pool_value, live_start_at, template_id')
+      .eq('status', 'live')
+      .order('live_start_at', { ascending: false })
+      .limit(3);
+
+    if (liveCycles) {
+      // Get template names
+      const templateIds = liveCycles.map(c => c.template_id);
+      const { data: templates } = await supabase
+        .from('game_templates')
+        .select('id, name')
+        .in('id', templateIds);
+
+      const templateMap = new Map(templates?.map(t => [t.id, t.name]) || []);
+
+      liveCycles.forEach((cycle) => {
+        if (cycle.live_start_at) {
+          notifications.push({
+            id: `live_${cycle.id}`,
+            type: 'game_start',
+            title: `⚡ ${templateMap.get(cycle.template_id) || 'Royal Rumble'} is LIVE!`,
+            message: `Pool: ₦${cycle.pool_value.toLocaleString()} - Join now!`,
+            timestamp: new Date(cycle.live_start_at),
+            read: readIds.has(`live_${cycle.id}`),
+          });
+        }
+      });
+    }
+
+    // Sort by timestamp and dedupe
+    notifications.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    setNotifications(notifications);
+  }, [user, readIds]);
+
+  // Initial fetch and periodic refresh
+  useEffect(() => {
+    fetchUserNotifications();
+    const interval = setInterval(fetchUserNotifications, 30000); // Refresh every 30s
+    return () => clearInterval(interval);
+  }, [fetchUserNotifications]);
+
+  // Realtime subscription for wallet transactions
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('user-wallet-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'wallet_transactions',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchUserNotifications();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'wallet_transactions',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchUserNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
     };
-  });
+  }, [user, fetchUserNotifications]);
+
+  // Subscribe to global winners
+  useEffect(() => {
+    const channel = supabase
+      .channel('global-winners-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'cycle_winners',
+        },
+        () => {
+          fetchUserNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchUserNotifications]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -107,7 +288,7 @@ export const NotificationCenter = () => {
         <Bell className="w-5 h-5 text-foreground" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center animate-bounce-in">
-            {unreadCount}
+            {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
@@ -129,7 +310,12 @@ export const NotificationCenter = () => {
             </div>
 
             <div className="overflow-y-auto max-h-72">
-              {notifications.length === 0 ? (
+              {!user ? (
+                <div className="p-4 text-center text-muted-foreground">
+                  <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Sign in to see your notifications</p>
+                </div>
+              ) : notifications.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
                   No notifications yet
                 </div>
