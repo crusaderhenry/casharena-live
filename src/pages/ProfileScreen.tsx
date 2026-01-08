@@ -3,11 +3,12 @@ import { ProfileBadges } from '@/components/ProfileBadges';
 import { KycVerificationModal } from '@/components/wallet/KycVerificationModal';
 import { PushNotificationToggle } from '@/components/PushNotificationBanner';
 import { ProfileSkeleton } from '@/components/ProfileSkeleton';
+import { useOnboarding } from '@/components/OnboardingTutorial';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award, ShieldCheck, ShieldX, Bell, Timer, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award, ShieldCheck, ShieldX, Bell, Timer, Trash2, AlertTriangle, HelpCircle, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -44,6 +45,7 @@ export const ProfileScreen = () => {
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
   const { preferences, toggleInAppGameStatus } = useNotificationPreferences();
+  const { resetOnboarding } = useOnboarding();
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -644,6 +646,36 @@ export const ProfileScreen = () => {
             >
               <Volume2 className="w-4 h-4" />
               Test Sound
+            </button>
+          </div>
+        </div>
+
+        {/* Help & Support */}
+        <div className="card-panel">
+          <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-primary" />
+            Help & Support
+          </h3>
+          
+          <div className="space-y-3">
+            {/* Reset Tutorial */}
+            <button
+              onClick={() => {
+                play('click');
+                buttonClick();
+                resetOnboarding();
+                toast.success('Tutorial reset! Go to Home to view it.');
+                navigate('/home');
+              }}
+              className="w-full flex items-center justify-between p-3 bg-card-elevated hover:bg-muted rounded-xl border border-border/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <RotateCcw className="w-5 h-5 text-muted-foreground" />
+                <div className="text-left">
+                  <span className="text-foreground">Replay Tutorial</span>
+                  <p className="text-xs text-muted-foreground">Learn how the game works</p>
+                </div>
+              </div>
             </button>
           </div>
         </div>
