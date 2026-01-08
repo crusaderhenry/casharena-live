@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Bell, X, Trophy, Zap, Clock, Flag, Wallet, Users, CheckCircle, XCircle, Gift } from 'lucide-react';
+import { Bell, X, Trophy, Zap, Clock, Flag, Wallet, Users, CheckCircle, XCircle, Gift, Trash2 } from 'lucide-react';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAuth } from '@/contexts/AuthContext';
@@ -273,6 +273,13 @@ export const NotificationCenter = () => {
     setReadIds(prev => new Set([...prev, id]));
   }, []);
 
+  const clearAllNotifications = useCallback(() => {
+    setNotifications([]);
+    setReadIds(new Set());
+    play('click');
+    buttonClick();
+  }, [play, buttonClick]);
+
   const toggleOpen = () => {
     setIsOpen(!isOpen);
     play('click');
@@ -299,14 +306,25 @@ export const NotificationCenter = () => {
           <div className="absolute right-0 top-12 w-80 max-h-96 bg-card border border-border rounded-2xl shadow-xl z-50 overflow-hidden animate-scale-in">
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h3 className="font-bold text-foreground">Notifications</h3>
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllRead}
-                  className="text-xs text-primary font-medium hover:underline"
-                >
-                  Mark all read
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    className="text-xs text-primary font-medium hover:underline"
+                  >
+                    Mark all read
+                  </button>
+                )}
+                {notifications.length > 0 && (
+                  <button
+                    onClick={clearAllNotifications}
+                    className="text-xs text-destructive font-medium hover:underline flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Clear all
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="overflow-y-auto max-h-72">
