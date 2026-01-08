@@ -566,77 +566,109 @@ export const CycleArena = () => {
 
       {/* Main Content - Scrollable */}
       <div className="flex-1 flex flex-col overflow-hidden px-4">
-        {/* Comment Timer - PROMINENT */}
+        {/* Comment Reset Timer - Clean Minimal */}
         {isLive && (
-          <div className={`mb-3 p-4 rounded-2xl text-center ${
-            isCountdownCritical 
-              ? 'bg-gradient-to-r from-red-500/30 via-red-500/40 to-red-500/30 border-2 border-red-500/60 shadow-lg shadow-red-500/20' 
-              : 'bg-gradient-to-r from-primary/15 via-primary/25 to-primary/15 border border-primary/40'
+          <div className={`mb-4 rounded-2xl overflow-hidden transition-all duration-300 ${
+            isCountdownCritical ? 'ring-2 ring-destructive/50' : ''
           }`}>
-            <div className="flex items-center justify-center gap-3">
-              {isCountdownCritical ? (
-                <AlertTriangle className="w-6 h-6 text-red-400 animate-bounce" />
-              ) : (
-                <Timer className="w-5 h-5 text-primary" />
-              )}
-              <div>
-                <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isCountdownCritical ? 'text-red-400' : 'text-muted-foreground'}`}>
-                  ⏱️ Comment to Stay Alive
-                </p>
-                <LiveTimer 
-                  seconds={displayCountdown} 
-                  size="lg" 
-                  warning={isCountdownCritical} 
-                />
+            <div className={`px-5 py-4 ${
+              isCountdownCritical 
+                ? 'bg-destructive/10' 
+                : 'bg-muted/40'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    isCountdownCritical 
+                      ? 'bg-destructive/20 text-destructive' 
+                      : 'bg-primary/10 text-primary'
+                  }`}>
+                    <Timer className={`w-5 h-5 ${isCountdownCritical ? 'animate-pulse' : ''}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Comment to reset
+                    </p>
+                    <p className={`text-2xl font-bold tabular-nums tracking-tight ${
+                      isCountdownCritical ? 'text-destructive' : 'text-foreground'
+                    }`}>
+                      {formatTime(displayCountdown)}
+                    </p>
+                  </div>
+                </div>
+                
+                {isCountdownCritical && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/20 rounded-full">
+                    <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+                    <span className="text-xs font-semibold text-destructive uppercase tracking-wide">
+                      Hurry!
+                    </span>
+                  </div>
+                )}
               </div>
-              {isCountdownCritical ? (
-                <Flame className="w-6 h-6 text-red-400 animate-bounce" />
-              ) : (
-                <Target className="w-5 h-5 text-primary" />
-              )}
             </div>
           </div>
         )}
 
-        {/* Top Contenders - Compact podium */}
+        {/* Leaders Section - Clean Minimal */}
         {isLive && orderedCommenters.length > 0 && (
-          <div className="mb-3 p-2.5 rounded-xl bg-gradient-to-r from-gold/5 via-gold/10 to-gold/5 border border-gold/20">
-            <div className="flex items-center justify-center gap-1">
-              {(() => {
-                const top3 = orderedCommenters.slice(0, Math.min(3, cycle.winner_count));
-                const reordered = top3.length >= 2 
-                  ? [top3[1], top3[0], top3[2]].filter(Boolean)
-                  : top3;
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-foreground">Current Leaders</h3>
+              <span className="text-xs text-muted-foreground">
+                Top {Math.min(orderedCommenters.length, cycle.winner_count)} win
+              </span>
+            </div>
+            
+            <div className="space-y-2">
+              {orderedCommenters.slice(0, Math.min(3, cycle.winner_count)).map((c, idx) => {
+                const prizePercent = cycle.prize_distribution[idx] || 0;
+                const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (prizePercent / 100));
+                const isCurrentUser = c.id === user?.id;
                 
-                return reordered.map((c) => {
-                  const actualPosition = c === top3[0] ? 0 : c === top3[1] ? 1 : 2;
-                  const prizePercent = cycle.prize_distribution[actualPosition] || 0;
-                  const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (prizePercent / 100));
-                  const isFirst = actualPosition === 0;
-                  
-                  return (
-                    <div 
-                      key={c.user_id} 
-                      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg ${
-                        isFirst 
-                          ? 'bg-gold/20 border border-gold/40 scale-105 mx-1' 
-                          : 'bg-muted/30 border border-border/50'
-                      }`}
-                    >
-                      <span className="text-sm">{actualPosition === 0 ? '🥇' : actualPosition === 1 ? '🥈' : '🥉'}</span>
-                      <span className="text-lg">{c.avatar}</span>
-                      <div className="flex flex-col">
-                        <span className={`text-[10px] font-bold truncate max-w-[60px] ${isFirst ? 'text-gold' : 'text-foreground'}`}>
+                return (
+                  <div 
+                    key={c.user_id} 
+                    className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+                      idx === 0 
+                        ? 'bg-gold/10 border border-gold/30' 
+                        : 'bg-muted/30 border border-border/50'
+                    } ${isCurrentUser ? 'ring-2 ring-primary/40' : ''}`}
+                  >
+                    {/* Position */}
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                      idx === 0 ? 'bg-gold/20 text-gold' : 
+                      idx === 1 ? 'bg-muted text-muted-foreground' : 
+                      'bg-muted text-muted-foreground'
+                    }`}>
+                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
+                    </div>
+                    
+                    {/* Avatar & Name */}
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-xl flex-shrink-0">{c.avatar}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold truncate ${
+                          idx === 0 ? 'text-gold' : 'text-foreground'
+                        }`}>
                           {c.username}
-                        </span>
-                        <span className={`text-[9px] ${isFirst ? 'text-gold/80' : 'text-muted-foreground'}`}>
-                          {formatMoney(prizeAmount)}
-                        </span>
+                          {isCurrentUser && <span className="text-primary ml-1">(You)</span>}
+                        </p>
                       </div>
                     </div>
-                  );
-                });
-              })()}
+                    
+                    {/* Prize */}
+                    <div className="text-right">
+                      <p className={`text-sm font-bold ${idx === 0 ? 'text-gold' : 'text-foreground'}`}>
+                        {formatMoney(prizeAmount)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {prizePercent}%
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
