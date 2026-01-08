@@ -619,7 +619,7 @@ export const CycleArena = () => {
           </div>
         )}
 
-        {/* Leaders Section - Horizontal Layout */}
+        {/* Leaders Section - Podium Layout (2nd, 1st, 3rd) */}
         {isLive && orderedCommenters.length > 0 && (
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
@@ -629,50 +629,66 @@ export const CycleArena = () => {
               </span>
             </div>
             
-            <div className="flex gap-2">
-              {orderedCommenters.slice(0, Math.min(3, cycle.winner_count)).map((c, idx) => {
-                const prizePercent = cycle.prize_distribution[idx] || 0;
-                const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (prizePercent / 100));
-                const isCurrentUser = c.id === user?.id;
-                const isLeader = idx === 0;
+            {/* Podium order: 2nd, 1st, 3rd - with 1st elevated */}
+            <div className="flex gap-2 items-end">
+              {(() => {
+                const topCommenters = orderedCommenters.slice(0, Math.min(3, cycle.winner_count));
+                // Reorder to podium layout: [2nd, 1st, 3rd] for display
+                const podiumOrder = topCommenters.length >= 2 
+                  ? [topCommenters[1], topCommenters[0], topCommenters[2]].filter(Boolean)
+                  : topCommenters;
                 
-                return (
-                  <div 
-                    key={c.user_id} 
-                    className={`flex-1 flex flex-col items-center p-3 rounded-xl transition-all duration-300 ${
-                      isLeader 
-                        ? `bg-gold/10 border border-gold/30 ${leaderChanged ? 'animate-scale-in' : ''}` 
-                        : 'bg-muted/30 border border-border/50'
-                    } ${isCurrentUser ? 'ring-2 ring-primary/40' : ''}`}
-                  >
-                    {/* Position Badge */}
-                    <span className="text-lg mb-1">
-                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
-                    </span>
-                    
-                    {/* Avatar */}
-                    <span className={`text-2xl mb-1 ${isLeader && leaderChanged ? 'animate-bounce' : ''}`}>
-                      {c.avatar}
-                    </span>
-                    
-                    {/* Name */}
-                    <p className={`text-xs font-semibold truncate max-w-full text-center ${
-                      isLeader ? 'text-gold' : 'text-foreground'
-                    }`}>
-                      {c.username}
-                    </p>
-                    
-                    {isCurrentUser && (
-                      <span className="text-[9px] text-primary font-medium">You</span>
-                    )}
-                    
-                    {/* Prize */}
-                    <p className={`text-xs font-bold mt-1 ${isLeader ? 'text-gold' : 'text-foreground'}`}>
-                      {formatMoney(prizeAmount)}
-                    </p>
-                  </div>
-                );
-              })}
+                return podiumOrder.map((c, displayIdx) => {
+                  // Get actual position (1st, 2nd, 3rd)
+                  const actualPosition = topCommenters.indexOf(c);
+                  const prizePercent = cycle.prize_distribution[actualPosition] || 0;
+                  const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (prizePercent / 100));
+                  const isCurrentUser = c.id === user?.id;
+                  const isLeader = actualPosition === 0;
+                  
+                  // 1st place (center) is elevated
+                  const isCenter = displayIdx === 1 && topCommenters.length >= 2;
+                  
+                  return (
+                    <div 
+                      key={c.user_id} 
+                      className={`flex-1 flex flex-col items-center p-3 rounded-xl transition-all duration-300 ${
+                        isLeader 
+                          ? `bg-gold/10 border border-gold/30 ${leaderChanged ? 'animate-scale-in' : ''}` 
+                          : 'bg-muted/30 border border-border/50'
+                      } ${isCurrentUser ? 'ring-2 ring-primary/40' : ''} ${
+                        isCenter ? 'pb-5 -mt-2' : ''
+                      }`}
+                    >
+                      {/* Position Badge */}
+                      <span className={`mb-1 ${isCenter ? 'text-2xl' : 'text-lg'}`}>
+                        {actualPosition === 0 ? '🥇' : actualPosition === 1 ? '🥈' : '🥉'}
+                      </span>
+                      
+                      {/* Avatar */}
+                      <span className={`mb-1 ${isCenter ? 'text-3xl' : 'text-2xl'} ${isLeader && leaderChanged ? 'animate-bounce' : ''}`}>
+                        {c.avatar}
+                      </span>
+                      
+                      {/* Name */}
+                      <p className={`text-xs font-semibold truncate max-w-full text-center ${
+                        isLeader ? 'text-gold' : 'text-foreground'
+                      }`}>
+                        {c.username}
+                      </p>
+                      
+                      {isCurrentUser && (
+                        <span className="text-[9px] text-primary font-medium">You</span>
+                      )}
+                      
+                      {/* Prize */}
+                      <p className={`text-xs font-bold mt-1 ${isLeader ? 'text-gold' : 'text-foreground'}`}>
+                        {formatMoney(prizeAmount)}
+                      </p>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         )}
