@@ -97,6 +97,24 @@ export function PushNotificationToggle() {
   const { permission, isSubscribed, isLoading, subscribe, unsubscribe, isSupported } =
     usePushNotifications();
 
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isStandalone =
+    window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+  const needsInstallForIOS = isIOS && !isStandalone;
+
+  const showSetupHelp = () => {
+    if (needsInstallForIOS) {
+      alert(
+        "On iPhone/iPad, push notifications work only after you install this app.\n\n1) Tap Share\n2) Add to Home Screen\n3) Open the installed app\n4) Come back here and tap Enable"
+      );
+      return;
+    }
+
+    alert(
+      "If you see 'Not supported', you're likely using an in-app browser (Instagram/Twitter/Telegram) or a browser that doesn't support Web Push.\n\nOpen this site in Chrome (Android) or Safari (iPhone), then try again."
+    );
+  };
+
   if (!isSupported) {
     return (
       <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
@@ -104,16 +122,44 @@ export function PushNotificationToggle() {
           <BellOff className="h-5 w-5 text-muted-foreground" />
           <div>
             <p className="text-sm font-medium">Push Notifications</p>
-            <p className="text-xs text-muted-foreground">Not supported in this browser</p>
+            <p className="text-xs text-muted-foreground">
+              {needsInstallForIOS ? 'Install app to enable on iPhone' : 'Not supported in this browser'}
+            </p>
+            {needsInstallForIOS && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Add to Home Screen, open the installed app, then enable notifications.
+              </p>
+            )}
           </div>
         </div>
+        <Button
+          onClick={showSetupHelp}
+          variant="outline"
+          size="sm"
+          className="flex-shrink-0 text-xs"
+        >
+          Help
+        </Button>
       </div>
     );
   }
 
   const handleRequestAgain = () => {
-    alert('To enable notifications:\n\n1. Tap the 🔒 icon in your browser\'s address bar\n2. Find "Notifications" in site settings\n3. Change to "Allow"\n4. The page will reload after you close this');
-    window.location.reload();
+    if (needsInstallForIOS) {
+      showSetupHelp();
+      return;
+    }
+
+    if (isIOS) {
+      alert(
+        "On iPhone/iPad: open iOS Settings → Notifications → this app → turn on Allow Notifications, then reopen the app."
+      );
+      return;
+    }
+
+    alert(
+      "To unblock notifications:\n\n1) Tap the site icon (🔒 / settings) in your browser address bar\n2) Site settings → Notifications\n3) Change to 'Allow'\n\nThen refresh this page."
+    );
   };
 
   if (permission === 'denied') {
@@ -135,7 +181,7 @@ export function PushNotificationToggle() {
           size="sm"
           className="flex-shrink-0 text-xs"
         >
-          Request Again
+          Help
         </Button>
       </div>
     );
