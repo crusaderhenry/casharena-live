@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, memo } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Confetti } from '@/components/Confetti';
 import { X, Share2, Twitter, Facebook, MessageCircle } from 'lucide-react';
 import html2canvas from 'html2canvas';
@@ -25,7 +25,7 @@ const BRAGGING_CAPTIONS = [
   "Leveling up one badge at a time! 🎯",
 ];
 
-export const BadgeCelebration = memo(function BadgeCelebration({ badge, onDismiss }: BadgeCelebrationProps) {
+export const BadgeCelebration = ({ badge, onDismiss }: BadgeCelebrationProps) => {
   const { profile } = useAuth();
   const shareCardRef = useRef<HTMLDivElement>(null);
   
@@ -245,4 +245,4 @@ export const BadgeCelebration = memo(function BadgeCelebration({ badge, onDismis
       </div>
     </>
   );
-});
+};

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, memo } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Share2, MessageCircle, Download, Loader2, Instagram, Facebook, X, Crown, Users, Trophy, Sparkles } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -13,7 +13,7 @@ interface GameShareModalProps {
   variant?: 'card' | 'live' | 'lobby';
 }
 
-export const GameShareModal = memo(function GameShareModal({ open, onOpenChange, cycle, variant = 'card' }: GameShareModalProps) {
+export const GameShareModal = ({ open, onOpenChange, cycle, variant = 'card' }: GameShareModalProps) => {
   const { toast } = useToast();
   const cardRef = useRef<HTMLDivElement>(null);
   const storyCardRef = useRef<HTMLDivElement>(null);
@@ -444,4 +444,4 @@ export const GameShareModal = memo(function GameShareModal({ open, onOpenChange,
       </DialogContent>
     </Dialog>
   );
-});
+};

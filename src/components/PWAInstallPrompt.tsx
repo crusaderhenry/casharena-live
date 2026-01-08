@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect } from "react";
 import { X, Download, Smartphone, Share, Plus, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -7,7 +7,7 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-export const PWAInstallPrompt = memo(function PWAInstallPrompt() {
+export function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showBanner, setShowBanner] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -249,4 +249,4 @@ export const PWAInstallPrompt = memo(function PWAInstallPrompt() {
       </div>
     </div>
   );
-});
+}
