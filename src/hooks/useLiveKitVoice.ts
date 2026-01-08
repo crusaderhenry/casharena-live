@@ -22,6 +22,7 @@ export interface VoiceParticipant {
 }
 
 interface UseLiveKitVoiceReturn {
+  room: Room | null;
   participants: VoiceParticipant[];
   isConnected: boolean;
   isConnecting: boolean;
@@ -247,9 +248,10 @@ export const useLiveKitVoice = (gameId?: string): UseLiveKitVoiceReturn => {
     return () => {
       disconnect();
     };
-  }, [gameId, user]);
+  }, [gameId, user, connect, disconnect]);
 
   return {
+    room,
     participants,
     isConnected,
     isConnecting,
