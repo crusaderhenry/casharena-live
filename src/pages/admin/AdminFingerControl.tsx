@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle, XCircle, Music, Upload, Copy, Eye, EyeOff, Bot } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -23,8 +22,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { useGame } from '@/contexts/GameContext';
-
 import { MusicUploader } from '@/components/admin/MusicUploader';
 
 const PAYOUT_PRESETS = {

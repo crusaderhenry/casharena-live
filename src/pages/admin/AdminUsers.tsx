@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Search, Eye, Ban, Flag, CheckCircle, RefreshCw, UserPlus, Trash2, AlertTriangle } from 'lucide-react';
+import { Search, Eye, Ban, Flag, CheckCircle, RefreshCw, Trash2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';

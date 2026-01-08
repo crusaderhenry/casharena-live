@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAdmin } from '@/contexts/AdminContext';
+
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { StatCard } from '@/components/admin/StatCard';
-import { Wallet, TrendingUp, Clock, CheckCircle, ArrowUpRight, ArrowDownRight, Filter } from 'lucide-react';
+import { Wallet, TrendingUp, Clock, CheckCircle, ArrowUpRight, Filter } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface AdminTransaction {

@@ -2,7 +2,7 @@ import { useAdmin } from '@/contexts/AdminContext';
 import { useAdminStats } from '@/hooks/useAdminStats';
 import { StatCard } from '@/components/admin/StatCard';
 import { MiniChart } from '@/components/admin/MiniChart';
-import { Zap, Users, Wallet, TrendingUp, Trophy, Clock, Activity, UserPlus } from 'lucide-react';
+import { Zap, Users, Wallet, TrendingUp, Trophy, Activity } from 'lucide-react';
 import { useRealtimeActivity } from '@/hooks/useRealtimeActivity';
 
 export const AdminDashboard = () => {
