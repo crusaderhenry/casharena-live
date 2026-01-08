@@ -1,9 +1,10 @@
-import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy, Clock, Flame, Volume2, MessageCircle, Gift } from 'lucide-react';
+import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy, Clock, Flame, Volume2, MessageCircle, Gift, TrendingUp } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAdmin } from '@/contexts/AdminContext';
 import { AVAILABLE_HOSTS, getHostById } from '@/hooks/useCrusaderHost';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export const AdminSettings = () => {
   const { 
@@ -18,6 +19,9 @@ export const AdminSettings = () => {
     loading 
   } = usePlatformSettings();
   const { simulateHighTraffic, triggerWeeklyReset } = useAdmin();
+  
+  const [bonusRecipientCount, setBonusRecipientCount] = useState(0);
+  const [bonusLoading, setBonusLoading] = useState(true);
   
   const [localSettings, setLocalSettings] = useState({
     platformName: 'FortunesHQ',
@@ -73,6 +77,24 @@ export const AdminSettings = () => {
       }));
     }
   }, [dbSettings]);
+
+  // Fetch bonus recipient count
+  useEffect(() => {
+    const fetchBonusCount = async () => {
+      setBonusLoading(true);
+      const { count, error } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('received_welcome_bonus', true);
+      
+      if (!error) {
+        setBonusRecipientCount(count || 0);
+      }
+      setBonusLoading(false);
+    };
+    
+    fetchBonusCount();
+  }, []);
 
   const handleSave = async () => {
     const success = await updateDbSettings({
@@ -246,6 +268,38 @@ export const AdminSettings = () => {
         <p className="text-sm text-muted-foreground mb-4">
           Configure welcome message and bonus for new users
         </p>
+
+        {/* Bonus Stats Card */}
+        <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-transparent rounded-xl border border-primary/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Bonuses Distributed</p>
+                <p className="text-xl font-bold text-foreground">
+                  {bonusLoading ? '...' : bonusRecipientCount.toLocaleString()}
+                  <span className="text-sm text-muted-foreground font-normal">
+                    {' '}/ {localSettings.welcomeBonusLimit.toLocaleString()}
+                  </span>
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Remaining</p>
+              <p className="text-lg font-bold text-primary">
+                {bonusLoading ? '...' : Math.max(0, localSettings.welcomeBonusLimit - bonusRecipientCount).toLocaleString()}
+              </p>
+            </div>
+          </div>
+          {!bonusLoading && bonusRecipientCount >= localSettings.welcomeBonusLimit && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-orange-400">
+              <AlertTriangle className="w-4 h-4" />
+              Bonus limit reached - new users won't receive welcome bonus
+            </div>
+          )}
+        </div>
 
         <div className="space-y-6">
           {/* Welcome Bonus Toggle */}

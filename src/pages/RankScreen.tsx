@@ -1,26 +1,29 @@
 import { BottomNav } from '@/components/BottomNav';
 import { AllTimeLeaderboard } from '@/components/AllTimeLeaderboard';
+import { AuthPromptModal } from '@/components/AuthPromptModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
-import { Trophy, Crown, Medal, Award, ArrowLeft, TrendingUp, RefreshCw } from 'lucide-react';
+import { Trophy, Crown, Medal, Award, ArrowLeft, TrendingUp, RefreshCw, LogIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
 export const RankScreen = () => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { leaderboard, loading, refresh } = useLeaderboard();
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
-  const displayProfile = {
+  const displayProfile = user ? {
     username: profile?.username ?? 'Player',
     avatar: profile?.avatar ?? '🎮',
     rank: profile?.weekly_rank ?? null,
     wins: profile?.total_wins ?? 0,
     rankPoints: profile?.rank_points ?? 0,
-  };
+  } : null;
 
   const userRank = profile?.id 
-    ? leaderboard.findIndex(u => u.id === profile.id) + 1 || displayProfile.rank
-    : displayProfile.rank;
+    ? leaderboard.findIndex(u => u.id === profile.id) + 1 || displayProfile?.rank
+    : displayProfile?.rank;
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Crown className="w-5 h-5 text-gold" />;
@@ -53,25 +56,47 @@ export const RankScreen = () => {
           </button>
         </div>
 
-        <div className="card-panel border-primary/30 bg-gradient-to-r from-primary/10 to-transparent">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center text-2xl border-2 border-primary/30">
-              {displayProfile.avatar}
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-foreground text-lg">{displayProfile.username}</p>
-              <div className="flex items-center gap-3 text-sm">
-                <span className="text-primary font-semibold">Rank #{userRank || '-'}</span>
-                <span className="text-muted-foreground">•</span>
-                <span className="text-muted-foreground">{displayProfile.wins} wins</span>
+        {/* User Stats Card - Show sign in prompt for guests */}
+        {displayProfile ? (
+          <div className="card-panel border-primary/30 bg-gradient-to-r from-primary/10 to-transparent">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center text-2xl border-2 border-primary/30">
+                {displayProfile.avatar}
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-foreground text-lg">{displayProfile.username}</p>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-primary font-semibold">Rank #{userRank || '-'}</span>
+                  <span className="text-muted-foreground">•</span>
+                  <span className="text-muted-foreground">{displayProfile.wins} wins</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Points</p>
+                <p className="text-lg font-bold text-primary">{displayProfile.rankPoints}</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Points</p>
-              <p className="text-lg font-bold text-primary">{displayProfile.rankPoints}</p>
-            </div>
           </div>
-        </div>
+        ) : (
+          <button 
+            onClick={() => setShowAuthPrompt(true)}
+            className="card-panel border-primary/30 bg-gradient-to-r from-primary/10 to-transparent w-full text-left hover:border-primary/50 transition-colors"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary/30">
+                <Crown className="w-7 h-7 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-foreground text-lg">Your Stats</p>
+                <p className="text-sm text-muted-foreground">Sign in to see your ranking</p>
+              </div>
+              <div className="flex items-center gap-2 text-primary font-medium">
+                <LogIn className="w-5 h-5" />
+                Sign In
+              </div>
+            </div>
+          </button>
+        )}
 
         {top3.length >= 3 && (
           <div className="flex items-end justify-center gap-2 py-4">
@@ -156,6 +181,13 @@ export const RankScreen = () => {
           </div>
         </div>
       </div>
+      
+      <AuthPromptModal 
+        open={showAuthPrompt} 
+        onOpenChange={setShowAuthPrompt}
+        action="rank"
+      />
+      
       <BottomNav />
     </div>
   );
