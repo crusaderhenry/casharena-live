@@ -862,7 +862,7 @@ export const CycleArena = () => {
 
       {/* Leave Game Warning Dialog */}
       <AlertDialog open={showLeaveWarning} onOpenChange={setShowLeaveWarning}>
-        <AlertDialogContent className="max-w-[90vw] rounded-2xl">
+        <AlertDialogContent position="top" className="max-w-[90vw] rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-400">
               <AlertTriangle className="w-5 h-5" />
