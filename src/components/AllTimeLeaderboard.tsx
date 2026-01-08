@@ -13,36 +13,13 @@ interface LeaderboardEntry {
   rank_points: number;
 }
 
-interface AllTimeLeaderboardProps {
-  isTestMode?: boolean;
-}
-
-// Mock data for test mode
-const mockLeaderboard: LeaderboardEntry[] = [
-  { id: '1', username: 'CryptoKing', avatar: '👑', total_wins: 47, total_earnings: 892500, games_played: 156, rank_points: 4700 },
-  { id: '2', username: 'LuckyAce', avatar: '🎰', total_wins: 38, total_earnings: 654200, games_played: 142, rank_points: 3800 },
-  { id: '3', username: 'FastHands', avatar: '⚡', total_wins: 35, total_earnings: 587000, games_played: 128, rank_points: 3500 },
-  { id: '4', username: 'SpeedDemon', avatar: '💨', total_wins: 31, total_earnings: 498300, games_played: 115, rank_points: 3100 },
-  { id: '5', username: 'NightOwl', avatar: '🦉', total_wins: 28, total_earnings: 445000, games_played: 98, rank_points: 2800 },
-  { id: '6', username: 'QuickDraw', avatar: '🎯', total_wins: 24, total_earnings: 378500, games_played: 87, rank_points: 2400 },
-  { id: '7', username: 'GamerPro', avatar: '🎮', total_wins: 21, total_earnings: 312000, games_played: 76, rank_points: 2100 },
-  { id: '8', username: 'WinStreak', avatar: '🔥', total_wins: 18, total_earnings: 267800, games_played: 65, rank_points: 1800 },
-  { id: '9', username: 'ChampionX', avatar: '🏆', total_wins: 15, total_earnings: 223400, games_played: 54, rank_points: 1500 },
-  { id: '10', username: 'ProPlayer', avatar: '⭐', total_wins: 12, total_earnings: 178900, games_played: 43, rank_points: 1200 },
-];
-
-export const AllTimeLeaderboard = ({ isTestMode = false }: AllTimeLeaderboardProps) => {
+export const AllTimeLeaderboard = () => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-
-    if (isTestMode) {
-      setLeaderboard(mockLeaderboard);
-      return;
-    }
 
     const fetchLeaderboard = async () => {
       setLoading(true);
@@ -94,7 +71,7 @@ export const AllTimeLeaderboard = ({ isTestMode = false }: AllTimeLeaderboardPro
     };
 
     fetchLeaderboard();
-  }, [open, isTestMode]);
+  }, [open]);
 
   const formatMoney = (amount: number) => `₦${amount.toLocaleString()}`;
 

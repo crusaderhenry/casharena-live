@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Clock, Users, ChevronRight, History, Medal, Filter, Share2, X } from 'lucide-react';
+import { Trophy, Clock, Users, ChevronRight, History, Medal, Filter, Share2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -22,64 +22,7 @@ interface GameResult {
   }[];
 }
 
-interface GameHistoryProps {
-  isTestMode?: boolean;
-}
-
 type FilterType = 'all' | 'today' | 'week' | 'high_prize' | 'single_winner' | 'multi_winner';
-
-// Mock history for test mode
-const mockHistory: GameResult[] = [
-  {
-    id: 'h1',
-    pool_value: 42000,
-    participant_count: 60,
-    status: 'ended',
-    end_time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    entry_fee: 700,
-    winners: [
-      { id: 'w1', position: 1, amount_won: 21000, user_id: 'u1', profile: { username: 'CryptoKing', avatar: '👑' } },
-      { id: 'w2', position: 2, amount_won: 12600, user_id: 'u2', profile: { username: 'LuckyAce', avatar: '🎰' } },
-      { id: 'w3', position: 3, amount_won: 8400, user_id: 'u3', profile: { username: 'FastHands', avatar: '⚡' } },
-    ]
-  },
-  {
-    id: 'h2',
-    pool_value: 28000,
-    participant_count: 40,
-    status: 'ended',
-    end_time: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    entry_fee: 700,
-    winners: [
-      { id: 'w4', position: 1, amount_won: 25200, user_id: 'u4', profile: { username: 'SpeedDemon', avatar: '💨' } },
-    ]
-  },
-  {
-    id: 'h3',
-    pool_value: 55000,
-    participant_count: 110,
-    status: 'ended',
-    end_time: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    entry_fee: 500,
-    winners: [
-      { id: 'w5', position: 1, amount_won: 22000, user_id: 'u5', profile: { username: 'NightOwl', avatar: '🦉' } },
-      { id: 'w6', position: 2, amount_won: 13750, user_id: 'u6', profile: { username: 'QuickDraw', avatar: '🎯' } },
-      { id: 'w7', position: 3, amount_won: 8250, user_id: 'u7', profile: { username: 'GamerPro', avatar: '🎮' } },
-      { id: 'w8', position: 4, amount_won: 5500, user_id: 'u8', profile: { username: 'WinStreak', avatar: '🔥' } },
-    ]
-  },
-  {
-    id: 'h4',
-    pool_value: 75000,
-    participant_count: 150,
-    status: 'ended',
-    end_time: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    entry_fee: 500,
-    winners: [
-      { id: 'w9', position: 1, amount_won: 67500, user_id: 'u9', profile: { username: 'ChampionX', avatar: '🏆' } },
-    ]
-  },
-];
 
 const filterOptions: { value: FilterType; label: string }[] = [
   { value: 'all', label: 'All Games' },
@@ -90,7 +33,7 @@ const filterOptions: { value: FilterType; label: string }[] = [
   { value: 'multi_winner', label: 'Multiple Winners' },
 ];
 
-export const GameHistory = ({ isTestMode = false }: GameHistoryProps) => {
+export const GameHistory = () => {
   const [history, setHistory] = useState<GameResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -98,11 +41,6 @@ export const GameHistory = ({ isTestMode = false }: GameHistoryProps) => {
 
   useEffect(() => {
     if (!open) return;
-
-    if (isTestMode) {
-      setHistory(mockHistory);
-      return;
-    }
 
     const fetchHistory = async () => {
       setLoading(true);
@@ -156,7 +94,7 @@ export const GameHistory = ({ isTestMode = false }: GameHistoryProps) => {
     };
 
     fetchHistory();
-  }, [open, isTestMode]);
+  }, [open]);
 
   const formatMoney = (amount: number) => `₦${amount.toLocaleString()}`;
   
@@ -218,7 +156,6 @@ export const GameHistory = ({ isTestMode = false }: GameHistoryProps) => {
     } else {
       // Fallback: copy to clipboard
       await navigator.clipboard.writeText(shareText);
-      // Could add toast notification here
     }
   };
 
