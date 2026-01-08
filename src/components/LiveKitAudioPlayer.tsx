@@ -1,6 +1,7 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Room, RoomEvent, Track, RemoteTrackPublication, RemoteParticipant } from 'livekit-client';
 import { useAudio } from '@/contexts/AudioContext';
+import { AudioUnlockBanner } from './AudioUnlockBanner';
 
 interface LiveKitAudioPlayerProps {
   room: Room | null;
@@ -16,6 +17,7 @@ export const LiveKitAudioPlayer = ({ room }: LiveKitAudioPlayerProps) => {
   const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const audioContextRef = useRef<AudioContext | null>(null);
   const hasUserInteractedRef = useRef(false);
+  const [showUnlockBanner, setShowUnlockBanner] = useState(false);
 
   // Initialize audio context on first user interaction (Twitter Spaces style)
   const initAudioContext = useCallback(() => {
@@ -26,6 +28,7 @@ export const LiveKitAudioPlayer = ({ room }: LiveKitAudioPlayerProps) => {
       audioContextRef.current.resume();
     }
     hasUserInteractedRef.current = true;
+    setShowUnlockBanner(false);
     
     // Resume all existing audio elements
     audioElementsRef.current.forEach((el) => {
@@ -79,11 +82,14 @@ export const LiveKitAudioPlayer = ({ room }: LiveKitAudioPlayerProps) => {
     containerRef.current.appendChild(el);
     audioElementsRef.current.set(participantIdentity, el);
 
-    // Attempt playback - this will work if user has interacted
+    // Attempt playback - show unlock banner if blocked
     const playPromise = el.play();
     if (playPromise !== undefined) {
       playPromise.catch((err) => {
-        console.log('[LiveKitAudio] autoplay blocked, waiting for user interaction:', participantIdentity);
+        console.log('[LiveKitAudio] autoplay blocked, showing unlock banner:', participantIdentity);
+        if (!hasUserInteractedRef.current) {
+          setShowUnlockBanner(true);
+        }
       });
     }
 
@@ -172,5 +178,12 @@ export const LiveKitAudioPlayer = ({ room }: LiveKitAudioPlayerProps) => {
     };
   }, []);
 
-  return <div ref={containerRef} className="hidden" />;
+  return (
+    <>
+      {showUnlockBanner && room && (
+        <AudioUnlockBanner onUnlock={initAudioContext} />
+      )}
+      <div ref={containerRef} className="hidden" />
+    </>
+  );
 };
