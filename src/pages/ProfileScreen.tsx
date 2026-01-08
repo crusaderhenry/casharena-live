@@ -70,14 +70,14 @@ export const ProfileScreen = () => {
     toast.success('Identity verified successfully!');
   };
 
-  // Use real profile data if available
+  // Use real profile data - don't fallback to mock data for authenticated users
   const displayProfile = {
-    username: profile?.username || userProfile.username,
-    avatar: profile?.avatar || userProfile.avatar,
-    gamesPlayed: profile?.games_played || userProfile.gamesPlayed,
-    wins: profile?.total_wins || userProfile.wins,
-    rank: profile?.weekly_rank || userProfile.rank,
-    rankPoints: profile?.rank_points || 0,
+    username: profile?.username ?? userProfile.username,
+    avatar: profile?.avatar ?? userProfile.avatar,
+    gamesPlayed: profile?.games_played ?? 0,
+    wins: profile?.total_wins ?? 0,
+    rank: profile?.weekly_rank ?? null,
+    rankPoints: profile?.rank_points ?? 0,
   };
 
   // Set initial name when profile loads
