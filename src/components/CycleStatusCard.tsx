@@ -2,13 +2,25 @@ import { useNavigate } from 'react-router-dom';
 import { GameCycle } from '@/hooks/useActiveCycles';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { Crown, Users, Timer, Zap, Eye, Play, Radio, Clock, Sparkles } from 'lucide-react';
+import { Crown, Users, Timer, Zap, Eye, Play, Radio, Clock, Sparkles, Flame } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface CycleStatusCardProps {
   cycle: GameCycle;
   isParticipant?: boolean;
 }
+
+// Helper to determine if game is "hot"
+const isHotGame = (participantCount: number, status: string): boolean => {
+  // Hot if live with 10+ players, or opening with 5+ players
+  if (status === 'live' || status === 'ending') {
+    return participantCount >= 10;
+  }
+  if (status === 'opening') {
+    return participantCount >= 5;
+  }
+  return participantCount >= 8;
+};
 
 export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCardProps) => {
   const navigate = useNavigate();
@@ -128,12 +140,25 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
   };
 
   const config = getStatusConfig();
+  const hot = isHotGame(cycle.participant_count, cycle.status);
 
   return (
     <button
       onClick={handleClick}
-      className={`w-full text-left rounded-2xl border ${config.borderClass} bg-card p-4 hover:bg-card/80 transition-all group shadow-lg ${config.glow}`}
+      className={`w-full text-left rounded-2xl border ${config.borderClass} bg-card p-4 hover:bg-card/80 transition-all group shadow-lg ${config.glow} ${hot ? 'ring-2 ring-orange-500/50' : ''}`}
     >
+      {/* Hot Game Badge */}
+      {hot && (
+        <div className="flex items-center gap-1.5 mb-2">
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-bold animate-pulse">
+            <Flame className="w-3 h-3" />
+            HOT GAME
+            <Flame className="w-3 h-3" />
+          </div>
+          <span className="text-[10px] text-orange-400">High activity!</span>
+        </div>
+      )}
+
       {/* Header Row */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 
-type SoundType = 'click' | 'success' | 'win' | 'error' | 'timer' | 'countdown' | 'notification' | 'coin' | 'send' | 'tick' | 'urgent' | 'gameOver' | 'leaderChange' | 'prizeWin' | 'gameStart';
+type SoundType = 'click' | 'success' | 'win' | 'error' | 'timer' | 'countdown' | 'notification' | 'coin' | 'send' | 'tick' | 'urgent' | 'gameOver' | 'leaderChange' | 'prizeWin' | 'gameStart' | 'drumroll' | 'crowdCheer' | 'victoryFanfare' | 'tenseCrescendo';
 
 // Create audio context lazily
 const createAudioContext = () => {
@@ -116,6 +116,60 @@ export const useSounds = () => {
         setTimeout(() => playTone(554.37, 0.15, 'sine', 0.15), 150);
         setTimeout(() => playTone(659.25, 0.15, 'sine', 0.15), 300);
         setTimeout(() => playTone(880, 0.25, 'sine', 0.15), 450);
+        break;
+      case 'drumroll':
+        // Dramatic drumroll building tension
+        for (let i = 0; i < 20; i++) {
+          setTimeout(() => {
+            playTone(150 + Math.random() * 50, 0.08, 'triangle', 0.1 + (i * 0.01));
+          }, i * 80);
+        }
+        break;
+      case 'crowdCheer':
+        // Crowd cheering simulation with noise bursts
+        for (let i = 0; i < 8; i++) {
+          setTimeout(() => {
+            playTone(800 + Math.random() * 400, 0.15, 'sawtooth', 0.08);
+            playTone(1200 + Math.random() * 600, 0.12, 'sine', 0.06);
+          }, i * 150);
+        }
+        // Add celebratory high notes
+        setTimeout(() => playTone(1046.50, 0.2, 'sine', 0.15), 1000);
+        setTimeout(() => playTone(1318.51, 0.2, 'sine', 0.15), 1150);
+        setTimeout(() => playTone(1567.98, 0.3, 'sine', 0.15), 1300);
+        break;
+      case 'victoryFanfare':
+        // Epic victory fanfare with brass-like tones
+        playTone(392, 0.2, 'sawtooth', 0.12);
+        playTone(493.88, 0.2, 'sawtooth', 0.1);
+        setTimeout(() => {
+          playTone(523.25, 0.2, 'sawtooth', 0.12);
+          playTone(659.25, 0.2, 'sawtooth', 0.1);
+        }, 250);
+        setTimeout(() => {
+          playTone(659.25, 0.3, 'sawtooth', 0.15);
+          playTone(783.99, 0.3, 'sawtooth', 0.12);
+        }, 500);
+        setTimeout(() => {
+          playTone(783.99, 0.5, 'sawtooth', 0.18);
+          playTone(987.77, 0.5, 'sawtooth', 0.15);
+          playTone(1174.66, 0.5, 'sawtooth', 0.12);
+        }, 800);
+        break;
+      case 'tenseCrescendo':
+        // Building tension crescendo
+        for (let i = 0; i < 10; i++) {
+          setTimeout(() => {
+            const freq = 200 + (i * 80);
+            const vol = 0.05 + (i * 0.015);
+            playTone(freq, 0.3, 'sine', vol);
+          }, i * 200);
+        }
+        // Final burst
+        setTimeout(() => {
+          playTone(880, 0.4, 'sine', 0.2);
+          playTone(1046.50, 0.4, 'sine', 0.18);
+        }, 2000);
         break;
     }
   }, [playTone]);
