@@ -69,7 +69,7 @@ export const WalletMain = () => {
   };
 
   return (
-    <div ref={containerRef} className={`min-h-screen bg-background pb-24 overflow-auto scroll-smooth-ios ${isTestMode ? 'pt-10' : ''}`}>
+    <div ref={containerRef} className={`min-h-screen bg-background pb-24 scroll-smooth-ios ${isTestMode ? 'pt-10' : ''}`}>
       <TestModeBanner />
       
       <PullToRefreshIndicator 

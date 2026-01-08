@@ -327,7 +327,7 @@ export const ProfileScreen = () => {
   }
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-background pb-24 overflow-auto scroll-smooth-ios">
+    <div ref={containerRef} className="min-h-screen bg-background pb-24 scroll-smooth-ios">
       <PullToRefreshIndicator 
         pullProgress={pullProgress} 
         isRefreshing={isRefreshing} 

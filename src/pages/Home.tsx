@@ -177,7 +177,7 @@ export const Home = () => {
   const totalPool = cycles.reduce((sum, c) => sum + c.pool_value + (c.sponsored_prize_amount || 0), 0);
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-background pb-24 overflow-auto scroll-smooth-ios">
+    <div ref={containerRef} className="min-h-screen bg-background pb-24 scroll-smooth-ios">
 
       {/* Username prompt for OAuth users */}
       {user?.id && needsUsername && (

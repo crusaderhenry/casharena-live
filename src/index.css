@@ -320,20 +320,21 @@
     position: -webkit-sticky;
     position: sticky;
     top: 0;
+    left: 0;
+    right: 0;
     z-index: 50;
-    background: hsl(var(--background) / 0.97);
+    background: hsl(var(--background));
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     padding-top: env(safe-area-inset-top, 0);
-    will-change: transform;
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
   }
 
-  /* Smooth iOS Scrolling */
+  /* Smooth iOS Scrolling - required for sticky to work */
   .scroll-smooth-ios {
     -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
+    overflow-y: scroll !important;
+    height: 100vh;
+    height: 100dvh;
   }
 
   /* Prevent iOS rubber band effect on fixed elements */
