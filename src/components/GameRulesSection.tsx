@@ -1,4 +1,10 @@
-import { Trophy, Coins, Sparkles, Timer, Users, MessageSquare, Clock, Target, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Trophy, Coins, Sparkles, Timer, Users, MessageSquare, Clock, Target, ChevronDown, HelpCircle } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 interface GameRulesProps {
   entryFee: number;
@@ -17,9 +23,9 @@ export const GameRulesSection = ({
   winnerCount,
   prizeDistribution,
   commentTimer,
-  allowSpectators,
   minParticipants = 2,
 }: GameRulesProps) => {
+  const [isOpen, setIsOpen] = useState(false);
   const isSponsored = entryFee === 0 && sponsoredPrizeAmount > 0;
 
   const rules = [
@@ -66,35 +72,44 @@ export const GameRulesSection = ({
   ];
 
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
-      <div className="p-4 border-b border-border bg-muted/30">
-        <h3 className="font-bold text-foreground flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-primary" />
-          How This Game Works
-        </h3>
-      </div>
-      
-      <div className="p-4 space-y-3">
-        {rules.map((rule, index) => (
-          <div key={index} className="flex items-start gap-3">
-            <div className={`p-2 rounded-lg bg-muted/50 ${rule.color}`}>
-              <rule.icon className="w-4 h-4" />
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <CollapsibleTrigger asChild>
+          <button className="w-full p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-4 h-4 text-primary" />
+              <span className="font-bold text-foreground">How This Game Works</span>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className={`text-sm font-semibold ${rule.color}`}>{rule.title}</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">{rule.description}</p>
+            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          </button>
+        </CollapsibleTrigger>
+        
+        <CollapsibleContent>
+          <div className="border-t border-border">
+            <div className="p-4 space-y-3">
+              {rules.map((rule, index) => (
+                <div key={index} className="flex items-start gap-3">
+                  <div className={`p-2 rounded-lg bg-muted/50 ${rule.color}`}>
+                    <rule.icon className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-semibold ${rule.color}`}>{rule.title}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{rule.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Quick Tips */}
+            <div className="p-3 bg-primary/5 border-t border-border">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock className="w-3.5 h-3.5 text-primary" />
+                <span><strong className="text-foreground">Pro Tip:</strong> Wait for others to comment, then strike at the last second!</span>
+              </div>
             </div>
           </div>
-        ))}
+        </CollapsibleContent>
       </div>
-
-      {/* Quick Tips */}
-      <div className="p-3 bg-primary/5 border-t border-border">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Clock className="w-3.5 h-3.5 text-primary" />
-          <span><strong className="text-foreground">Pro Tip:</strong> Wait for others to comment, then strike at the last second!</span>
-        </div>
-      </div>
-    </div>
+    </Collapsible>
   );
 };

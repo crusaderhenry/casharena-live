@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 
@@ -10,28 +10,31 @@ interface UseLobbyAudioOptions {
 export const useLobbyAudio = ({ timeUntilLive, isInLobby }: UseLobbyAudioOptions) => {
   const { playBackgroundMusic, stopBackgroundMusic, settings } = useAudio();
   const { play } = useSounds();
-  const [tickingSoundEnabled, setTickingSoundEnabled] = useState(true);
   const lastTickRef = useRef<number | null>(null);
-  const musicStartedRef = useRef(false);
+  const hasStartedRef = useRef(false);
 
-  // Start lobby music when entering lobby
+  // Start/stop lobby music based on lobby state and music setting
   useEffect(() => {
-    if (isInLobby && settings.musicEnabled && !musicStartedRef.current) {
+    if (isInLobby && settings.musicEnabled) {
+      // Start music if not already started or if re-enabled
       playBackgroundMusic('lobby');
-      musicStartedRef.current = true;
+      hasStartedRef.current = true;
+    } else if (!settings.musicEnabled && hasStartedRef.current) {
+      // Stop if music was disabled
+      stopBackgroundMusic();
     }
     
     return () => {
-      if (musicStartedRef.current) {
+      if (hasStartedRef.current) {
         stopBackgroundMusic();
-        musicStartedRef.current = false;
+        hasStartedRef.current = false;
       }
     };
   }, [isInLobby, settings.musicEnabled, playBackgroundMusic, stopBackgroundMusic]);
 
   // Countdown tick sounds in last 30 seconds
   useEffect(() => {
-    if (!isInLobby || !settings.sfxEnabled || !tickingSoundEnabled) return;
+    if (!isInLobby || !settings.sfxEnabled) return;
     
     // Only tick in the last 30 seconds
     if (timeUntilLive <= 30 && timeUntilLive > 0) {
@@ -49,7 +52,7 @@ export const useLobbyAudio = ({ timeUntilLive, isInLobby }: UseLobbyAudioOptions
         }
       }
     }
-  }, [timeUntilLive, isInLobby, settings.sfxEnabled, tickingSoundEnabled, play]);
+  }, [timeUntilLive, isInLobby, settings.sfxEnabled, play]);
 
   // Reset tick ref when timer resets
   useEffect(() => {
@@ -58,13 +61,7 @@ export const useLobbyAudio = ({ timeUntilLive, isInLobby }: UseLobbyAudioOptions
     }
   }, [timeUntilLive]);
 
-  const toggleTickingSound = useCallback(() => {
-    setTickingSoundEnabled(prev => !prev);
-  }, []);
-
   return {
-    tickingSoundEnabled,
-    toggleTickingSound,
-    isMusicPlaying: musicStartedRef.current && settings.musicEnabled,
+    isMusicPlaying: hasStartedRef.current && settings.musicEnabled,
   };
 };
