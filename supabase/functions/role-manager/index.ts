@@ -96,19 +96,20 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { action, targetUserId, role } = body;
-    console.log(`Role action: ${action}`, { targetUserId, role, adminId: user.id });
+    const { action, targetUserId, userId, role } = body;
+    const effectiveUserId = targetUserId || userId;
+    console.log(`Role action: ${action}`, { effectiveUserId, role, adminId: user.id });
 
     // Get target user profile for logging
     const { data: targetProfile } = await supabase
       .from('profiles')
-      .select('username')
-      .eq('id', targetUserId)
+      .select('username, wallet_balance')
+      .eq('id', effectiveUserId)
       .single();
 
     switch (action) {
       case 'add_role': {
-        if (!targetUserId || !role) {
+        if (!effectiveUserId || !role) {
           throw new Error('Missing targetUserId or role');
         }
 
@@ -116,7 +117,7 @@ serve(async (req) => {
         const { data: existing } = await supabase
           .from('user_roles')
           .select('id')
-          .eq('user_id', targetUserId)
+          .eq('user_id', effectiveUserId)
           .eq('role', role)
           .maybeSingle();
 
@@ -129,29 +130,29 @@ serve(async (req) => {
 
         const { error } = await supabase
           .from('user_roles')
-          .insert({ user_id: targetUserId, role });
+          .insert({ user_id: effectiveUserId, role });
 
         if (error) throw error;
 
         // Log audit action
-        await logAuditAction(supabase, user.id, 'add_role', 'user_role', targetUserId, {
+        await logAuditAction(supabase, user.id, 'add_role', 'user_role', effectiveUserId, {
           role,
           target_username: targetProfile?.username || 'Unknown',
         }, clientIp);
 
-        console.log(`Role ${role} added to user ${targetUserId} by admin ${user.id}`);
+        console.log(`Role ${role} added to user ${effectiveUserId} by admin ${user.id}`);
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       case 'remove_role': {
-        if (!targetUserId || !role) {
+        if (!effectiveUserId || !role) {
           throw new Error('Missing targetUserId or role');
         }
 
         // Prevent admin from removing their own admin role
-        if (targetUserId === user.id && role === 'admin') {
+        if (effectiveUserId === user.id && role === 'admin') {
           return new Response(JSON.stringify({ error: 'Cannot remove your own admin role' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -161,18 +162,48 @@ serve(async (req) => {
         const { error } = await supabase
           .from('user_roles')
           .delete()
-          .eq('user_id', targetUserId)
+          .eq('user_id', effectiveUserId)
           .eq('role', role);
 
         if (error) throw error;
 
         // Log audit action
-        await logAuditAction(supabase, user.id, 'remove_role', 'user_role', targetUserId, {
+        await logAuditAction(supabase, user.id, 'remove_role', 'user_role', effectiveUserId, {
           role,
           target_username: targetProfile?.username || 'Unknown',
         }, clientIp);
 
-        console.log(`Role ${role} removed from user ${targetUserId} by admin ${user.id}`);
+        console.log(`Role ${role} removed from user ${effectiveUserId} by admin ${user.id}`);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'delete-user': {
+        if (!effectiveUserId) {
+          throw new Error('Missing userId');
+        }
+
+        // Prevent admin from deleting themselves
+        if (effectiveUserId === user.id) {
+          return new Response(JSON.stringify({ error: 'Cannot delete your own account' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Delete the user from auth (profile will cascade due to foreign key)
+        const { error: deleteError } = await supabase.auth.admin.deleteUser(effectiveUserId);
+
+        if (deleteError) throw deleteError;
+
+        // Log audit action
+        await logAuditAction(supabase, user.id, 'delete_user', 'user', effectiveUserId, {
+          target_username: targetProfile?.username || 'Unknown',
+          had_balance: targetProfile?.wallet_balance || 0,
+        }, clientIp);
+
+        console.log(`User ${effectiveUserId} deleted by admin ${user.id}`);
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

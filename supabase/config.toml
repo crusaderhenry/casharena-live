@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.verify-otp]
 verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = false
