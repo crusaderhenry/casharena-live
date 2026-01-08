@@ -297,9 +297,7 @@ export const CycleLobby = () => {
   const canLeave = timeUntilLive > 300; // 5 minutes = 300 seconds
 
   return (
-    <div className={`min-h-screen bg-background flex flex-col transition-all duration-300 ${
-      transitioning ? 'opacity-0 scale-110 blur-sm' : 'opacity-100 scale-100 animate-fade-in'
-    }`}>
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Screen Flash Effect */}
       {flashActive && (
         <div 
@@ -345,45 +343,48 @@ export const CycleLobby = () => {
         action="game"
       />
 
-      {/* Header */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="p-4 flex items-center gap-4">
-          <button
-            onClick={() => { play('click'); buttonClick(); navigate('/arena'); }}
-            className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center"
-          >
-            <ArrowLeft className="w-5 h-5 text-foreground" />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-lg font-bold text-foreground">Game Lobby</h1>
-            <p className="text-xs text-muted-foreground">
-              {isWaiting ? 'Entry opens soon' : 'Entry is open'}
-            </p>
+      <div className={`flex flex-col flex-1 transition-all duration-300 ${
+        transitioning ? 'opacity-0 scale-110 blur-sm' : 'opacity-100 animate-fade-in'
+      }`}>
+        {/* Header */}
+        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
+          <div className="p-4 flex items-center gap-4">
+            <button
+              onClick={() => { play('click'); buttonClick(); navigate('/arena'); }}
+              className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center"
+            >
+              <ArrowLeft className="w-5 h-5 text-foreground" />
+            </button>
+            <div className="flex-1">
+              <h1 className="text-lg font-bold text-foreground">Game Lobby</h1>
+              <p className="text-xs text-muted-foreground">
+                {isWaiting ? 'Entry opens soon' : 'Entry is open'}
+              </p>
+            </div>
+            
+            {/* Audio Controls with Mic Test */}
+            <LobbyAudioControls onMicTest={() => setShowMicCheck(true)} />
+            
+            {/* Share Button */}
+            <button
+              onClick={() => { play('click'); buttonClick(); setShowShareModal(true); }}
+              className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
+            >
+              <Share2 className="w-5 h-5 text-foreground" />
+            </button>
+            
+            <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full ${
+              isOpening ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
+            }`}>
+              {isOpening ? <Play className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+              {isOpening ? 'OPEN' : 'WAITING'}
+            </span>
           </div>
-          
-          {/* Audio Controls with Mic Test */}
-          <LobbyAudioControls onMicTest={() => setShowMicCheck(true)} />
-          
-          {/* Share Button */}
-          <button
-            onClick={() => { play('click'); buttonClick(); setShowShareModal(true); }}
-            className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
-          >
-            <Share2 className="w-5 h-5 text-foreground" />
-          </button>
-          
-          <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full ${
-            isOpening ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
-          }`}>
-            {isOpening ? <Play className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
-            {isOpening ? 'OPEN' : 'WAITING'}
-          </span>
         </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {/* Hero Card */}
-        <div className="mx-4 mt-4 rounded-3xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/30 overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
+          {/* Hero Card */}
+          <div className="mx-4 mt-4 rounded-3xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/30 overflow-hidden">
           <div className="p-6 text-center">
             <div className="flex items-center justify-center gap-2 mb-3">
               <Crown className="w-8 h-8 text-gold" />
@@ -560,6 +561,7 @@ export const CycleLobby = () => {
         {/* Bottom spacing for fixed CTA */}
         <div className="h-32" />
       </div>
+      </div>
 
       {/* Bottom Actions - Fixed with safe area */}
       <div className="fixed bottom-0 left-0 right-0 z-40 p-4 pb-safe bg-background/95 backdrop-blur-lg border-t border-border/30" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
@@ -596,36 +598,51 @@ export const CycleLobby = () => {
           </div>
         ) : isOpening ? (
           <div className="space-y-3">
-            <button
-              onClick={() => handleJoin(false)}
-              disabled={joining || !hasBalance}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {joining ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Zap className="w-5 h-5" />
-                  Join Game • {cycle.entry_fee > 0 ? formatMoney(cycle.entry_fee) : 'FREE'}
-                </>
+            <div className={`grid gap-3 ${cycle.allow_spectators ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <button
+                onClick={() => handleJoin(false)}
+                disabled={joining || !hasBalance}
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-black disabled:opacity-50"
+              >
+                {joining ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    <span className="text-sm">Joining...</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <div className="flex items-center gap-2 text-lg">
+                      <Zap className="w-5 h-5" />
+                      <span>Join Now</span>
+                    </div>
+                    <span className="text-xs text-primary-foreground/80 mt-0.5">
+                      {cycle.entry_fee > 0 ? `${formatMoney(cycle.entry_fee)} entry fee` : 'Free entry'}
+                    </span>
+                  </div>
+                )}
+              </button>
+
+              {cycle.allow_spectators && (
+                <button
+                  onClick={() => handleJoin(true)}
+                  disabled={joining}
+                  className="w-full py-3.5 rounded-2xl bg-muted text-foreground font-black border border-border/50 disabled:opacity-50"
+                >
+                  <div className="flex flex-col items-center">
+                    <div className="flex items-center gap-2 text-lg">
+                      <Eye className="w-5 h-5 text-muted-foreground" />
+                      <span>Watch</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground mt-0.5">Watch as Spectator</span>
+                  </div>
+                </button>
               )}
-            </button>
-            
+            </div>
+
             {!hasBalance && cycle.entry_fee > 0 && (
-              <p className="text-center text-sm text-red-400">
+              <p className="text-center text-sm text-destructive">
                 Insufficient balance. Top up your wallet.
               </p>
-            )}
-
-            {cycle.allow_spectators && (
-              <button
-                onClick={() => handleJoin(true)}
-                disabled={joining}
-                className="w-full py-3 rounded-xl bg-muted text-muted-foreground font-medium flex items-center justify-center gap-2"
-              >
-                <Eye className="w-4 h-4" />
-                Watch as Spectator (Free)
-              </button>
             )}
           </div>
         ) : (
