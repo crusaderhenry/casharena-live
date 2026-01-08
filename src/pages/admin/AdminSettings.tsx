@@ -1,4 +1,4 @@
-import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy, Clock } from 'lucide-react';
+import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy, Clock, Flame, Volume2, MessageCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAdmin } from '@/contexts/AdminContext';
@@ -31,6 +31,10 @@ export const AdminSettings = () => {
     rankPointsWin3rd: 30,
     rankPointsParticipation: 5,
     defaultEntryCutoffMinutes: 10,
+    hotGameThresholdLive: 10,
+    hotGameThresholdOpening: 5,
+    enableDramaticSounds: true,
+    enableCoHostBanter: true,
   });
 
   useEffect(() => {
@@ -48,6 +52,10 @@ export const AdminSettings = () => {
         rankPointsWin3rd: dbSettings.rank_points_win_3rd ?? 30,
         rankPointsParticipation: dbSettings.rank_points_participation ?? 5,
         defaultEntryCutoffMinutes: dbSettings.default_entry_cutoff_minutes ?? 10,
+        hotGameThresholdLive: dbSettings.hot_game_threshold_live ?? 10,
+        hotGameThresholdOpening: dbSettings.hot_game_threshold_opening ?? 5,
+        enableDramaticSounds: dbSettings.enable_dramatic_sounds ?? true,
+        enableCoHostBanter: dbSettings.enable_cohost_banter ?? true,
       }));
     }
   }, [dbSettings]);
@@ -64,6 +72,10 @@ export const AdminSettings = () => {
       rank_points_win_3rd: localSettings.rankPointsWin3rd,
       rank_points_participation: localSettings.rankPointsParticipation,
       default_entry_cutoff_minutes: localSettings.defaultEntryCutoffMinutes,
+      hot_game_threshold_live: localSettings.hotGameThresholdLive,
+      hot_game_threshold_opening: localSettings.hotGameThresholdOpening,
+      enable_dramatic_sounds: localSettings.enableDramaticSounds,
+      enable_cohost_banter: localSettings.enableCoHostBanter,
     });
     
     if (success) {
@@ -408,6 +420,110 @@ export const AdminSettings = () => {
           Primary Voice ID: {getHostById(localSettings.selectedHost).voiceId}
           {localSettings.secondaryHost && ` | Co-Host Voice ID: ${getHostById(localSettings.secondaryHost).voiceId}`}
         </p>
+      </div>
+
+      {/* Game Experience Settings */}
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h2 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+          <Flame className="w-5 h-5 text-orange-500" />
+          Game Experience Settings
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Configure visual indicators and audio effects for enhanced gameplay
+        </p>
+
+        <div className="space-y-6">
+          {/* Hot Game Thresholds */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+                <Flame className="w-4 h-4 text-red-400" />
+                Hot Game (Live)
+              </label>
+              <input
+                type="number"
+                value={localSettings.hotGameThresholdLive}
+                onChange={(e) => setLocalSettings(prev => ({ ...prev, hotGameThresholdLive: parseInt(e.target.value) || 10 }))}
+                className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+                min={1}
+                max={100}
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Min players for HOT badge on live games</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+                <Flame className="w-4 h-4 text-orange-400" />
+                Hot Game (Opening)
+              </label>
+              <input
+                type="number"
+                value={localSettings.hotGameThresholdOpening}
+                onChange={(e) => setLocalSettings(prev => ({ ...prev, hotGameThresholdOpening: parseInt(e.target.value) || 5 }))}
+                className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+                min={1}
+                max={100}
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Min players for HOT badge on opening games</p>
+            </div>
+          </div>
+
+          {/* Audio Toggles */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Dramatic Sounds Toggle */}
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                  <Volume2 className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Dramatic Sounds</p>
+                  <p className="text-xs text-muted-foreground">Game end fanfare, drums, cheers</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setLocalSettings(prev => ({ ...prev, enableDramaticSounds: !prev.enableDramaticSounds }))}
+                className={`relative w-14 h-8 rounded-full transition-colors ${
+                  localSettings.enableDramaticSounds ? 'bg-purple-500' : 'bg-muted'
+                }`}
+              >
+                <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+                  localSettings.enableDramaticSounds ? 'translate-x-7' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* Co-Host Banter Toggle */}
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                  <MessageCircle className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Co-Host Banter</p>
+                  <p className="text-xs text-muted-foreground">Natural reactions between hosts</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setLocalSettings(prev => ({ ...prev, enableCoHostBanter: !prev.enableCoHostBanter }))}
+                disabled={!localSettings.secondaryHost}
+                className={`relative w-14 h-8 rounded-full transition-colors ${
+                  localSettings.enableCoHostBanter && localSettings.secondaryHost ? 'bg-green-500' : 'bg-muted'
+                } ${!localSettings.secondaryHost ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+                  localSettings.enableCoHostBanter && localSettings.secondaryHost ? 'translate-x-7' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+          </div>
+          
+          {!localSettings.secondaryHost && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <MessageCircle className="w-3 h-3" />
+              Enable a co-host above to unlock banter feature
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Mode Toggles */}

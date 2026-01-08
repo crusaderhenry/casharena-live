@@ -18,6 +18,10 @@ export interface PlatformSettings {
   rank_points_win_2nd: number;
   rank_points_win_3rd: number;
   rank_points_participation: number;
+  hot_game_threshold_live: number;
+  hot_game_threshold_opening: number;
+  enable_dramatic_sounds: boolean;
+  enable_cohost_banter: boolean;
 }
 
 export const usePlatformSettings = () => {
@@ -118,6 +122,12 @@ export const usePlatformSettings = () => {
       win3rd: settings?.rank_points_win_3rd ?? 30,
       participation: settings?.rank_points_participation ?? 5,
     },
+    hotGameThresholds: {
+      live: settings?.hot_game_threshold_live ?? 10,
+      opening: settings?.hot_game_threshold_opening ?? 5,
+    },
+    enableDramaticSounds: settings?.enable_dramatic_sounds ?? true,
+    enableCoHostBanter: settings?.enable_cohost_banter ?? true,
     updateSettings,
     toggleTestMode,
     refetch: fetchSettings,

@@ -635,6 +635,10 @@ export type Database = {
           default_entry_cutoff_minutes: number
           default_entry_fee: number
           default_max_duration: number
+          enable_cohost_banter: boolean
+          enable_dramatic_sounds: boolean
+          hot_game_threshold_live: number
+          hot_game_threshold_opening: number
           id: string
           maintenance_mode: boolean
           platform_cut_percent: number
@@ -653,6 +657,10 @@ export type Database = {
           default_entry_cutoff_minutes?: number
           default_entry_fee?: number
           default_max_duration?: number
+          enable_cohost_banter?: boolean
+          enable_dramatic_sounds?: boolean
+          hot_game_threshold_live?: number
+          hot_game_threshold_opening?: number
           id?: string
           maintenance_mode?: boolean
           platform_cut_percent?: number
@@ -671,6 +679,10 @@ export type Database = {
           default_entry_cutoff_minutes?: number
           default_entry_fee?: number
           default_max_duration?: number
+          enable_cohost_banter?: boolean
+          enable_dramatic_sounds?: boolean
+          hot_game_threshold_live?: number
+          hot_game_threshold_opening?: number
           id?: string
           maintenance_mode?: boolean
           platform_cut_percent?: number

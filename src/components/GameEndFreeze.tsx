@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Crown, Trophy, Clock, Sparkles } from 'lucide-react';
 import { Confetti } from '@/components/Confetti';
 import { useSounds } from '@/hooks/useSounds';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 interface GameEndFreezeProps {
   isActive: boolean;
@@ -24,6 +25,7 @@ export const GameEndFreeze = ({
   const [showConfetti, setShowConfetti] = useState(false);
   const [phase, setPhase] = useState<'drumroll' | 'reveal' | 'celebration'>('drumroll');
   const { play } = useSounds();
+  const { enableDramaticSounds } = usePlatformSettings();
 
   useEffect(() => {
     if (!isActive) {
@@ -32,21 +34,27 @@ export const GameEndFreeze = ({
       return;
     }
 
-    // Phase 1: Drumroll and tension (1 second)
-    play('drumroll');
-    play('tenseCrescendo');
+    // Phase 1: Drumroll and tension (1 second) - only if dramatic sounds enabled
+    if (enableDramaticSounds) {
+      play('drumroll');
+      play('tenseCrescendo');
+    }
     
     const revealTimeout = setTimeout(() => {
       // Phase 2: Reveal with crowd cheer
       setPhase('reveal');
-      play('crowdCheer');
+      if (enableDramaticSounds) {
+        play('crowdCheer');
+      }
       setShowConfetti(true);
       
       // Phase 3: Victory fanfare after reveal
       setTimeout(() => {
         setPhase('celebration');
-        play('victoryFanfare');
-        play('prizeWin');
+        if (enableDramaticSounds) {
+          play('victoryFanfare');
+          play('prizeWin');
+        }
       }, 800);
     }, 1200);
 
