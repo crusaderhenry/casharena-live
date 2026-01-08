@@ -15,19 +15,40 @@ export const useLobbyAudio = ({ timeUntilLive, isInLobby, ambientMusicStyle = 'c
   const lastTickRef = useRef<number | null>(null);
   const hasStartedRef = useRef(false);
 
+  const debug = (() => {
+    try {
+      return localStorage.getItem('debug_audio') === '1';
+    } catch {
+      return false;
+    }
+  })();
+
   // Start/stop lobby music based on lobby state and music setting
   useEffect(() => {
+    if (debug) {
+      console.log('[useLobbyAudio] start/stop effect', {
+        isInLobby,
+        musicEnabled: settings.musicEnabled,
+        ambientMusicStyle,
+        customMusicUrlPresent: !!customMusicUrl,
+        timeUntilLive,
+      });
+    }
+
     if (isInLobby && settings.musicEnabled) {
+      if (debug) console.log('[useLobbyAudio] calling playBackgroundMusic(lobby)');
       // Start music with style if not already started or if re-enabled
       playBackgroundMusic('lobby', customMusicUrl, ambientMusicStyle);
       hasStartedRef.current = true;
     } else if (!settings.musicEnabled && hasStartedRef.current) {
+      if (debug) console.log('[useLobbyAudio] calling stopBackgroundMusic() (music disabled)');
       // Stop if music was disabled
       stopBackgroundMusic();
     }
-    
+
     return () => {
       if (hasStartedRef.current) {
+        if (debug) console.log('[useLobbyAudio] cleanup -> stopBackgroundMusic()');
         stopBackgroundMusic();
         hasStartedRef.current = false;
       }
