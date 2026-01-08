@@ -466,7 +466,7 @@ export const CycleArena = () => {
       )}
 
       {/* Live Header */}
-      <div className="sticky top-0 z-20 bg-gradient-to-b from-background via-background to-transparent">
+      <div className="sticky top-0 z-20 pt-safe bg-gradient-to-b from-background via-background to-transparent">
         {/* Top Bar */}
         <div className="p-3 flex items-center justify-between">
           <button
