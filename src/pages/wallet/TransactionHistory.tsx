@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { useWalletTransactions } from '@/hooks/useWalletTransactions';
@@ -6,8 +6,10 @@ import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { TestModeBanner } from '@/components/wallet/TestModeBanner';
 import { TransactionReceiptModal } from '@/components/wallet/TransactionReceiptModal';
 import { DepositModal } from '@/components/wallet/DepositModal';
-import { ChevronLeft, ArrowUpRight, ArrowDownLeft, FileText, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ArrowUpRight, ArrowDownLeft, FileText, RotateCcw, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from '@/components/PullToRefresh';
 
 interface Transaction {
   id: string;
@@ -31,6 +33,22 @@ export const TransactionHistory = () => {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
   const [retryAmount, setRetryAmount] = useState<number | null>(null);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+
+  // Pull to refresh
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
+
+  const { containerRef, isRefreshing, pullDistance, pullProgress } = usePullToRefresh({
+    onRefresh: handleRefresh,
+  });
+
+  const handleManualRefresh = async () => {
+    setIsManualRefreshing(true);
+    await handleRefresh();
+    setIsManualRefreshing(false);
+  };
 
   const handleViewReceipt = (tx: Transaction) => {
     setSelectedTransaction(tx);
@@ -102,8 +120,14 @@ export const TransactionHistory = () => {
   };
 
   return (
-    <div className={`min-h-screen bg-background pb-24 ${isTestMode ? 'pt-10' : ''}`}>
+    <div ref={containerRef} className={`min-h-screen bg-background pb-24 overflow-auto ${isTestMode ? 'pt-10' : ''}`}>
       <TestModeBanner />
+      
+      <PullToRefreshIndicator 
+        pullProgress={pullProgress} 
+        isRefreshing={isRefreshing} 
+        pullDistance={pullDistance} 
+      />
       
       <div className="p-4 space-y-6">
         {/* Header */}
@@ -114,10 +138,17 @@ export const TransactionHistory = () => {
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold text-foreground">Transaction History</h1>
             <p className="text-sm text-muted-foreground">{transactions.length} transactions</p>
           </div>
+          <button
+            onClick={handleManualRefresh}
+            disabled={isManualRefreshing}
+            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50 hover:border-primary/40 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 text-muted-foreground ${isManualRefreshing ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         {/* Transactions */}

@@ -9,9 +9,11 @@ import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award, ShieldCheck, ShieldX, Bell, Timer, Trash2, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from '@/components/PullToRefresh';
 import { useUserRole } from '@/hooks/useUserRole';
 import {
   AlertDialog,
@@ -57,6 +59,27 @@ export const ProfileScreen = () => {
   const [deleteOtpCode, setDeleteOtpCode] = useState('');
   const [deleteOtpLoading, setDeleteOtpLoading] = useState(false);
   const [deleteResendCountdown, setDeleteResendCountdown] = useState(0);
+
+  // Pull to refresh
+  const handleRefresh = useCallback(async () => {
+    await refreshProfile();
+    // Also refetch earnings
+    if (user) {
+      const { data } = await supabase
+        .from('wallet_transactions')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('type', 'win');
+      if (data) {
+        const total = data.reduce((sum, t) => sum + t.amount, 0);
+        setTotalEarnings(total);
+      }
+    }
+  }, [refreshProfile, user]);
+
+  const { containerRef, isRefreshing, pullDistance, pullProgress } = usePullToRefresh({
+    onRefresh: handleRefresh,
+  });
 
   const handleKycVerified = (firstName: string, lastName: string) => {
     setKycStatus({
@@ -302,7 +325,13 @@ export const ProfileScreen = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div ref={containerRef} className="min-h-screen bg-background pb-24 overflow-auto">
+      <PullToRefreshIndicator 
+        pullProgress={pullProgress} 
+        isRefreshing={isRefreshing} 
+        pullDistance={pullDistance} 
+      />
+      
       <div className="p-4 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between pt-2">
