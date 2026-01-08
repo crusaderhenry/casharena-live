@@ -629,8 +629,8 @@ export const CycleArena = () => {
               </span>
             </div>
             
-            {/* Podium order: 2nd, 1st, 3rd - with height differentiation */}
-            <div className="flex gap-2 items-end justify-center pt-4">
+            {/* Podium order: 2nd, 1st, 3rd - with 1st elevated */}
+            <div className="flex gap-2 items-end">
               {(() => {
                 const topCommenters = orderedCommenters.slice(0, Math.min(3, cycle.winner_count));
                 // Reorder to podium layout: [2nd, 1st, 3rd] for display
@@ -646,59 +646,45 @@ export const CycleArena = () => {
                   const isCurrentUser = c.id === user?.id;
                   const isLeader = actualPosition === 0;
                   
-                  // Podium heights: 1st (center) = tallest, 2nd (left) = medium, 3rd (right) = shortest
-                  const podiumHeight = actualPosition === 0 ? 'h-28' : actualPosition === 1 ? 'h-24' : 'h-20';
-                  const cardSize = actualPosition === 0 ? 'min-w-[110px]' : 'min-w-[90px]';
+                  // 1st place (center) is elevated
+                  const isCenter = displayIdx === 1 && topCommenters.length >= 2;
                   
                   return (
-                    <div key={c.user_id} className={`flex flex-col items-center ${cardSize}`}>
-                      {/* Card content */}
-                      <div 
-                        className={`w-full flex flex-col items-center p-3 rounded-t-xl transition-all duration-300 ${
-                          isLeader 
-                            ? `bg-gold/10 border border-b-0 border-gold/30 ${leaderChanged ? 'animate-scale-in' : ''}` 
-                            : 'bg-muted/30 border border-b-0 border-border/50'
-                        } ${isCurrentUser ? 'ring-2 ring-primary/40 ring-offset-0' : ''}`}
-                      >
-                        {/* Avatar */}
-                        <span className={`${actualPosition === 0 ? 'text-3xl' : 'text-2xl'} ${isLeader && leaderChanged ? 'animate-bounce' : ''}`}>
-                          {c.avatar}
-                        </span>
-                        
-                        {/* Name */}
-                        <p className={`text-xs font-semibold truncate max-w-full text-center mt-1 ${
-                          isLeader ? 'text-gold' : 'text-foreground'
-                        }`}>
-                          {c.username}
-                        </p>
-                        
-                        {isCurrentUser && (
-                          <span className="text-[9px] text-primary font-medium">You</span>
-                        )}
-                      </div>
+                    <div 
+                      key={c.user_id} 
+                      className={`flex-1 flex flex-col items-center p-3 rounded-xl transition-all duration-300 ${
+                        isLeader 
+                          ? `bg-gold/10 border border-gold/30 ${leaderChanged ? 'animate-scale-in' : ''}` 
+                          : 'bg-muted/30 border border-border/50'
+                      } ${isCurrentUser ? 'ring-2 ring-primary/40' : ''} ${
+                        isCenter ? 'pb-5 -mt-2' : ''
+                      }`}
+                    >
+                      {/* Position Badge */}
+                      <span className={`mb-1 ${isCenter ? 'text-2xl' : 'text-lg'}`}>
+                        {actualPosition === 0 ? '🥇' : actualPosition === 1 ? '🥈' : '🥉'}
+                      </span>
                       
-                      {/* Podium base with height variation */}
-                      <div 
-                        className={`w-full ${podiumHeight} rounded-b-xl flex flex-col items-center justify-start pt-2 ${
-                          isLeader 
-                            ? 'bg-gradient-to-b from-gold/20 to-gold/5 border-x border-b border-gold/30' 
-                            : actualPosition === 1
-                              ? 'bg-gradient-to-b from-gray-400/20 to-gray-400/5 border-x border-b border-gray-400/30'
-                              : 'bg-gradient-to-b from-amber-600/20 to-amber-600/5 border-x border-b border-amber-600/30'
-                        }`}
-                      >
-                        {/* Position Badge */}
-                        <span className={`${actualPosition === 0 ? 'text-2xl' : 'text-xl'}`}>
-                          {actualPosition === 0 ? '🥇' : actualPosition === 1 ? '🥈' : '🥉'}
-                        </span>
-                        
-                        {/* Prize */}
-                        <p className={`text-xs font-bold mt-1 ${
-                          isLeader ? 'text-gold' : actualPosition === 1 ? 'text-gray-300' : 'text-amber-500'
-                        }`}>
-                          {formatMoney(prizeAmount)}
-                        </p>
-                      </div>
+                      {/* Avatar */}
+                      <span className={`mb-1 ${isCenter ? 'text-3xl' : 'text-2xl'} ${isLeader && leaderChanged ? 'animate-bounce' : ''}`}>
+                        {c.avatar}
+                      </span>
+                      
+                      {/* Name */}
+                      <p className={`text-xs font-semibold truncate max-w-full text-center ${
+                        isLeader ? 'text-gold' : 'text-foreground'
+                      }`}>
+                        {c.username}
+                      </p>
+                      
+                      {isCurrentUser && (
+                        <span className="text-[9px] text-primary font-medium">You</span>
+                      )}
+                      
+                      {/* Prize */}
+                      <p className={`text-xs font-bold mt-1 ${isLeader ? 'text-gold' : 'text-foreground'}`}>
+                        {formatMoney(prizeAmount)}
+                      </p>
                     </div>
                   );
                 });
