@@ -11,10 +11,11 @@ import { GameRulesSection } from '@/components/GameRulesSection';
 import { LobbyAudioControls } from '@/components/LobbyAudioControls';
 import { MicCheckModal } from '@/components/MicCheckModal';
 import { AuthPromptModal } from '@/components/AuthPromptModal';
+import { GameShareModal } from '@/components/GameShareModal';
 import { 
   ArrowLeft, Users, Timer, Crown, Eye, Trophy, 
   Clock, Play, Radio, Sparkles, Ticket, Wallet,
-  ChevronRight, Star, Shield, Zap, AlertTriangle, LogOut
+  ChevronRight, Star, Shield, Zap, AlertTriangle, LogOut, Share2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -72,6 +73,7 @@ export const CycleLobby = () => {
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Lobby audio hook with ambient style from cycle
   useLobbyAudio({
@@ -362,6 +364,14 @@ export const CycleLobby = () => {
           {/* Audio Controls with Mic Test */}
           <LobbyAudioControls onMicTest={() => setShowMicCheck(true)} />
           
+          {/* Share Button */}
+          <button
+            onClick={() => { play('click'); buttonClick(); setShowShareModal(true); }}
+            className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
+          >
+            <Share2 className="w-5 h-5 text-foreground" />
+          </button>
+          
           <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full ${
             isOpening ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
           }`}>
@@ -624,6 +634,37 @@ export const CycleLobby = () => {
           </div>
         )}
       </div>
+
+      {/* Game Share Modal */}
+      {cycle && (
+        <GameShareModal
+          open={showShareModal}
+          onOpenChange={setShowShareModal}
+          cycle={{
+            id: cycle.id,
+            template_id: cycle.template_id,
+            template_name: cycle.template_name || 'Royal Rumble',
+            status: cycle.status as 'waiting' | 'opening' | 'live' | 'ending' | 'ended' | 'cancelled',
+            entry_fee: cycle.entry_fee,
+            pool_value: cycle.pool_value,
+            sponsored_prize_amount: cycle.sponsored_prize_amount,
+            participant_count: cycle.participant_count,
+            winner_count: cycle.winner_count,
+            prize_distribution: cycle.prize_distribution,
+            countdown: cycle.countdown,
+            allow_spectators: cycle.allow_spectators,
+            seconds_until_opening: timeUntilOpening,
+            seconds_until_live: timeUntilLive,
+            seconds_remaining: cycle.countdown,
+            game_type: 'fastest_finger',
+            entry_open_at: cycle.entry_open_at,
+            entry_close_at: cycle.entry_close_at,
+            live_start_at: cycle.live_start_at,
+            live_end_at: cycle.live_end_at,
+          }}
+          variant="lobby"
+        />
+      )}
     </div>
   );
 };

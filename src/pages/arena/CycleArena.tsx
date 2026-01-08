@@ -27,11 +27,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { GameShareModal } from '@/components/GameShareModal';
 import { 
   ArrowLeft, Send, Users, Timer, Crown, Eye, Trophy, 
   Zap, MessageCircle, Clock, Play, Radio, Sparkles,
   Target, Flame, Award, AlertTriangle, Hourglass,
-  Maximize, Minimize
+  Maximize, Minimize, Share2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -101,6 +102,7 @@ export const CycleArena = () => {
   const [showLeaveWarning, setShowLeaveWarning] = useState(false);
   const [isEntering, setIsEntering] = useState(true);
   const [showGameEndFreeze, setShowGameEndFreeze] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [gameWinner, setGameWinner] = useState<{ name: string; avatar: string; prize: number } | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const commentsContainerRef = useRef<HTMLDivElement>(null);
@@ -486,6 +488,14 @@ export const CycleArena = () => {
             </span>
           </div>
           
+          {/* Share button */}
+          <button
+            onClick={() => { play('click'); buttonClick(); setShowShareModal(true); }}
+            className="w-10 h-10 rounded-xl bg-muted/80 flex items-center justify-center"
+          >
+            <Share2 className="w-5 h-5 text-foreground" />
+          </button>
+          
           {/* Fullscreen toggle for mobile */}
           {isMobile && (
             <button
@@ -499,8 +509,6 @@ export const CycleArena = () => {
               )}
             </button>
           )}
-          
-          {!isMobile && <div className="w-10" />}
         </div>
 
         {/* Game Title & Prize - Compact */}
@@ -825,6 +833,37 @@ export const CycleArena = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Game Share Modal */}
+      {cycle && (
+        <GameShareModal
+          open={showShareModal}
+          onOpenChange={setShowShareModal}
+          cycle={{
+            id: cycle.id,
+            template_id: cycle.template_id,
+            template_name: cycle.template_name || 'Royal Rumble',
+            status: cycle.status as 'waiting' | 'opening' | 'live' | 'ending' | 'ended' | 'cancelled',
+            entry_fee: cycle.entry_fee,
+            pool_value: cycle.pool_value,
+            sponsored_prize_amount: cycle.sponsored_prize_amount,
+            participant_count: cycle.participant_count,
+            winner_count: cycle.winner_count,
+            prize_distribution: cycle.prize_distribution,
+            countdown: cycle.countdown,
+            allow_spectators: cycle.allow_spectators,
+            seconds_until_opening: 0,
+            seconds_until_live: 0,
+            seconds_remaining: cycle.countdown,
+            game_type: 'fastest_finger',
+            entry_open_at: cycle.entry_open_at,
+            entry_close_at: cycle.entry_close_at,
+            live_start_at: cycle.live_start_at,
+            live_end_at: cycle.live_end_at,
+          }}
+          variant="live"
+        />
+      )}
     </div>
   );
 };
