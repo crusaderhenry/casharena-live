@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { Logo } from '@/components/Logo';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/moderator' },
@@ -33,11 +34,8 @@ export const ModeratorSidebar = () => {
       <div className="p-4 border-b border-border flex items-center justify-between">
         {!collapsed && (
           <div>
-            <h1 className="text-lg font-black text-foreground flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-blue-400" />
-              <span className="text-blue-400">Mod</span>Panel
-            </h1>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Moderator Console</p>
+            <Logo size="md" />
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Moderator Console</p>
           </div>
         )}
         <button 
