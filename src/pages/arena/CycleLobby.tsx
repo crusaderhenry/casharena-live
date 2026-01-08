@@ -4,12 +4,15 @@ import { useCycleJoin } from '@/hooks/useCycleJoin';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useLobbyAudio } from '@/hooks/useLobbyAudio';
 import { supabase } from '@/integrations/supabase/client';
 import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
+import { GameRulesSection } from '@/components/GameRulesSection';
+import { LobbyAudioControls } from '@/components/LobbyAudioControls';
 import { 
   ArrowLeft, Users, Timer, Crown, Eye, Trophy, 
   Clock, Play, Radio, Sparkles, Ticket, Wallet,
-  ChevronRight, Star, Shield, Zap
+  ChevronRight, Star, Shield, Zap, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -30,6 +33,7 @@ interface CycleData {
   entry_close_at: string;
   live_start_at: string;
   live_end_at: string;
+  min_participants: number;
   template_name?: string;
 }
 
@@ -47,6 +51,12 @@ export const CycleLobby = () => {
   const [timeUntilOpening, setTimeUntilOpening] = useState(0);
   const [timeUntilLive, setTimeUntilLive] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
+
+  // Lobby audio hook
+  const { tickingSoundEnabled, toggleTickingSound } = useLobbyAudio({
+    timeUntilLive,
+    isInLobby: !!cycle && (cycle.status === 'waiting' || cycle.status === 'opening'),
+  });
 
   // Fetch cycle data
   const fetchCycle = useCallback(async () => {
@@ -112,15 +122,16 @@ export const CycleLobby = () => {
           const updated = payload.new as CycleData;
           setCycle(prev => prev ? { ...prev, ...updated } : null);
 
-          // Redirect to arena when game goes live - with transition
+          // Automatic transition when game goes live
           if (updated.status === 'live') {
             play('gameStart');
             hapticSuccess();
-            toast.success('Game is now LIVE!');
             setTransitioning(true);
+            
+            // Smooth transition to arena
             setTimeout(() => {
-              navigate(`/arena/${cycleId}/live`);
-            }, 500);
+              navigate(`/arena/${cycleId}/live`, { replace: true });
+            }, 800);
           }
         }
       )
@@ -165,13 +176,6 @@ export const CycleLobby = () => {
     return `₦${amount.toLocaleString()}`;
   };
 
-  const formatTime = (seconds: number) => {
-    if (seconds <= 0) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   const formatTimeDetailed = (seconds: number) => {
     if (seconds <= 0) return 'Now';
     if (seconds < 60) return `${seconds}s`;
@@ -198,13 +202,13 @@ export const CycleLobby = () => {
 
   // If game is live, redirect
   if (cycle.status === 'live' || cycle.status === 'ending') {
-    navigate(`/arena/${cycleId}/live`);
+    navigate(`/arena/${cycleId}/live`, { replace: true });
     return null;
   }
 
   // If game has ended, redirect to results
   if (cycle.status === 'ended' || cycle.status === 'settled') {
-    navigate(`/arena/${cycleId}/results`);
+    navigate(`/arena/${cycleId}/results`, { replace: true });
     return null;
   }
 
@@ -213,124 +217,165 @@ export const CycleLobby = () => {
   const isOpening = cycle.status === 'opening';
   const canJoin = isOpening && !participation.isParticipant;
   const hasBalance = (profile?.wallet_balance || 0) >= cycle.entry_fee;
+  const isLastMinute = timeUntilLive <= 30;
 
   return (
-    <div className={`min-h-screen bg-background flex flex-col transition-all duration-500 ${transitioning ? 'opacity-0 scale-105' : 'opacity-100 scale-100 animate-fade-in'}`}>
+    <div className={`min-h-screen bg-background flex flex-col transition-all duration-700 ${
+      transitioning ? 'opacity-0 scale-110 blur-sm' : 'opacity-100 scale-100 animate-fade-in'
+    }`}>
       {/* Header */}
-      <div className="p-4 flex items-center gap-4">
-        <button
-          onClick={() => { play('click'); buttonClick(); navigate('/arena'); }}
-          className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center"
-        >
-          <ArrowLeft className="w-5 h-5 text-foreground" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-lg font-bold text-foreground">Game Lobby</h1>
-          <p className="text-xs text-muted-foreground">
-            {isWaiting ? 'Entry opens soon' : 'Entry is open'}
-          </p>
-        </div>
-        <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full ${
-          isOpening ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
-        }`}>
-          {isOpening ? <Play className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
-          {isOpening ? 'OPEN' : 'WAITING'}
-        </span>
-      </div>
-
-      {/* Hero Card */}
-      <div className="mx-4 rounded-3xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/30 overflow-hidden">
-        <div className="p-6 text-center">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <Crown className="w-8 h-8 text-gold" />
-            <h2 className="text-2xl font-black text-foreground">{cycle.template_name}</h2>
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="p-4 flex items-center gap-4">
+          <button
+            onClick={() => { play('click'); buttonClick(); navigate('/arena'); }}
+            className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center"
+          >
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          <div className="flex-1">
+            <h1 className="text-lg font-bold text-foreground">Game Lobby</h1>
+            <p className="text-xs text-muted-foreground">
+              {isWaiting ? 'Entry opens soon' : 'Entry is open'}
+            </p>
           </div>
           
-          <div className="mb-4">
-            <p className="text-4xl font-black text-gold">{formatMoney(effectivePrizePool)}</p>
-            <p className="text-sm text-muted-foreground">Prize Pool</p>
-          </div>
-
-          {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="bg-background/50 rounded-xl p-3">
-              <Users className="w-5 h-5 text-primary mx-auto mb-1" />
-              <p className="text-lg font-bold text-foreground">{cycle.participant_count}</p>
-              <p className="text-[10px] text-muted-foreground">Players</p>
-            </div>
-            <div className="bg-background/50 rounded-xl p-3">
-              <Trophy className="w-5 h-5 text-gold mx-auto mb-1" />
-              <p className="text-lg font-bold text-foreground">Top {cycle.winner_count}</p>
-              <p className="text-[10px] text-muted-foreground">Winners</p>
-            </div>
-            <div className="bg-background/50 rounded-xl p-3">
-              <Ticket className="w-5 h-5 text-green-400 mx-auto mb-1" />
-              <p className="text-lg font-bold text-foreground">{formatMoney(cycle.entry_fee)}</p>
-              <p className="text-[10px] text-muted-foreground">Entry</p>
-            </div>
-          </div>
-
-          {/* Timer Section */}
-          <div className={`rounded-2xl p-4 ${
-            isOpening 
-              ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30' 
-              : 'bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-500/30'
+          {/* Audio Controls */}
+          <LobbyAudioControls 
+            tickingSoundEnabled={tickingSoundEnabled}
+            onToggleTickingSound={toggleTickingSound}
+          />
+          
+          <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full ${
+            isOpening ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
           }`}>
-            {isWaiting ? (
-              <>
-                <p className="text-xs text-blue-400 font-medium mb-2">Entry Opens In</p>
-                <p className="text-3xl font-black text-blue-400">{formatTimeDetailed(timeUntilOpening)}</p>
-                <p className="text-xs text-muted-foreground mt-2">Goes live in {formatTimeDetailed(timeUntilLive)}</p>
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-green-400 font-medium mb-2 flex items-center justify-center gap-1">
-                  <Radio className="w-3 h-3 animate-pulse" /> Game Goes Live In
+            {isOpening ? <Play className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+            {isOpening ? 'OPEN' : 'WAITING'}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {/* Hero Card */}
+        <div className="mx-4 mt-4 rounded-3xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/30 overflow-hidden">
+          <div className="p-6 text-center">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Crown className="w-8 h-8 text-gold" />
+              <h2 className="text-2xl font-black text-foreground">{cycle.template_name}</h2>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-4xl font-black text-gold">{formatMoney(effectivePrizePool)}</p>
+              <p className="text-sm text-muted-foreground">Prize Pool</p>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-background/50 rounded-xl p-3">
+                <Users className="w-5 h-5 text-primary mx-auto mb-1" />
+                <p className="text-lg font-bold text-foreground">{cycle.participant_count}</p>
+                <p className="text-[10px] text-muted-foreground">Players</p>
+              </div>
+              <div className="bg-background/50 rounded-xl p-3">
+                <Trophy className="w-5 h-5 text-gold mx-auto mb-1" />
+                <p className="text-lg font-bold text-foreground">Top {cycle.winner_count}</p>
+                <p className="text-[10px] text-muted-foreground">Winners</p>
+              </div>
+              <div className="bg-background/50 rounded-xl p-3">
+                <Ticket className="w-5 h-5 text-green-400 mx-auto mb-1" />
+                <p className="text-lg font-bold text-foreground">
+                  {cycle.entry_fee > 0 ? formatMoney(cycle.entry_fee) : 'FREE'}
                 </p>
-                <p className="text-3xl font-black text-green-400">{formatTimeDetailed(timeUntilLive)}</p>
-              </>
-            )}
+                <p className="text-[10px] text-muted-foreground">Entry</p>
+              </div>
+            </div>
+
+            {/* Timer Section - Enhanced for last 30 seconds */}
+            <div className={`rounded-2xl p-4 transition-all ${
+              isLastMinute && isOpening
+                ? 'bg-gradient-to-r from-red-500/30 via-orange-500/20 to-red-500/30 border-2 border-red-500/50 animate-pulse' 
+                : isOpening 
+                  ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30' 
+                  : 'bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-500/30'
+            }`}>
+              {isWaiting ? (
+                <>
+                  <p className="text-xs text-blue-400 font-medium mb-2">Entry Opens In</p>
+                  <p className="text-3xl font-black text-blue-400">{formatTimeDetailed(timeUntilOpening)}</p>
+                  <p className="text-xs text-muted-foreground mt-2">Goes live in {formatTimeDetailed(timeUntilLive)}</p>
+                </>
+              ) : (
+                <>
+                  <p className={`text-xs font-medium mb-2 flex items-center justify-center gap-1 ${
+                    isLastMinute ? 'text-red-400' : 'text-green-400'
+                  }`}>
+                    {isLastMinute && <AlertTriangle className="w-3 h-3 animate-bounce" />}
+                    <Radio className={`w-3 h-3 ${isLastMinute ? 'animate-pulse' : 'animate-pulse'}`} /> 
+                    Game Goes Live In
+                    {isLastMinute && <AlertTriangle className="w-3 h-3 animate-bounce" />}
+                  </p>
+                  <p className={`text-3xl font-black ${isLastMinute ? 'text-red-400' : 'text-green-400'}`}>
+                    {formatTimeDetailed(timeUntilLive)}
+                  </p>
+                  {isLastMinute && (
+                    <p className="text-xs text-red-400 mt-2 font-medium">
+                      ⚡ Game starting soon! Get ready!
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Prize Distribution */}
-      <div className="mx-4 mt-4 p-4 rounded-2xl bg-card border border-border">
-        <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-gold" />
-          Prize Distribution
-        </h3>
-        <div className="space-y-2">
-          {cycle.prize_distribution.slice(0, cycle.winner_count).map((percent, i) => {
-            const prizeAmount = (effectivePrizePool * percent) / 100;
-            const medals = ['🥇', '🥈', '🥉'];
-            return (
-              <div key={i} className="flex items-center justify-between py-2 px-3 rounded-xl bg-muted/50">
-                <span className="text-lg">{medals[i] || `#${i + 1}`}</span>
-                <span className="text-sm font-bold text-foreground">{formatMoney(prizeAmount)}</span>
-                <span className="text-xs text-muted-foreground">{percent}%</span>
-              </div>
-            );
-          })}
+        {/* Prize Distribution */}
+        <div className="mx-4 mt-4 p-4 rounded-2xl bg-card border border-border">
+          <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-gold" />
+            Prize Distribution
+          </h3>
+          <div className="space-y-2">
+            {cycle.prize_distribution.slice(0, cycle.winner_count).map((percent, i) => {
+              const prizeAmount = (effectivePrizePool * percent) / 100;
+              const medals = ['🥇', '🥈', '🥉'];
+              return (
+                <div key={i} className="flex items-center justify-between py-2 px-3 rounded-xl bg-muted/50">
+                  <span className="text-lg">{medals[i] || `#${i + 1}`}</span>
+                  <span className="text-sm font-bold text-foreground">{formatMoney(prizeAmount)}</span>
+                  <span className="text-xs text-muted-foreground">{percent}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Game Rules Section */}
+        <div className="mx-4 mt-4">
+          <GameRulesSection
+            entryFee={cycle.entry_fee}
+            sponsoredPrizeAmount={cycle.sponsored_prize_amount}
+            winnerCount={cycle.winner_count}
+            prizeDistribution={cycle.prize_distribution}
+            commentTimer={cycle.comment_timer}
+            allowSpectators={cycle.allow_spectators}
+            poolValue={cycle.pool_value}
+            minParticipants={cycle.min_participants}
+          />
+        </div>
+
+        {/* Participants Sheet */}
+        <div className="mx-4 mt-4 mb-32">
+          <PoolParticipantsSheet
+            gameId={cycle.id}
+            gameName={cycle.template_name || 'Royal Rumble'}
+            participantCount={cycle.participant_count}
+            poolValue={effectivePrizePool}
+            entryFee={cycle.entry_fee}
+          />
         </div>
       </div>
 
-      {/* Participants Sheet */}
-      <div className="mx-4 mt-4">
-        <PoolParticipantsSheet
-          gameId={cycle.id}
-          gameName={cycle.template_name || 'Royal Rumble'}
-          participantCount={cycle.participant_count}
-          poolValue={effectivePrizePool}
-          entryFee={cycle.entry_fee}
-        />
-      </div>
-
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* Bottom Actions */}
-      <div className="sticky bottom-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
+      {/* Bottom Actions - Fixed */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
         {participation.isParticipant ? (
           <div className="space-y-3">
             <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-green-500/20 border border-green-500/30">
@@ -341,7 +386,9 @@ export const CycleLobby = () => {
             </div>
             <p className="text-center text-sm text-muted-foreground">
               {isOpening 
-                ? 'Game starts soon. Stay on this page!' 
+                ? isLastMinute 
+                  ? '🔥 Game starts in moments! Stay here!' 
+                  : 'Game starts soon. Stay on this page!' 
                 : 'Waiting for entry to open...'}
             </p>
           </div>
@@ -357,12 +404,12 @@ export const CycleLobby = () => {
               ) : (
                 <>
                   <Zap className="w-5 h-5" />
-                  Join Game • {formatMoney(cycle.entry_fee)}
+                  Join Game • {cycle.entry_fee > 0 ? formatMoney(cycle.entry_fee) : 'FREE'}
                 </>
               )}
             </button>
             
-            {!hasBalance && (
+            {!hasBalance && cycle.entry_fee > 0 && (
               <p className="text-center text-sm text-red-400">
                 Insufficient balance. Top up your wallet.
               </p>
