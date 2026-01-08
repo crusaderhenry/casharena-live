@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode,
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { triggerConfetti } from '@/hooks/useGlobalConfetti';
 
 interface Profile {
   id: string;
@@ -75,6 +76,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // Small delay to let the UI settle
         setTimeout(() => {
+          // Trigger confetti first
+          triggerConfetti(4000);
+          
+          // Then show toast
           toast.success(`🎉 Welcome Bonus: ₦${profileData.wallet_balance.toLocaleString()} credited!`, {
             description: 'Your welcome bonus has been added to your wallet',
             duration: 6000,
