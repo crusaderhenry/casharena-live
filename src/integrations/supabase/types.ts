@@ -664,6 +664,7 @@ export type Database = {
           default_max_duration: number
           enable_cohost_banter: boolean
           enable_dramatic_sounds: boolean
+          google_auth_enabled: boolean | null
           hot_game_threshold_live: number
           hot_game_threshold_opening: number
           id: string
@@ -687,6 +688,7 @@ export type Database = {
           default_max_duration?: number
           enable_cohost_banter?: boolean
           enable_dramatic_sounds?: boolean
+          google_auth_enabled?: boolean | null
           hot_game_threshold_live?: number
           hot_game_threshold_opening?: number
           id?: string
@@ -710,6 +712,7 @@ export type Database = {
           default_max_duration?: number
           enable_cohost_banter?: boolean
           enable_dramatic_sounds?: boolean
+          google_auth_enabled?: boolean | null
           hot_game_threshold_live?: number
           hot_game_threshold_opening?: number
           id?: string

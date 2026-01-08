@@ -23,6 +23,7 @@ export interface PlatformSettings {
   enable_dramatic_sounds: boolean;
   enable_cohost_banter: boolean;
   leave_window_minutes: number;
+  google_auth_enabled: boolean;
 }
 
 export const usePlatformSettings = () => {
@@ -130,6 +131,7 @@ export const usePlatformSettings = () => {
     enableDramaticSounds: settings?.enable_dramatic_sounds ?? true,
     enableCoHostBanter: settings?.enable_cohost_banter ?? true,
     leaveWindowMinutes: settings?.leave_window_minutes ?? 5,
+    googleAuthEnabled: settings?.google_auth_enabled ?? false,
     updateSettings,
     toggleTestMode,
     refetch: fetchSettings,
