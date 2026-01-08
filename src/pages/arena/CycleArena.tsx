@@ -105,6 +105,7 @@ export const CycleArena = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [gameWinner, setGameWinner] = useState<{ name: string; avatar: string; prize: number } | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [leaderChanged, setLeaderChanged] = useState(false);
   const commentsContainerRef = useRef<HTMLDivElement>(null);
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
@@ -320,6 +321,10 @@ export const CycleArena = () => {
     if (currentLeader && currentLeader !== previousLeaderRef.current && previousLeaderRef.current !== null) {
       announceLeaderChange(currentLeader, localCountdown);
       play('leaderChange');
+      
+      // Trigger leader change animation
+      setLeaderChanged(true);
+      setTimeout(() => setLeaderChanged(false), 600);
     }
     
     previousLeaderRef.current = currentLeader;
@@ -610,62 +615,57 @@ export const CycleArena = () => {
           </div>
         )}
 
-        {/* Leaders Section - Clean Minimal */}
+        {/* Leaders Section - Horizontal Layout */}
         {isLive && orderedCommenters.length > 0 && (
           <div className="mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-foreground">Current Leaders</h3>
-              <span className="text-xs text-muted-foreground">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Leaders</h3>
+              <span className="text-[10px] text-muted-foreground">
                 Top {Math.min(orderedCommenters.length, cycle.winner_count)} win
               </span>
             </div>
             
-            <div className="space-y-2">
+            <div className="flex gap-2">
               {orderedCommenters.slice(0, Math.min(3, cycle.winner_count)).map((c, idx) => {
                 const prizePercent = cycle.prize_distribution[idx] || 0;
                 const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (prizePercent / 100));
                 const isCurrentUser = c.id === user?.id;
+                const isLeader = idx === 0;
                 
                 return (
                   <div 
                     key={c.user_id} 
-                    className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
-                      idx === 0 
-                        ? 'bg-gold/10 border border-gold/30' 
+                    className={`flex-1 flex flex-col items-center p-3 rounded-xl transition-all duration-300 ${
+                      isLeader 
+                        ? `bg-gold/10 border border-gold/30 ${leaderChanged ? 'animate-scale-in' : ''}` 
                         : 'bg-muted/30 border border-border/50'
                     } ${isCurrentUser ? 'ring-2 ring-primary/40' : ''}`}
                   >
-                    {/* Position */}
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
-                      idx === 0 ? 'bg-gold/20 text-gold' : 
-                      idx === 1 ? 'bg-muted text-muted-foreground' : 
-                      'bg-muted text-muted-foreground'
-                    }`}>
+                    {/* Position Badge */}
+                    <span className="text-lg mb-1">
                       {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
-                    </div>
+                    </span>
                     
-                    {/* Avatar & Name */}
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-xl flex-shrink-0">{c.avatar}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-semibold truncate ${
-                          idx === 0 ? 'text-gold' : 'text-foreground'
-                        }`}>
-                          {c.username}
-                          {isCurrentUser && <span className="text-primary ml-1">(You)</span>}
-                        </p>
-                      </div>
-                    </div>
+                    {/* Avatar */}
+                    <span className={`text-2xl mb-1 ${isLeader && leaderChanged ? 'animate-bounce' : ''}`}>
+                      {c.avatar}
+                    </span>
+                    
+                    {/* Name */}
+                    <p className={`text-xs font-semibold truncate max-w-full text-center ${
+                      isLeader ? 'text-gold' : 'text-foreground'
+                    }`}>
+                      {c.username}
+                    </p>
+                    
+                    {isCurrentUser && (
+                      <span className="text-[9px] text-primary font-medium">You</span>
+                    )}
                     
                     {/* Prize */}
-                    <div className="text-right">
-                      <p className={`text-sm font-bold ${idx === 0 ? 'text-gold' : 'text-foreground'}`}>
-                        {formatMoney(prizeAmount)}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {prizePercent}%
-                      </p>
-                    </div>
+                    <p className={`text-xs font-bold mt-1 ${isLeader ? 'text-gold' : 'text-foreground'}`}>
+                      {formatMoney(prizeAmount)}
+                    </p>
                   </div>
                 );
               })}
