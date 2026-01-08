@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useGame } from '@/contexts/GameContext';
-import { TestScenarioBuilder } from '@/components/admin/TestScenarioBuilder';
+
 import { MusicUploader } from '@/components/admin/MusicUploader';
 
 const PAYOUT_PRESETS = {
@@ -1511,8 +1511,6 @@ export const AdminRumbleControl = () => {
         </div>
       )}
 
-      {/* Test Scenario Builder */}
-      <TestScenarioBuilder />
 
       {/* Game Settings */}
       <div className="bg-card rounded-xl border border-border p-6">
