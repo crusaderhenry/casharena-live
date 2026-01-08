@@ -46,6 +46,7 @@ export const CycleResults = () => {
   const [userWin, setUserWin] = useState<Winner | null>(null);
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [showShareSection, setShowShareSection] = useState(false);
+  const [hasShownModal, setHasShownModal] = useState(false);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -100,12 +101,11 @@ export const CycleResults = () => {
 
         setWinners(enrichedWinners);
 
-        // Check if current user won
+        // Check if current user won - delay modal to show after results loaded
         const userWinData = enrichedWinners.find(w => w.user_id === user?.id);
         if (userWinData) {
           setUserWin(userWinData);
           setShowConfetti(true);
-          setShowWinnerModal(true);
           play('win');
         }
       }
@@ -115,6 +115,17 @@ export const CycleResults = () => {
 
     fetchResults();
   }, [cycleId, user?.id, navigate, play]);
+
+  // Show winner celebration modal after a delay (give user time to see results first)
+  useEffect(() => {
+    if (userWin && !loading && !hasShownModal) {
+      const timer = setTimeout(() => {
+        setShowWinnerModal(true);
+        setHasShownModal(true);
+      }, 2500); // Show modal after 2.5 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [userWin, loading, hasShownModal]);
 
   const formatMoney = (amount: number) => {
     return `₦${amount.toLocaleString()}`;
