@@ -12,6 +12,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { TestModeBanner } from "@/components/wallet/TestModeBanner";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { PushNotificationBanner } from "@/components/PushNotificationBanner";
+import { GlobalConfetti } from "@/components/GlobalConfetti";
 
 // Auth
 import { AuthPage } from "@/pages/AuthPage";
@@ -251,6 +252,7 @@ const App = () => (
               <NotificationProvider>
                 <Toaster />
                 <Sonner />
+                <GlobalConfetti />
                 <BrowserRouter>
                   <TestModeBanner />
                   <PWAInstallPrompt />
