@@ -150,70 +150,27 @@ export const NotificationCenter = () => {
       });
     }
 
-    // Fetch recent cycle winners (global activity)
-    const { data: recentWinners } = await supabase
+    // Fetch user's own wins from cycle_winners (for games they participated in)
+    const { data: userWins } = await supabase
       .from('cycle_winners')
-      .select('id, prize_amount, position, created_at, user_id')
-      .neq('user_id', user.id)
+      .select('id, prize_amount, position, created_at')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(10);
 
-    if (recentWinners) {
-      // Get profiles for winners
-      const userIds = recentWinners.map(w => w.user_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, username')
-        .in('id', userIds);
-
-      const profileMap = new Map(profiles?.map(p => [p.id, p.username]) || []);
-
-      recentWinners.forEach((winner) => {
-        const id = `winner_${winner.id}`;
-        if (!clearedIds.has(id)) {
+    if (userWins) {
+      userWins.forEach((win) => {
+        const id = `winner_${win.id}`;
+        // Skip if already captured via wallet transaction or cleared
+        if (!clearedIds.has(id) && !notifications.find(n => n.type === 'win' && Math.abs(n.timestamp.getTime() - new Date(win.created_at).getTime()) < 60000)) {
           notifications.push({
             id,
             type: 'win',
-            title: `🏆 ${profileMap.get(winner.user_id) || 'Player'} Won!`,
-            message: `${getPositionText(winner.position)} place - ₦${winner.prize_amount.toLocaleString()}`,
-            timestamp: new Date(winner.created_at),
+            title: '🏆 You Won!',
+            message: `${getPositionText(win.position)} place - ₦${win.prize_amount.toLocaleString()}`,
+            timestamp: new Date(win.created_at),
             read: readIds.has(id),
           });
-        }
-      });
-    }
-
-    // Fetch game status changes (games going live)
-    const { data: liveCycles } = await supabase
-      .from('game_cycles')
-      .select('id, status, pool_value, live_start_at, template_id')
-      .eq('status', 'live')
-      .order('live_start_at', { ascending: false })
-      .limit(3);
-
-    if (liveCycles) {
-      // Get template names
-      const templateIds = liveCycles.map(c => c.template_id);
-      const { data: templates } = await supabase
-        .from('game_templates')
-        .select('id, name')
-        .in('id', templateIds);
-
-      const templateMap = new Map(templates?.map(t => [t.id, t.name]) || []);
-
-      liveCycles.forEach((cycle) => {
-        if (cycle.live_start_at) {
-          const id = `live_${cycle.id}`;
-          if (!clearedIds.has(id)) {
-            notifications.push({
-              id,
-              type: 'game_start',
-              title: `⚡ ${templateMap.get(cycle.template_id) || 'Royal Rumble'} is LIVE!`,
-              message: `Pool: ₦${cycle.pool_value.toLocaleString()} - Join now!`,
-              timestamp: new Date(cycle.live_start_at),
-              read: readIds.has(id),
-            });
-          }
         }
       });
     }
@@ -267,16 +224,19 @@ export const NotificationCenter = () => {
     };
   }, [user, fetchUserNotifications]);
 
-  // Subscribe to global winners
+  // Subscribe to user's own wins
   useEffect(() => {
+    if (!user) return;
+
     const channel = supabase
-      .channel('global-winners-notifications')
+      .channel('user-wins-notifications')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'cycle_winners',
+          filter: `user_id=eq.${user.id}`,
         },
         () => {
           fetchUserNotifications();
@@ -287,7 +247,7 @@ export const NotificationCenter = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchUserNotifications]);
+  }, [user, fetchUserNotifications]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
