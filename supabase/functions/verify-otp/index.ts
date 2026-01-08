@@ -135,14 +135,19 @@ Deno.serve(async (req) => {
     const tokenHash = url.searchParams.get('token');
     const type = url.searchParams.get('type') || 'magiclink';
 
-    // Check if user has a username set
+    // Check if user has a proper username set (not default patterns)
     const { data: profile } = await supabase
       .from('profiles')
-      .select('username')
+      .select('username, email')
       .eq('id', userId)
       .single();
 
-    const hasUsername = profile && profile.username && !profile.username.startsWith('Player');
+    const emailPrefix = profile?.email?.split('@')[0];
+    const hasUsername = profile?.username && 
+      !profile.username.startsWith('Player') &&
+      !profile.username.startsWith('user_') &&
+      profile.username !== profile.email &&
+      profile.username !== emailPrefix;
 
     // Clean up used OTP
     await supabase
