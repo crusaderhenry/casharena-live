@@ -373,41 +373,88 @@ export const CycleLobby = () => {
               </div>
             </div>
 
-            {/* Timer Section - Enhanced for last 30 seconds */}
-            <div className={`rounded-2xl p-4 transition-all ${
-              isLastMinute && isOpening
-                ? 'bg-gradient-to-r from-red-500/30 via-orange-500/20 to-red-500/30 border-2 border-red-500/50 animate-pulse' 
-                : isOpening 
-                  ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30' 
-                  : 'bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-500/30'
-            }`}>
-              {isWaiting ? (
-                <>
-                  <p className="text-xs text-blue-400 font-medium mb-2">Entry Opens In</p>
-                  <p className="text-3xl font-black text-blue-400">{formatTimeDetailed(timeUntilOpening)}</p>
-                  <p className="text-xs text-muted-foreground mt-2">Goes live in {formatTimeDetailed(timeUntilLive)}</p>
-                </>
-              ) : (
-                <>
-                  <p className={`text-xs font-medium mb-2 flex items-center justify-center gap-1 ${
-                    isLastMinute ? 'text-red-400' : 'text-green-400'
-                  }`}>
-                    {isLastMinute && <AlertTriangle className="w-3 h-3 animate-bounce" />}
-                    <Radio className={`w-3 h-3 ${isLastMinute ? 'animate-pulse' : 'animate-pulse'}`} /> 
-                    Game Goes Live In
-                    {isLastMinute && <AlertTriangle className="w-3 h-3 animate-bounce" />}
-                  </p>
-                  <p className={`text-3xl font-black ${isLastMinute ? 'text-red-400' : 'text-green-400'}`}>
-                    {formatTimeDetailed(timeUntilLive)}
-                  </p>
-                  {isLastMinute && (
-                    <p className="text-xs text-red-400 mt-2 font-medium">
-                      ⚡ Game starting soon! Get ready!
-                    </p>
+            {/* Timer Section - Enhanced with intensity-based pulsing */}
+            {(() => {
+              // Calculate pulse intensity based on time remaining
+              const isUrgent = timeUntilLive <= 10;
+              const isCritical = timeUntilLive <= 5;
+              const pulseSpeed = isCritical ? 'animate-[pulse_0.3s_ease-in-out_infinite]' 
+                : isUrgent ? 'animate-[pulse_0.5s_ease-in-out_infinite]'
+                : isLastMinute ? 'animate-[pulse_1s_ease-in-out_infinite]' 
+                : '';
+              const glowIntensity = isCritical ? 'shadow-[0_0_30px_rgba(239,68,68,0.5)]'
+                : isUrgent ? 'shadow-[0_0_20px_rgba(239,68,68,0.4)]'
+                : isLastMinute ? 'shadow-[0_0_15px_rgba(239,68,68,0.3)]'
+                : '';
+              
+              return (
+                <div className={`relative rounded-2xl p-4 transition-all duration-300 ${
+                  isLastMinute && isOpening
+                    ? `bg-gradient-to-r from-red-500/30 via-orange-500/20 to-red-500/30 border-2 border-red-500/50 ${pulseSpeed} ${glowIntensity}` 
+                    : isOpening 
+                      ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30' 
+                      : 'bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-500/30'
+                }`}>
+                  {/* Animated ring effect for critical countdown */}
+                  {isCritical && isOpening && (
+                    <div className="absolute inset-0 rounded-2xl border-2 border-red-500 animate-ping opacity-30" />
                   )}
-                </>
-              )}
-            </div>
+                  
+                  {isWaiting ? (
+                    <>
+                      <p className="text-xs text-blue-400 font-medium mb-2">Entry Opens In</p>
+                      <p className="text-3xl font-black text-blue-400">{formatTimeDetailed(timeUntilOpening)}</p>
+                      <p className="text-xs text-muted-foreground mt-2">Goes live in {formatTimeDetailed(timeUntilLive)}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className={`text-xs font-medium mb-2 flex items-center justify-center gap-1 ${
+                        isLastMinute ? 'text-red-400' : 'text-green-400'
+                      }`}>
+                        {isLastMinute && <AlertTriangle className={`w-3 h-3 ${isCritical ? 'animate-bounce' : 'animate-pulse'}`} />}
+                        <Radio className={`w-3 h-3 ${isCritical ? 'animate-ping' : 'animate-pulse'}`} /> 
+                        {isCritical ? '🔥 LAUNCHING IN' : isUrgent ? '⚡ ALMOST LIVE' : 'Game Goes Live In'}
+                        {isLastMinute && <AlertTriangle className={`w-3 h-3 ${isCritical ? 'animate-bounce' : 'animate-pulse'}`} />}
+                      </p>
+                      
+                      {/* Large animated countdown number */}
+                      <div className={`relative ${isCritical ? 'scale-110' : isUrgent ? 'scale-105' : ''} transition-transform duration-300`}>
+                        <p className={`text-3xl font-black ${
+                          isCritical ? 'text-red-500 animate-pulse' 
+                          : isUrgent ? 'text-orange-400' 
+                          : isLastMinute ? 'text-red-400' 
+                          : 'text-green-400'
+                        }`}>
+                          {formatTimeDetailed(timeUntilLive)}
+                        </p>
+                        
+                        {/* Seconds indicator for last 10 seconds */}
+                        {isUrgent && (
+                          <div className="flex justify-center gap-1 mt-2">
+                            {Array.from({ length: Math.min(timeUntilLive, 10) }).map((_, i) => (
+                              <div 
+                                key={i} 
+                                className={`w-2 h-2 rounded-full ${
+                                  i < 3 ? 'bg-red-500' : i < 6 ? 'bg-orange-400' : 'bg-yellow-400'
+                                } ${i === 0 ? 'animate-ping' : ''}`}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {isLastMinute && (
+                        <p className={`text-xs mt-2 font-medium ${
+                          isCritical ? 'text-red-500 animate-pulse' : 'text-red-400'
+                        }`}>
+                          {isCritical ? '🚀 GET READY TO PLAY!' : isUrgent ? '⚡ Game starting soon!' : '⏱️ Less than 30 seconds!'}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* View Pool CTA */}
             <div className="mt-4">
