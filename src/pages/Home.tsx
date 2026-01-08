@@ -10,7 +10,7 @@ import { AuthPromptModal } from '@/components/AuthPromptModal';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
 
 import { useOAuthUsername } from '@/hooks/useOAuthUsername';
-import { Trophy, ChevronRight, Bell, TrendingUp, Calendar, Crown, Radio, Play, Swords, Clock, Zap } from 'lucide-react';
+import { Trophy, ChevronRight, Bell, TrendingUp, Calendar, Crown, Radio, Play, Swords, Clock, Zap, Users } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { Logo } from '@/components/Logo';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +30,7 @@ export const Home = () => {
   const [activeNotification, setActiveNotification] = useState(0);
   const [userParticipations, setUserParticipations] = useState<Set<string>>(new Set());
   const [showRankAuthPrompt, setShowRankAuthPrompt] = useState(false);
+  const [activeUsersCount, setActiveUsersCount] = useState(0);
 
   const { newBadge, showCelebration, dismissCelebration } = useBadgeUnlock({
     total_wins: profile?.total_wins || 0,
@@ -97,6 +98,20 @@ export const Home = () => {
       }
     };
     fetchRecentWinners();
+  }, []);
+
+  // Fetch active users count (real + mock)
+  useEffect(() => {
+    const fetchActiveUsers = async () => {
+      const [realResult, mockResult] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('mock_users').select('id', { count: 'exact', head: true }).eq('is_active', true)
+      ]);
+      const realCount = realResult.count || 0;
+      const mockCount = mockResult.count || 0;
+      setActiveUsersCount(realCount + mockCount);
+    };
+    fetchActiveUsers();
   }, []);
 
   // Real-time updates for cycles
@@ -192,6 +207,12 @@ export const Home = () => {
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Calendar className="w-3 h-3" />
                   {openingCycles.length + waitingCycles.length} Upcoming
+                </span>
+              )}
+              {activeUsersCount > 0 && (
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Users className="w-3 h-3" />
+                  {activeUsersCount.toLocaleString()} Users
                 </span>
               )}
             </div>
