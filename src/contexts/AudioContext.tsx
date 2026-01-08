@@ -6,6 +6,7 @@ interface AudioSettings {
   musicEnabled: boolean;
   sfxEnabled: boolean;
   commentaryEnabled: boolean;
+  tickEnabled: boolean;
   volume: number;
   hostMuted: boolean;
   voiceRoomMuted: boolean;
@@ -16,6 +17,7 @@ interface AudioContextType {
   toggleMusic: () => void;
   toggleSfx: () => void;
   toggleCommentary: () => void;
+  toggleTick: () => void;
   setVolume: (volume: number) => void;
   playBackgroundMusic: (type: 'lobby' | 'arena' | 'tense', customUrl?: string | null, ambientStyle?: AmbientMusicStyle) => void;
   stopBackgroundMusic: () => void;
@@ -161,6 +163,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       musicEnabled: true,
       sfxEnabled: true,
       commentaryEnabled: true,
+      tickEnabled: true,
       volume: 0.5,
       hostMuted: false,
       voiceRoomMuted: false,
@@ -203,6 +206,10 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
   const toggleCommentary = useCallback(() => {
     setSettings(prev => ({ ...prev, commentaryEnabled: !prev.commentaryEnabled }));
+  }, []);
+
+  const toggleTick = useCallback(() => {
+    setSettings(prev => ({ ...prev, tickEnabled: !prev.tickEnabled }));
   }, []);
 
   const setVolume = useCallback((volume: number) => {
@@ -301,6 +308,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       toggleMusic,
       toggleSfx,
       toggleCommentary,
+      toggleTick,
       setVolume,
       playBackgroundMusic,
       stopBackgroundMusic,

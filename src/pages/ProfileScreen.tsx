@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award, ShieldCheck, ShieldX, Bell } from 'lucide-react';
+import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award, ShieldCheck, ShieldX, Bell, Timer } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,7 +28,7 @@ export const ProfileScreen = () => {
   const { userProfile, updateProfile, isTestMode } = useGame();
   const { user, profile, signOut, refreshProfile } = useAuth();
   const { isAdmin, isModerator } = useUserRole();
-  const { settings, toggleMusic, toggleSfx, toggleCommentary, setVolume } = useAudio();
+  const { settings, toggleMusic, toggleSfx, toggleCommentary, toggleTick, setVolume } = useAudio();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
   const [isEditing, setIsEditing] = useState(false);
@@ -437,6 +437,23 @@ export const ProfileScreen = () => {
                 className={`w-12 h-7 rounded-full transition-colors ${settings.commentaryEnabled ? 'bg-primary' : 'bg-muted'}`}
               >
                 <div className={`w-5 h-5 rounded-full bg-white shadow-md transition-transform mx-1 ${settings.commentaryEnabled ? 'translate-x-5' : ''}`} />
+              </button>
+            </div>
+
+            {/* Countdown Tick */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Timer className="w-5 h-5 text-muted-foreground" />
+                <div>
+                  <span className="text-foreground">Countdown Ticks</span>
+                  <p className="text-[10px] text-muted-foreground">Tick sounds in last 30s</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleToggle(toggleTick)}
+                className={`w-12 h-7 rounded-full transition-colors ${settings.tickEnabled ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white shadow-md transition-transform mx-1 ${settings.tickEnabled ? 'translate-x-5' : ''}`} />
               </button>
             </div>
 
