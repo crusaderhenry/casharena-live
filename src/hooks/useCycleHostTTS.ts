@@ -10,14 +10,85 @@ interface TTSOptions {
   onSpeakingChange?: (isSpeaking: boolean) => void;
 }
 
+// Dynamic commentary phrases for varied, engaging commentary
+const COMMENT_PHRASES = {
+  newComment: [
+    (name: string, content: string) => `${name} drops in with: ${content.substring(0, 40)}`,
+    (name: string) => `${name} is making moves!`,
+    (name: string) => `Look at ${name} keeping the pressure on!`,
+    (name: string) => `${name} enters the fray!`,
+    (name: string) => `Here comes ${name}!`,
+    (name: string) => `${name} is hungry for that win!`,
+  ],
+  leaderChange: [
+    (name: string, timer: number) => `${name} takes the lead with ${timer} seconds left!`,
+    (name: string) => `New leader! ${name} is on top!`,
+    (name: string) => `${name} just stole the crown!`,
+    (name: string) => `OH! ${name} snatches the lead!`,
+    (name: string) => `It's ${name}'s game now!`,
+    (name: string) => `${name} is in control!`,
+  ],
+  timerWarning30: [
+    (leader: string | null) => leader ? `30 seconds left! ${leader} is holding on!` : `30 seconds on the clock!`,
+    (leader: string | null) => leader ? `Half a minute! Can anyone stop ${leader}?` : `30 seconds remaining! The tension is real!`,
+    (leader: string | null) => `30 seconds! This is getting intense!`,
+  ],
+  timerWarning10: [
+    (leader: string | null) => leader ? `10 seconds! ${leader} is sweating!` : `10 seconds! This is it!`,
+    (leader: string | null) => leader ? `Final countdown! ${leader} better watch out!` : `10 seconds remaining!`,
+    (leader: string | null) => `10 seconds! The pressure is REAL!`,
+  ],
+  timerWarning5: [
+    () => `5 seconds! Type something NOW!`,
+    () => `5! 4! 3!...`,
+    () => `FINAL SECONDS!`,
+  ],
+  gameOver: [
+    (winner: string, prize: string) => `Game over! ${winner} wins ${prize}! What a match!`,
+    (winner: string, prize: string) => `${winner} takes home ${prize}! Incredible!`,
+    (winner: string, prize: string) => `Congratulations ${winner}! ${prize} is yours!`,
+    (winner: string, prize: string) => `AND THE WINNER IS ${winner} with ${prize}!`,
+  ],
+};
+
+// Co-host banter phrases for natural interactions
+const COHOST_BANTER = {
+  reaction: [
+    (hostName: string) => `Did you see that ${hostName}?!`,
+    () => `Wow, I did NOT see that coming!`,
+    () => `This is absolutely WILD!`,
+    () => `The crowd is going crazy!`,
+  ],
+  agreement: [
+    () => `Absolutely! This is peak entertainment!`,
+    () => `Couldn't have said it better myself!`,
+    () => `100%! These players are on fire!`,
+    () => `Right?! The energy is unmatched!`,
+  ],
+  tension: [
+    () => `I can barely watch!`,
+    () => `My heart is racing here!`,
+    () => `The suspense is killing me!`,
+    () => `This is too close to call!`,
+  ],
+  excitement: [
+    () => `Let's GOOO!`,
+    () => `This is what we came for!`,
+    () => `ELECTRIC atmosphere!`,
+    () => `The arena is on FIRE!`,
+  ],
+};
+
 export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOptions) => {
   const { selectedHost, secondaryHost, isCoHostMode } = usePlatformSettings();
   const { settings: audioSettings } = useAudio();
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const queueRef = useRef<string[]>([]);
+  const queueRef = useRef<Array<{ text: string; voiceId?: string }>>([]);
   const isSpeakingRef = useRef(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const lastCommentIdRef = useRef<string | null>(null);
+  const lastBanterTimeRef = useRef<number>(0);
+  const hostTurnRef = useRef<boolean>(true); // Alternates between main host and co-host
 
   const host = getHostById(selectedHost);
   const coHost = secondaryHost ? getHostById(secondaryHost) : null;
@@ -29,6 +100,12 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     }
     return host.voiceId;
   }, [host, coHost, isCoHostMode]);
+
+  // Get random phrase from array
+  const getRandomPhrase = <T extends (...args: any[]) => string>(phrases: T[], ...args: Parameters<T>): string => {
+    const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+    return phrase(...args);
+  };
 
   // Play TTS audio
   const speakText = useCallback(async (text: string, voiceId?: string) => {
@@ -92,6 +169,7 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
           setIsSpeaking(false);
           onSpeakingChange?.(false);
           audioRef.current = null;
+          processQueue();
         };
 
         await audio.play();
@@ -104,83 +182,112 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     }
   }, [audioSettings.hostMuted, isLive, getVoiceId, onSpeakingChange]);
 
-  // Process queue
+  // Process queue with voice alternation
   const processQueue = useCallback(() => {
     if (queueRef.current.length > 0 && !isSpeakingRef.current) {
-      const nextText = queueRef.current.shift();
-      if (nextText) {
-        speakText(nextText);
+      const next = queueRef.current.shift();
+      if (next) {
+        speakText(next.text, next.voiceId);
       }
     }
   }, [speakText]);
 
-  // Queue a message for TTS
-  const queueMessage = useCallback((text: string) => {
+  // Queue a message for TTS with optional voice override
+  const queueMessage = useCallback((text: string, useCoHost = false) => {
     if (audioSettings.hostMuted || !isLive) return;
     
-    queueRef.current.push(text);
+    const voiceId = useCoHost && isCoHostMode && coHost ? coHost.voiceId : host.voiceId;
+    queueRef.current.push({ text, voiceId });
+    
     if (!isSpeakingRef.current) {
       processQueue();
     }
-  }, [audioSettings.hostMuted, isLive, processQueue]);
+  }, [audioSettings.hostMuted, isLive, processQueue, isCoHostMode, coHost, host]);
 
-  // Announce new comment (with rate limiting)
+  // Add co-host banter reaction
+  const addCoHostBanter = useCallback((banterType: keyof typeof COHOST_BANTER) => {
+    if (!isCoHostMode || !coHost || audioSettings.hostMuted) return;
+    
+    // Rate limit banter - at least 8 seconds between banter
+    const now = Date.now();
+    if (now - lastBanterTimeRef.current < 8000) return;
+    lastBanterTimeRef.current = now;
+
+    // 40% chance of banter response
+    if (Math.random() > 0.4) return;
+
+    const phrases = COHOST_BANTER[banterType];
+    const phrase = banterType === 'reaction' 
+      ? getRandomPhrase(phrases as Array<(hostName?: string) => string>, host.name)
+      : getRandomPhrase(phrases as Array<() => string>);
+    
+    // Queue banter with co-host voice after a small delay
+    setTimeout(() => {
+      queueMessage(phrase, true);
+    }, 500);
+  }, [isCoHostMode, coHost, host.name, audioSettings.hostMuted, queueMessage]);
+
+  // Announce new comment with dynamic phrases
   const announceComment = useCallback((username: string, content: string, commentId: string) => {
-    // Skip if same comment or host is muted
     if (commentId === lastCommentIdRef.current || audioSettings.hostMuted) return;
     lastCommentIdRef.current = commentId;
 
-    // Only announce some comments to avoid spam
-    const shouldAnnounce = Math.random() < 0.15; // 15% chance
+    // 15% chance to announce
+    const shouldAnnounce = Math.random() < 0.15;
     if (!shouldAnnounce) return;
 
-    const phrases = [
-      `${username} says: ${content.substring(0, 50)}`,
-      `${username} is in the game!`,
-      `Look at ${username} keeping it alive!`,
-    ];
-    
-    const phrase = phrases[Math.floor(Math.random() * phrases.length)];
-    queueMessage(phrase);
-  }, [audioSettings.hostMuted, queueMessage]);
+    // Alternate between hosts if co-host mode
+    const useCoHost = isCoHostMode && coHost && !hostTurnRef.current;
+    hostTurnRef.current = !hostTurnRef.current;
 
-  // Announce leader change
+    // Get random phrase - some need content, some don't
+    const phraseIndex = Math.floor(Math.random() * COMMENT_PHRASES.newComment.length);
+    const phrase = phraseIndex === 0 
+      ? COMMENT_PHRASES.newComment[0](username, content)
+      : (COMMENT_PHRASES.newComment[phraseIndex] as (name: string) => string)(username);
+    
+    queueMessage(phrase, useCoHost);
+    
+    // Maybe add co-host reaction
+    addCoHostBanter('reaction');
+  }, [audioSettings.hostMuted, queueMessage, isCoHostMode, coHost, addCoHostBanter]);
+
+  // Announce leader change with excitement
   const announceLeaderChange = useCallback((leaderName: string, timer: number) => {
     if (audioSettings.hostMuted) return;
 
-    const phrases = [
-      `${leaderName} takes the lead with ${timer} seconds left!`,
-      `New leader! ${leaderName} is on top!`,
-      `${leaderName} just stole the crown!`,
-    ];
+    const phraseIndex = Math.floor(Math.random() * COMMENT_PHRASES.leaderChange.length);
+    const phrase = phraseIndex === 0 
+      ? COMMENT_PHRASES.leaderChange[0](leaderName, timer)
+      : (COMMENT_PHRASES.leaderChange[phraseIndex] as (name: string) => string)(leaderName);
     
-    const phrase = phrases[Math.floor(Math.random() * phrases.length)];
     speakText(phrase);
-  }, [audioSettings.hostMuted, speakText]);
+    
+    // Add co-host excitement
+    addCoHostBanter('excitement');
+  }, [audioSettings.hostMuted, speakText, addCoHostBanter]);
 
-  // Announce timer warnings
+  // Announce timer warnings with tension
   const announceTimerWarning = useCallback((seconds: number, leaderName: string | null) => {
     if (audioSettings.hostMuted) return;
 
     let phrase = '';
     if (seconds === 30) {
-      phrase = leaderName 
-        ? `30 seconds left! ${leaderName} is leading!`
-        : `30 seconds on the clock!`;
+      phrase = getRandomPhrase(COMMENT_PHRASES.timerWarning30, leaderName);
+      addCoHostBanter('tension');
     } else if (seconds === 10) {
-      phrase = leaderName
-        ? `10 seconds! ${leaderName} is sweating!`
-        : `10 seconds! This is it!`;
+      phrase = getRandomPhrase(COMMENT_PHRASES.timerWarning10, leaderName);
+      addCoHostBanter('tension');
     } else if (seconds === 5) {
-      phrase = `5 seconds! Type something!`;
+      phrase = getRandomPhrase(COMMENT_PHRASES.timerWarning5);
     }
 
     if (phrase) {
       speakText(phrase);
     }
-  }, [audioSettings.hostMuted, speakText]);
+  }, [audioSettings.hostMuted, speakText, addCoHostBanter]);
 
-  // Announce game over
+  // Announce game over with dramatic flair
   const announceGameOver = useCallback((winnerName: string, prizeAmount: number) => {
     if (audioSettings.hostMuted) return;
 
@@ -188,9 +295,21 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
       ? `${Math.floor(prizeAmount / 1000)} thousand naira`
       : `${prizeAmount} naira`;
 
-    const phrase = `Game over! ${winnerName} wins ${formattedPrize}! Congratulations!`;
+    const phrase = getRandomPhrase(COMMENT_PHRASES.gameOver, winnerName, formattedPrize);
     speakText(phrase);
-  }, [audioSettings.hostMuted, speakText]);
+    
+    // Co-host celebration after main announcement
+    if (isCoHostMode && coHost) {
+      setTimeout(() => {
+        const celebrationPhrases = [
+          `What a game! ${winnerName} played that perfectly!`,
+          `Unbelievable finish! ${winnerName} deserves every naira!`,
+          `The crowd goes WILD for ${winnerName}!`,
+        ];
+        queueMessage(celebrationPhrases[Math.floor(Math.random() * celebrationPhrases.length)], true);
+      }, 2000);
+    }
+  }, [audioSettings.hostMuted, speakText, isCoHostMode, coHost, queueMessage]);
 
   // Stop all audio when host muted or unmounted
   useEffect(() => {
@@ -225,6 +344,7 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     announceLeaderChange,
     announceTimerWarning,
     announceGameOver,
+    addCoHostBanter,
     stopSpeaking: useCallback(() => {
       if (audioRef.current) {
         audioRef.current.pause();

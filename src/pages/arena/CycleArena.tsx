@@ -16,6 +16,7 @@ import { CompactHostBanner } from '@/components/CompactHostBanner';
 import { GameEndFreeze } from '@/components/GameEndFreeze';
 import { LiveTimer } from '@/components/Countdown';
 import { Confetti } from '@/components/Confetti';
+import { WinningBanner } from '@/components/WinningBanner';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -422,11 +423,24 @@ export const CycleArena = () => {
   const displayCountdown = isDemoMode ? simCountdown : localCountdown;
   const isCountdownCritical = displayCountdown <= 10 && isLive;
   const displayParticipantCount = isDemoMode ? simParticipantCount : cycle.participant_count;
+  
+  // Check if current user is winning (has the latest comment / is leader)
+  const currentUserIsWinning = orderedCommenters.length > 0 && 
+    orderedCommenters[0]?.id === user?.id && 
+    participation.isParticipant && 
+    !participation.isSpectator &&
+    isLive;
 
   return (
     <div className={`min-h-screen bg-background flex flex-col transition-all duration-500 ease-out ${isEntering ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
       {/* Confetti on winning comment */}
       {showConfetti && <Confetti duration={3000} />}
+      
+      {/* YOU ARE WINNING Banner */}
+      <WinningBanner 
+        isVisible={currentUserIsWinning} 
+        prizeAmount={effectivePrizePool * (cycle.prize_distribution[0] / 100)} 
+      />
       
       {/* Game End Freeze Overlay */}
       {gameWinner && (
