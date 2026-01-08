@@ -60,7 +60,7 @@ const GoogleIcon = () => (
   </svg>
 );
 
-type AuthStep = 'prompt' | 'email' | 'otp' | 'username';
+type AuthStep = 'email' | 'otp' | 'username';
 
 interface AuthModalProps {
   open: boolean;
@@ -79,7 +79,7 @@ export const AuthModal = ({ open, onOpenChange, onSuccess, action = 'game' }: Au
     welcomeBonusMessage
   } = usePlatformSettings();
   
-  const [step, setStep] = useState<AuthStep>('prompt');
+  const [step, setStep] = useState<AuthStep>('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [username, setUsername] = useState('');
@@ -94,7 +94,7 @@ export const AuthModal = ({ open, onOpenChange, onSuccess, action = 'game' }: Au
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
-      setStep('prompt');
+      setStep('email');
       setError(null);
       setSuccess(null);
       setOtp('');
@@ -377,65 +377,14 @@ export const AuthModal = ({ open, onOpenChange, onSuccess, action = 'game' }: Au
     if (step === 'otp') {
       setStep('email');
     } else if (step === 'email') {
-      setStep('prompt');
+      onOpenChange(false);
     }
   };
-
-  const promptContent = getPromptContent();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md border-border bg-card p-0 overflow-hidden">
         <div className="p-6">
-          {/* Prompt Step */}
-          {step === 'prompt' && (
-            <div className="flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-                {promptContent.icon}
-              </div>
-              
-              <h2 className="text-xl font-bold text-foreground mb-2">
-                {promptContent.title}
-              </h2>
-              
-              <p className="text-sm text-muted-foreground mb-6 max-w-xs">
-                {promptContent.description}
-              </p>
-              
-              <div className="flex flex-col gap-3 w-full">
-                <Button
-                  onClick={() => setStep('email')}
-                  className="w-full gap-2"
-                >
-                  <Mail className="w-4 h-4" />
-                  Continue with Email
-                </Button>
-                
-                {!settingsLoading && googleAuthEnabled && (
-                  <button
-                    type="button"
-                    onClick={handleGoogleAuth}
-                    disabled={googleLoading}
-                    className="w-full py-3 bg-white hover:bg-gray-50 text-gray-800 rounded-xl font-medium transition-colors flex items-center justify-center gap-3 border border-gray-300 disabled:opacity-50"
-                  >
-                    {googleLoading ? (
-                      <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <GoogleIcon />
-                        Continue with Google
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-              
-              <p className="text-xs text-muted-foreground mt-4">
-                It only takes a minute to get started!
-              </p>
-            </div>
-          )}
-
           {/* Email Step */}
           {step === 'email' && (
             <>
@@ -678,11 +627,9 @@ export const AuthModal = ({ open, onOpenChange, onSuccess, action = 'game' }: Au
           )}
 
           {/* Security Note */}
-          {step !== 'prompt' && (
-            <p className="text-center text-xs text-muted-foreground mt-4">
-              🔒 Passwordless login for your security
-            </p>
-          )}
+          <p className="text-center text-xs text-muted-foreground mt-4">
+            🔒 Passwordless login for your security
+          </p>
         </div>
       </DialogContent>
     </Dialog>
