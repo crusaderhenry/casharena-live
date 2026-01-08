@@ -43,6 +43,9 @@ interface GameCycle {
   comment_timer: number;
   platform_cut_percentage: number;
   min_participants: number;
+  mock_users_enabled: boolean;
+  mock_users_min: number;
+  mock_users_max: number;
 }
 
 // Helper function to send push notifications
@@ -162,19 +165,25 @@ async function processStateTransition(supabase: any, cycle: GameCycle, now: Date
         newStatus = 'opening';
         console.log(`[transition] Cycle ${cycle.id}: waiting -> opening`);
         
-        // Immediately bulk populate 100 mock users when opening
-        try {
-          await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/mock-user-service`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            },
-            body: JSON.stringify({ action: 'bulk_populate', cycleId: cycle.id, count: 100 }),
-          });
-          console.log(`[opening] Bulk populated 100 mock users to cycle ${cycle.id}`);
-        } catch (e) {
-          console.log('[opening] Bulk populate failed:', e);
+        // Only populate mock users if enabled for this cycle
+        if (cycle.mock_users_enabled && cycle.mock_users_max > 0) {
+          try {
+            // Random count between min and max
+            const mockCount = cycle.mock_users_min + Math.floor(Math.random() * (cycle.mock_users_max - cycle.mock_users_min + 1));
+            await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/mock-user-service`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              },
+              body: JSON.stringify({ action: 'bulk_populate', cycleId: cycle.id, count: mockCount }),
+            });
+            console.log(`[opening] Bulk populated ${mockCount} mock users to cycle ${cycle.id} (min: ${cycle.mock_users_min}, max: ${cycle.mock_users_max})`);
+          } catch (e) {
+            console.log('[opening] Bulk populate failed:', e);
+          }
+        } else {
+          console.log(`[opening] Mock users disabled for cycle ${cycle.id}`);
         }
       }
       break;
@@ -228,9 +237,8 @@ async function processStateTransition(supabase: any, cycle: GameCycle, now: Date
       }
       updates.countdown = newCountdown;
 
-      // Trigger mock comments aggressively - 90% chance per tick
-      // Use burst_comments for rapid multi-user activity
-      if (Math.random() < 0.9) {
+      // Trigger mock comments only if enabled for this cycle - 90% chance per tick
+      if (cycle.mock_users_enabled && Math.random() < 0.9) {
         try {
           // Trigger 3-8 comments per tick for intense activity
           const commentCount = Math.floor(Math.random() * 6) + 3;
@@ -367,6 +375,11 @@ async function createCycleFromTemplate(supabase: any, templateId: string) {
     pool_value: template.entry_mode === 'sponsored' ? template.sponsored_prize_amount : 0,
     real_pool_value: 0,
     participant_count: 0,
+    // New fields from template
+    mock_users_enabled: template.mock_users_enabled || false,
+    mock_users_min: template.mock_users_min || 0,
+    mock_users_max: template.mock_users_max || 100,
+    sponsor_name: template.sponsor_name || null,
   };
 
   const { data: cycle, error: cycleError } = await supabase

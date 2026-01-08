@@ -95,8 +95,13 @@ interface CreateGameConfig {
   // Sponsored games
   is_sponsored?: boolean;
   sponsored_amount?: number | null;
+  sponsor_name?: string | null;
   platform_cut_percentage?: number;
   description?: string | null;
+  // Mock user settings
+  mock_users_enabled?: boolean;
+  mock_users_min?: number;
+  mock_users_max?: number;
   // New automation fields
   auto_restart?: boolean;
   fixed_daily_time?: string | null;
@@ -455,6 +460,11 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
           sponsored_prize_amount: config.sponsored_amount || 0,
           recurrence_type: config.recurrence_type || 'infinity',
           is_active: true,
+          // New fields
+          mock_users_enabled: config.mock_users_enabled || false,
+          mock_users_min: config.mock_users_min || 0,
+          mock_users_max: config.mock_users_max || 100,
+          sponsor_name: config.sponsor_name || null,
         })
         .select()
         .single();

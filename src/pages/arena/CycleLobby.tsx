@@ -48,6 +48,7 @@ interface CycleData {
   template_name?: string;
   ambient_music_style?: 'chill' | 'intense' | 'retro' | 'none';
   lobby_music_url?: string | null;
+  sponsor_name?: string | null;
 }
 
 const MIC_CHECK_KEY = 'royal_rumble_mic_checked';
@@ -367,6 +368,12 @@ export const CycleLobby = () => {
             <div className="mb-4">
               <p className="text-4xl font-black text-gold">{formatMoney(effectivePrizePool)}</p>
               <p className="text-sm text-muted-foreground">Prize Pool</p>
+              {cycle.sponsored_prize_amount > 0 && (
+                <span className="inline-flex items-center gap-1 mt-2 px-3 py-1 bg-primary/20 text-primary text-xs font-medium rounded-full">
+                  <Sparkles className="w-3 h-3" />
+                  {cycle.sponsor_name ? `Sponsored by ${cycle.sponsor_name}` : 'Sponsored'}
+                </span>
+              )}
             </div>
 
             {/* Stats Grid */}

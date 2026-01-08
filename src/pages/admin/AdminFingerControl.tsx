@@ -1,7 +1,7 @@
 import { useAdmin } from '@/contexts/AdminContext';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
-import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle, XCircle, Music, Upload, Copy, Eye, EyeOff } from 'lucide-react';
+import { Zap, Play, Square, RotateCcw, Clock, Users, Trophy, Settings, Plus, Trash2, Edit, Calendar, Repeat, Gift, Percent, FlaskConical, Timer, Flame, RefreshCw, AlertCircle, XCircle, Music, Upload, Copy, Eye, EyeOff, Bot } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -72,7 +72,12 @@ interface GameFormData {
   // Sponsored game
   isSponsored: boolean;
   sponsoredAmount: number;
+  sponsorName: string;
   platformCutPercentage: number;
+  // Mock user settings
+  mockUsersEnabled: boolean;
+  mockUsersMin: number;
+  mockUsersMax: number;
   // Music settings - ambient style overrides uploads
   ambientMusicStyle: 'chill' | 'intense' | 'retro' | 'none';
   musicType: 'generated' | 'uploaded';
@@ -153,7 +158,11 @@ export const AdminRumbleControl = () => {
     minParticipantsAction: 'reset',
     isSponsored: false,
     sponsoredAmount: 0,
+    sponsorName: '',
     platformCutPercentage: platformCut,
+    mockUsersEnabled: false,
+    mockUsersMin: 0,
+    mockUsersMax: 100,
     ambientMusicStyle: 'chill',
     musicType: 'generated',
     lobbyMusicUrl: '',
@@ -224,8 +233,13 @@ export const AdminRumbleControl = () => {
       recurrence_interval: formData.recurrenceType === 'none' || isAutoRestart ? null : formData.recurrenceInterval,
       is_sponsored: formData.isSponsored,
       sponsored_amount: formData.isSponsored ? formData.sponsoredAmount : null,
+      sponsor_name: formData.isSponsored && formData.sponsorName ? formData.sponsorName : null,
       platform_cut_percentage: formData.platformCutPercentage,
       description: formData.description || null,
+      // Mock user settings
+      mock_users_enabled: formData.mockUsersEnabled,
+      mock_users_min: formData.mockUsersMin,
+      mock_users_max: formData.mockUsersMax,
       // New fields
       auto_restart: isAutoRestart,
       fixed_daily_time: formData.recurrenceType === 'daily' ? formData.fixedDailyTime : null,
@@ -260,7 +274,11 @@ export const AdminRumbleControl = () => {
       minParticipantsAction: 'reset',
       isSponsored: false,
       sponsoredAmount: 0,
+      sponsorName: '',
       platformCutPercentage: 10,
+      mockUsersEnabled: false,
+      mockUsersMin: 0,
+      mockUsersMax: 100,
       ambientMusicStyle: 'chill',
       musicType: 'generated',
       lobbyMusicUrl: '',
@@ -359,7 +377,11 @@ export const AdminRumbleControl = () => {
           minParticipantsAction: 'reset',
           isSponsored: (data.sponsored_prize_amount || 0) > 0,
           sponsoredAmount: data.sponsored_prize_amount || 0,
+          sponsorName: (data as any).sponsor_name || '',
           platformCutPercentage: Number(data.platform_cut_percentage) || 10,
+          mockUsersEnabled: (data as any).mock_users_enabled || false,
+          mockUsersMin: (data as any).mock_users_min || 0,
+          mockUsersMax: (data as any).mock_users_max || 100,
           ambientMusicStyle: (data as any).ambient_music_style || 'chill',
           musicType: 'generated',
           lobbyMusicUrl: '',
@@ -508,15 +530,81 @@ export const AdminRumbleControl = () => {
                 </div>
 
                 {formData.isSponsored && (
-                  <div className="space-y-2">
-                    <Label htmlFor="sponsoredAmount">Sponsored Prize (₦)</Label>
-                    <Input
-                      id="sponsoredAmount"
-                      type="number"
-                      value={formData.sponsoredAmount}
-                      onChange={(e) => setFormData(prev => ({ ...prev, sponsoredAmount: parseInt(e.target.value) || 0 }))}
-                      placeholder="50000"
-                    />
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="sponsoredAmount">Sponsored Prize (₦)</Label>
+                      <Input
+                        id="sponsoredAmount"
+                        type="number"
+                        value={formData.sponsoredAmount}
+                        onChange={(e) => setFormData(prev => ({ ...prev, sponsoredAmount: parseInt(e.target.value) || 0 }))}
+                        placeholder="50000"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sponsorName">Sponsor Name (optional)</Label>
+                      <Input
+                        id="sponsorName"
+                        type="text"
+                        value={formData.sponsorName}
+                        onChange={(e) => setFormData(prev => ({ ...prev, sponsorName: e.target.value }))}
+                        placeholder="e.g. MTN, Coca-Cola, etc."
+                      />
+                      <p className="text-xs text-muted-foreground">Will be displayed as "Sponsored by [Name]"</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Mock Users Settings */}
+              <div className="space-y-3 p-3 bg-purple-500/5 rounded-lg border border-purple-500/20">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-purple-400" />
+                      Mock Users (Testing)
+                    </Label>
+                    <p className="text-xs text-muted-foreground">Add simulated players for testing</p>
+                  </div>
+                  <Switch
+                    checked={formData.mockUsersEnabled}
+                    onCheckedChange={(checked) => setFormData(prev => ({ 
+                      ...prev, 
+                      mockUsersEnabled: checked,
+                    }))}
+                  />
+                </div>
+
+                {formData.mockUsersEnabled && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="mockUsersMin">Min Mock Users</Label>
+                        <Input
+                          id="mockUsersMin"
+                          type="number"
+                          min={0}
+                          max={formData.mockUsersMax}
+                          value={formData.mockUsersMin}
+                          onChange={(e) => setFormData(prev => ({ ...prev, mockUsersMin: parseInt(e.target.value) || 0 }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="mockUsersMax">Max Mock Users</Label>
+                        <Input
+                          id="mockUsersMax"
+                          type="number"
+                          min={formData.mockUsersMin}
+                          max={500}
+                          value={formData.mockUsersMax}
+                          onChange={(e) => setFormData(prev => ({ ...prev, mockUsersMax: parseInt(e.target.value) || 100 }))}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      🤖 {formData.mockUsersMin}-{formData.mockUsersMax} mock users will join when entry opens. 
+                      They add to pool but don't win real prizes.
+                    </p>
                   </div>
                 )}
               </div>
