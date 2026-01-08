@@ -29,6 +29,7 @@ export interface PlatformSettings {
   welcome_bonus_amount: number;
   welcome_bonus_limit: number;
   welcome_bonus_enabled: boolean;
+  welcome_bonus_message: string;
 }
 
 export const usePlatformSettings = () => {
@@ -142,6 +143,7 @@ export const usePlatformSettings = () => {
     welcomeBonusAmount: settings?.welcome_bonus_amount ?? 5000,
     welcomeBonusLimit: settings?.welcome_bonus_limit ?? 1000,
     welcomeBonusEnabled: settings?.welcome_bonus_enabled ?? true,
+    welcomeBonusMessage: settings?.welcome_bonus_message ?? 'Get your welcome bonus! Limited spots available.',
     updateSettings,
     toggleTestMode,
     refetch: fetchSettings,

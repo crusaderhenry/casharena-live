@@ -802,6 +802,7 @@ export type Database = {
           welcome_bonus_amount: number | null
           welcome_bonus_enabled: boolean | null
           welcome_bonus_limit: number | null
+          welcome_bonus_message: string | null
           welcome_message: string | null
         }
         Insert: {
@@ -830,6 +831,7 @@ export type Database = {
           welcome_bonus_amount?: number | null
           welcome_bonus_enabled?: boolean | null
           welcome_bonus_limit?: number | null
+          welcome_bonus_message?: string | null
           welcome_message?: string | null
         }
         Update: {
@@ -858,6 +860,7 @@ export type Database = {
           welcome_bonus_amount?: number | null
           welcome_bonus_enabled?: boolean | null
           welcome_bonus_limit?: number | null
+          welcome_bonus_message?: string | null
           welcome_message?: string | null
         }
         Relationships: []

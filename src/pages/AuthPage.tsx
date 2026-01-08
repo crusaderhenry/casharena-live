@@ -67,7 +67,8 @@ export const AuthPage = () => {
     loading: settingsLoading,
     welcomeBonusEnabled,
     welcomeBonusAmount,
-    welcomeBonusLimit
+    welcomeBonusLimit,
+    welcomeBonusMessage
   } = usePlatformSettings();
   
   const [step, setStep] = useState<AuthStep>('email');
@@ -367,10 +368,9 @@ export const AuthPage = () => {
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-bold text-foreground">
-                        Get ₦{welcomeBonusAmount.toLocaleString()} Free!
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Only {(welcomeBonusLimit - bonusRecipientCount).toLocaleString()} spots left
+                        {welcomeBonusMessage
+                          .replace('{amount}', `₦${welcomeBonusAmount.toLocaleString()}`)
+                          .replace('{spots}', (welcomeBonusLimit - bonusRecipientCount).toLocaleString())}
                       </p>
                     </div>
                   </div>
