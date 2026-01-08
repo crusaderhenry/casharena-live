@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { Mic, MicOff, Volume2, VolumeX, Users, Radio, VolumeOff, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useMockSimulation } from '@/hooks/useMockSimulation';
 import { useLiveKitVoice, VoiceParticipant } from '@/hooks/useLiveKitVoice';
+import { LiveKitAudioPlayer } from '@/components/LiveKitAudioPlayer';
 
 interface VoiceRoomLiveProps {
   gameId: string;
@@ -20,6 +21,7 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
   
   // LiveKit voice chat
   const {
+    room,
     participants: liveKitParticipants,
     isConnected,
     isConnecting,
@@ -44,8 +46,9 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
   }, [audioSettings.hostMuted, setHostMuted, onHostMuteToggle]);
 
   const handleMicToggle = useCallback(async () => {
+    const nextEnabled = !isMicEnabled;
     await toggleMic();
-    onMicToggle?.(isMicEnabled);
+    onMicToggle?.(nextEnabled);
   }, [toggleMic, isMicEnabled, onMicToggle]);
 
   // Use speaker enabled from audio context (inverted from muted)
@@ -68,6 +71,7 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
 
   return (
     <div className="bg-card/80 backdrop-blur-sm rounded-xl p-3 border border-border/50">
+      <LiveKitAudioPlayer room={room} />
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -77,7 +81,7 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
           
           {/* Connection status */}
           {isConnecting && (
-            <span className="text-[10px] text-yellow-400 animate-pulse">connecting...</span>
+            <span className="text-[10px] text-accent animate-pulse">connecting...</span>
           )}
           {connectionError && (
             <span className="text-[10px] text-destructive">{connectionError}</span>
@@ -86,7 +90,7 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
 
         <div className="flex items-center gap-1.5">
           {/* Connection indicator */}
-          <div className={`p-1.5 rounded-full ${isConnected ? 'text-green-500' : 'text-muted-foreground'}`}>
+          <div className={`p-1.5 rounded-full ${isConnected ? 'text-primary' : 'text-muted-foreground'}`}>
             {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
           </div>
 
@@ -185,7 +189,7 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
       {(isHostMuted || !isSpeakerEnabled) && (
         <div className="mt-2 pt-2 border-t border-border/30 flex flex-wrap gap-2">
           {isHostMuted && (
-            <span className="text-[10px] text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span className="text-[10px] text-accent bg-accent/10 px-2 py-0.5 rounded-full flex items-center gap-1">
               <VolumeOff className="w-3 h-3" />
               Host muted
             </span>
