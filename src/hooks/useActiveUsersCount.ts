@@ -6,12 +6,25 @@ export const useActiveUsersCount = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchCount = useCallback(async () => {
-    const [realResult, mockResult] = await Promise.all([
-      supabase.from('profiles').select('id', { count: 'exact', head: true }),
-      supabase.from('mock_users').select('id', { count: 'exact', head: true }).eq('is_active', true)
+    // First check if mock users are globally enabled
+    const [settingsResult, realResult] = await Promise.all([
+      supabase.from('mock_user_settings').select('enabled').single(),
+      supabase.from('profiles').select('id', { count: 'exact', head: true })
     ]);
+    
+    const mockUsersEnabled = settingsResult.data?.enabled ?? false;
     const realCount = realResult.count || 0;
-    const mockCount = mockResult.count || 0;
+    
+    // Only count mock users if globally enabled
+    let mockCount = 0;
+    if (mockUsersEnabled) {
+      const mockResult = await supabase
+        .from('mock_users')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_active', true);
+      mockCount = mockResult.count || 0;
+    }
+    
     setCount(realCount + mockCount);
     setLoading(false);
   }, []);
@@ -43,9 +56,22 @@ export const useActiveUsersCount = () => {
       })
       .subscribe();
 
+    // Subscribe to mock_user_settings changes
+    const settingsChannel = supabase
+      .channel('mock-user-settings')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'mock_user_settings' 
+      }, () => {
+        fetchCount();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(profilesChannel);
       supabase.removeChannel(mockChannel);
+      supabase.removeChannel(settingsChannel);
     };
   }, [fetchCount]);
 
