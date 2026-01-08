@@ -5,8 +5,10 @@ import { BottomNav } from '@/components/BottomNav';
 import { CycleStatusCard } from '@/components/CycleStatusCard';
 import { WinnerStories } from '@/components/WinnerStories';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
+import { UsernamePromptModal } from '@/components/UsernamePromptModal';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
 import { useCrusaderWelcome } from '@/hooks/useCrusaderWelcome';
+import { useOAuthUsername } from '@/hooks/useOAuthUsername';
 import { Zap, Trophy, ChevronRight, Bell, TrendingUp, Calendar, Sparkles, Crown, Radio, Play, Swords, Clock } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,6 +33,9 @@ export const Home = () => {
     total_wins: profile?.total_wins || 0,
     games_played: profile?.games_played || 0,
   });
+
+  // Check if OAuth user needs to set username
+  const { needsUsername, markComplete } = useOAuthUsername(user?.id);
 
   // Welcome new users with Crusader's voice
   useCrusaderWelcome({
@@ -160,6 +165,15 @@ export const Home = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
+
+      {/* Username prompt for OAuth users */}
+      {user?.id && needsUsername && (
+        <UsernamePromptModal
+          open={needsUsername}
+          userId={user.id}
+          onComplete={markComplete}
+        />
+      )}
       
       {showCelebration && newBadge && (
         <BadgeCelebration badge={newBadge} onDismiss={dismissCelebration} />
