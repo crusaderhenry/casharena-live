@@ -30,6 +30,7 @@ export interface PlatformSettings {
   welcome_bonus_limit: number;
   welcome_bonus_enabled: boolean;
   welcome_bonus_message: string;
+  winner_screen_duration: number;
 }
 
 export const usePlatformSettings = () => {
@@ -144,6 +145,7 @@ export const usePlatformSettings = () => {
     welcomeBonusLimit: settings?.welcome_bonus_limit ?? 1000,
     welcomeBonusEnabled: settings?.welcome_bonus_enabled ?? true,
     welcomeBonusMessage: settings?.welcome_bonus_message ?? 'Get your welcome bonus! Limited spots available.',
+    winnerScreenDuration: settings?.winner_screen_duration ?? 10,
     updateSettings,
     toggleTestMode,
     refetch: fetchSettings,

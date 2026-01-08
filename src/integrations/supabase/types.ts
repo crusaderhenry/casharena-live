@@ -879,6 +879,7 @@ export type Database = {
           welcome_bonus_limit: number | null
           welcome_bonus_message: string | null
           welcome_message: string | null
+          winner_screen_duration: number
         }
         Insert: {
           default_comment_timer?: number
@@ -908,6 +909,7 @@ export type Database = {
           welcome_bonus_limit?: number | null
           welcome_bonus_message?: string | null
           welcome_message?: string | null
+          winner_screen_duration?: number
         }
         Update: {
           default_comment_timer?: number
@@ -937,6 +939,7 @@ export type Database = {
           welcome_bonus_limit?: number | null
           welcome_bonus_message?: string | null
           welcome_message?: string | null
+          winner_screen_duration?: number
         }
         Relationships: []
       }

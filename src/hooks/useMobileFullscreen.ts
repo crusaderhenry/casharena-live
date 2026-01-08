@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export const useMobileFullscreen = (isLive: boolean) => {
+export const useMobileFullscreen = (autoFullscreen: boolean = false) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -15,12 +15,12 @@ export const useMobileFullscreen = (isLive: boolean) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Auto-enter fullscreen on mobile when game goes live
+  // Auto-enter fullscreen on mobile only if explicitly enabled
   useEffect(() => {
-    if (isMobile && isLive && !isFullscreen) {
+    if (autoFullscreen && isMobile && !isFullscreen) {
       enterFullscreen();
     }
-  }, [isMobile, isLive]);
+  }, [autoFullscreen, isMobile]);
 
   const enterFullscreen = useCallback(async () => {
     try {
