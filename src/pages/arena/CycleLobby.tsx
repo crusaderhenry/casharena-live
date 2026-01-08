@@ -9,12 +9,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
 import { GameRulesSection } from '@/components/GameRulesSection';
 import { LobbyAudioControls } from '@/components/LobbyAudioControls';
+import { MicCheckModal } from '@/components/MicCheckModal';
 import { 
   ArrowLeft, Users, Timer, Crown, Eye, Trophy, 
   Clock, Play, Radio, Sparkles, Ticket, Wallet,
-  ChevronRight, Star, Shield, Zap, AlertTriangle
+  ChevronRight, Star, Shield, Zap, AlertTriangle, LogOut
 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface CycleData {
   id: string;
@@ -37,13 +48,15 @@ interface CycleData {
   template_name?: string;
 }
 
+const MIC_CHECK_KEY = 'royal_rumble_mic_checked';
+
 export const CycleLobby = () => {
   const { cycleId } = useParams<{ cycleId: string }>();
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { play } = useSounds();
   const { buttonClick, success: hapticSuccess } = useHaptics();
-  const { joinCycle, joining, checkParticipation } = useCycleJoin();
+  const { joinCycle, leaveCycle, joining, leaving, checkParticipation } = useCycleJoin();
   
   const [cycle, setCycle] = useState<CycleData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,12 +64,27 @@ export const CycleLobby = () => {
   const [timeUntilOpening, setTimeUntilOpening] = useState(0);
   const [timeUntilLive, setTimeUntilLive] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
+  const [showMicCheck, setShowMicCheck] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // Lobby audio hook
-  const { tickingSoundEnabled, toggleTickingSound } = useLobbyAudio({
+  useLobbyAudio({
     timeUntilLive,
     isInLobby: !!cycle && (cycle.status === 'waiting' || cycle.status === 'opening'),
   });
+
+  // Check if mic check should show on first visit
+  useEffect(() => {
+    const hasCheckedMic = localStorage.getItem(MIC_CHECK_KEY);
+    if (!hasCheckedMic && cycle) {
+      setShowMicCheck(true);
+    }
+  }, [cycle]);
+
+  const handleMicCheckComplete = () => {
+    localStorage.setItem(MIC_CHECK_KEY, 'true');
+    setShowMicCheck(false);
+  };
 
   // Fetch cycle data
   const fetchCycle = useCallback(async () => {
@@ -109,7 +137,7 @@ export const CycleLobby = () => {
     check();
   }, [cycleId, checkParticipation]);
 
-  // Real-time subscription
+  // Real-time subscription for cycle updates (including participant count)
   useEffect(() => {
     if (!cycleId) return;
 
@@ -122,16 +150,13 @@ export const CycleLobby = () => {
           const updated = payload.new as CycleData;
           setCycle(prev => prev ? { ...prev, ...updated } : null);
 
-          // Automatic transition when game goes live
+          // Instant transition when game goes live
           if (updated.status === 'live') {
             play('gameStart');
             hapticSuccess();
             setTransitioning(true);
-            
-            // Smooth transition to arena
-            setTimeout(() => {
-              navigate(`/arena/${cycleId}/live`, { replace: true });
-            }, 800);
+            // Immediate navigation
+            navigate(`/arena/${cycleId}/live`, { replace: true });
           }
         }
       )
@@ -142,21 +167,34 @@ export const CycleLobby = () => {
     };
   }, [cycleId, navigate, play, hapticSuccess]);
 
-  // Local timer ticker
+  // Local timer ticker with instant transition at 0
   useEffect(() => {
     if (!cycle) return;
 
     const interval = setInterval(() => {
       if (cycle.status === 'waiting') {
-        setTimeUntilOpening(prev => Math.max(0, prev - 1));
+        setTimeUntilOpening(prev => {
+          const newVal = Math.max(0, prev - 1);
+          return newVal;
+        });
         setTimeUntilLive(prev => Math.max(0, prev - 1));
       } else if (cycle.status === 'opening') {
-        setTimeUntilLive(prev => Math.max(0, prev - 1));
+        setTimeUntilLive(prev => {
+          const newVal = Math.max(0, prev - 1);
+          // Instant transition when timer hits 0
+          if (newVal === 0 && prev > 0) {
+            play('gameStart');
+            hapticSuccess();
+            setTransitioning(true);
+            navigate(`/arena/${cycleId}/live`, { replace: true });
+          }
+          return newVal;
+        });
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [cycle?.status]);
+  }, [cycle?.status, cycleId, navigate, play, hapticSuccess]);
 
   const handleJoin = async (asSpectator: boolean = false) => {
     if (!cycleId) return;
@@ -167,6 +205,18 @@ export const CycleLobby = () => {
     if (result.success) {
       setParticipation({ isParticipant: true, isSpectator: asSpectator });
       hapticSuccess();
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!cycleId) return;
+    play('click');
+    buttonClick();
+
+    const result = await leaveCycle(cycleId);
+    if (result.success) {
+      setParticipation({ isParticipant: false, isSpectator: false });
+      setShowLeaveConfirm(false);
     }
   };
 
@@ -218,11 +268,40 @@ export const CycleLobby = () => {
   const canJoin = isOpening && !participation.isParticipant;
   const hasBalance = (profile?.wallet_balance || 0) >= cycle.entry_fee;
   const isLastMinute = timeUntilLive <= 30;
+  const canLeave = timeUntilLive > 300; // 5 minutes = 300 seconds
 
   return (
-    <div className={`min-h-screen bg-background flex flex-col transition-all duration-700 ${
+    <div className={`min-h-screen bg-background flex flex-col transition-all duration-300 ${
       transitioning ? 'opacity-0 scale-110 blur-sm' : 'opacity-100 scale-100 animate-fade-in'
     }`}>
+      {/* Mic Check Modal */}
+      <MicCheckModal 
+        open={showMicCheck} 
+        onOpenChange={setShowMicCheck}
+        onComplete={handleMicCheckComplete}
+      />
+
+      {/* Leave Confirmation Dialog */}
+      <AlertDialog open={showLeaveConfirm} onOpenChange={setShowLeaveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave Game?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cycle.entry_fee > 0 
+                ? `Your entry fee of ${formatMoney(cycle.entry_fee)} will be refunded to your wallet.`
+                : 'Are you sure you want to leave this game?'
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLeave} disabled={leaving}>
+              {leaving ? 'Leaving...' : 'Leave Game'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Header */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="p-4 flex items-center gap-4">
@@ -239,11 +318,8 @@ export const CycleLobby = () => {
             </p>
           </div>
           
-          {/* Audio Controls */}
-          <LobbyAudioControls 
-            tickingSoundEnabled={tickingSoundEnabled}
-            onToggleTickingSound={toggleTickingSound}
-          />
+          {/* Audio Controls with Mic Test */}
+          <LobbyAudioControls onMicTest={() => setShowMicCheck(true)} />
           
           <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full ${
             isOpening ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
@@ -327,11 +403,12 @@ export const CycleLobby = () => {
           </div>
         </div>
 
-        {/* Prize Distribution */}
+        {/* Prize Distribution - Real-time updates */}
         <div className="mx-4 mt-4 p-4 rounded-2xl bg-card border border-border">
           <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
             <Trophy className="w-4 h-4 text-gold" />
             Prize Distribution
+            <span className="text-[10px] text-muted-foreground font-normal ml-auto">Live</span>
           </h3>
           <div className="space-y-2">
             {cycle.prize_distribution.slice(0, cycle.winner_count).map((percent, i) => {
@@ -340,7 +417,7 @@ export const CycleLobby = () => {
               return (
                 <div key={i} className="flex items-center justify-between py-2 px-3 rounded-xl bg-muted/50">
                   <span className="text-lg">{medals[i] || `#${i + 1}`}</span>
-                  <span className="text-sm font-bold text-foreground">{formatMoney(prizeAmount)}</span>
+                  <span className="text-sm font-bold text-foreground transition-all">{formatMoney(prizeAmount)}</span>
                   <span className="text-xs text-muted-foreground">{percent}%</span>
                 </div>
               );
@@ -384,11 +461,26 @@ export const CycleLobby = () => {
                 {participation.isSpectator ? 'Watching as Spectator' : 'You\'re In!'}
               </span>
             </div>
+            
+            {/* Leave Game Button - Only if 5+ min before live */}
+            {canLeave && !participation.isSpectator && (
+              <button
+                onClick={() => setShowLeaveConfirm(true)}
+                disabled={leaving}
+                className="w-full py-2.5 rounded-xl bg-muted text-muted-foreground font-medium flex items-center justify-center gap-2 hover:bg-destructive/10 hover:text-destructive transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                {leaving ? 'Leaving...' : 'Leave Game'}
+              </button>
+            )}
+            
             <p className="text-center text-sm text-muted-foreground">
               {isOpening 
                 ? isLastMinute 
                   ? '🔥 Game starts in moments! Stay here!' 
-                  : 'Game starts soon. Stay on this page!' 
+                  : canLeave 
+                    ? 'Game starts soon. You can leave until 5 min before.'
+                    : 'Less than 5 min to go. Locked in!'
                 : 'Waiting for entry to open...'}
             </p>
           </div>
