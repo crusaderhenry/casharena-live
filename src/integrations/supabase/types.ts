@@ -879,6 +879,7 @@ export type Database = {
           kyc_verified_at: string | null
           last_active_at: string | null
           rank_points: number
+          received_welcome_bonus: boolean | null
           status: string
           suspended_at: string | null
           suspended_reason: string | null
@@ -889,6 +890,7 @@ export type Database = {
           wallet_balance: number
           wallet_locked: boolean
           weekly_rank: number | null
+          welcome_bonus_received_at: string | null
         }
         Insert: {
           avatar?: string | null
@@ -906,6 +908,7 @@ export type Database = {
           kyc_verified_at?: string | null
           last_active_at?: string | null
           rank_points?: number
+          received_welcome_bonus?: boolean | null
           status?: string
           suspended_at?: string | null
           suspended_reason?: string | null
@@ -916,6 +919,7 @@ export type Database = {
           wallet_balance?: number
           wallet_locked?: boolean
           weekly_rank?: number | null
+          welcome_bonus_received_at?: string | null
         }
         Update: {
           avatar?: string | null
@@ -933,6 +937,7 @@ export type Database = {
           kyc_verified_at?: string | null
           last_active_at?: string | null
           rank_points?: number
+          received_welcome_bonus?: boolean | null
           status?: string
           suspended_at?: string | null
           suspended_reason?: string | null
@@ -943,6 +948,7 @@ export type Database = {
           wallet_balance?: number
           wallet_locked?: boolean
           weekly_rank?: number | null
+          welcome_bonus_received_at?: string | null
         }
         Relationships: []
       }
