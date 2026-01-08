@@ -376,6 +376,31 @@ export const AdminSettings = () => {
                   Banner shown on auth page. Use {'{amount}'} for bonus and {'{spots}'} for remaining slots ({localSettings.welcomeBonusMessage.length}/120)
                 </p>
               </div>
+
+              {/* Live Preview */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  Live Preview
+                </label>
+                <div className="max-w-sm p-3 bg-gradient-to-r from-primary/10 to-yellow-500/10 border border-primary/30 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+                      <Gift className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-foreground">
+                        {localSettings.welcomeBonusMessage
+                          .replace('{amount}', `₦${localSettings.welcomeBonusAmount.toLocaleString()}`)
+                          .replace('{spots}', Math.max(0, localSettings.welcomeBonusLimit - bonusRecipientCount).toLocaleString())}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  This is how the banner will appear on the auth page
+                </p>
+              </div>
             </>
           )}
 

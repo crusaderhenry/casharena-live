@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Profile {
   id: string;
@@ -42,11 +43,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const welcomeBonusShownRef = useRef<Set<string>>(new Set());
 
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('*, received_welcome_bonus, welcome_bonus_received_at')
       .eq('id', userId)
       .maybeSingle();
 
@@ -54,7 +56,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error('Error fetching profile:', error);
       return null;
     }
-    return data as Profile | null;
+    return data as (Profile & { received_welcome_bonus?: boolean; welcome_bonus_received_at?: string | null }) | null;
+  }, []);
+
+  // Check and show welcome bonus toast for new users
+  const checkWelcomeBonusToast = useCallback(async (userId: string, profileData: any) => {
+    // Only show once per session per user
+    if (welcomeBonusShownRef.current.has(userId)) return;
+    
+    // Check if user received welcome bonus recently (within last 5 minutes)
+    if (profileData?.received_welcome_bonus && profileData?.welcome_bonus_received_at) {
+      const bonusTime = new Date(profileData.welcome_bonus_received_at).getTime();
+      const now = Date.now();
+      const fiveMinutes = 5 * 60 * 1000;
+      
+      if (now - bonusTime < fiveMinutes) {
+        welcomeBonusShownRef.current.add(userId);
+        
+        // Small delay to let the UI settle
+        setTimeout(() => {
+          toast.success(`🎉 Welcome Bonus: ₦${profileData.wallet_balance.toLocaleString()} credited!`, {
+            description: 'Your welcome bonus has been added to your wallet',
+            duration: 6000,
+          });
+        }, 1500);
+      }
+    }
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -75,7 +102,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Defer profile fetch with setTimeout to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
-            fetchProfile(session.user.id).then(setProfile);
+            fetchProfile(session.user.id).then((profileData) => {
+              setProfile(profileData);
+              checkWelcomeBonusToast(session.user.id, profileData);
+            });
           }, 0);
         } else {
           setProfile(null);
@@ -101,7 +131,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        fetchProfile(session.user.id).then(setProfile);
+        fetchProfile(session.user.id).then((profileData) => {
+          setProfile(profileData);
+          checkWelcomeBonusToast(session.user.id, profileData);
+        });
       }
 
       setLoading(false);
