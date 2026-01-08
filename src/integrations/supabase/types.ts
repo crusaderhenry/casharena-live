@@ -331,6 +331,7 @@ export type Database = {
         Row: {
           actual_end_at: string | null
           allow_spectators: boolean
+          ambient_music_style: string | null
           comment_timer: number
           countdown: number
           created_at: string
@@ -356,6 +357,7 @@ export type Database = {
         Insert: {
           actual_end_at?: string | null
           allow_spectators?: boolean
+          ambient_music_style?: string | null
           comment_timer?: number
           countdown?: number
           created_at?: string
@@ -381,6 +383,7 @@ export type Database = {
         Update: {
           actual_end_at?: string | null
           allow_spectators?: boolean
+          ambient_music_style?: string | null
           comment_timer?: number
           countdown?: number
           created_at?: string

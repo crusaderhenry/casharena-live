@@ -73,7 +73,8 @@ interface GameFormData {
   isSponsored: boolean;
   sponsoredAmount: number;
   platformCutPercentage: number;
-  // Music settings
+  // Music settings - ambient style overrides uploads
+  ambientMusicStyle: 'chill' | 'intense' | 'retro' | 'none';
   musicType: 'generated' | 'uploaded';
   lobbyMusicUrl: string;
   arenaMusicUrl: string;
@@ -153,6 +154,7 @@ export const AdminRumbleControl = () => {
     isSponsored: false,
     sponsoredAmount: 0,
     platformCutPercentage: platformCut,
+    ambientMusicStyle: 'chill',
     musicType: 'generated',
     lobbyMusicUrl: '',
     arenaMusicUrl: '',
@@ -229,11 +231,12 @@ export const AdminRumbleControl = () => {
       fixed_daily_time: formData.recurrenceType === 'daily' ? formData.fixedDailyTime : null,
       entry_wait_seconds: formData.entryWaitSeconds,
       min_participants_action: formData.minParticipantsAction,
-      // Music settings
-      music_type: formData.musicType,
-      lobby_music_url: formData.musicType === 'uploaded' ? formData.lobbyMusicUrl || null : null,
-      arena_music_url: formData.musicType === 'uploaded' ? formData.arenaMusicUrl || null : null,
-      tense_music_url: formData.musicType === 'uploaded' ? formData.tenseMusicUrl || null : null,
+      // Music settings - ambient style takes priority
+      ambient_music_style: formData.ambientMusicStyle,
+      music_type: formData.ambientMusicStyle !== 'none' ? 'generated' : formData.musicType,
+      lobby_music_url: formData.ambientMusicStyle === 'none' && formData.musicType === 'uploaded' ? formData.lobbyMusicUrl || null : null,
+      arena_music_url: formData.ambientMusicStyle === 'none' && formData.musicType === 'uploaded' ? formData.arenaMusicUrl || null : null,
+      tense_music_url: formData.ambientMusicStyle === 'none' && formData.musicType === 'uploaded' ? formData.tenseMusicUrl || null : null,
     });
     setShowCreateDialog(false);
     
@@ -258,6 +261,7 @@ export const AdminRumbleControl = () => {
       isSponsored: false,
       sponsoredAmount: 0,
       platformCutPercentage: 10,
+      ambientMusicStyle: 'chill',
       musicType: 'generated',
       lobbyMusicUrl: '',
       arenaMusicUrl: '',
@@ -356,6 +360,7 @@ export const AdminRumbleControl = () => {
           isSponsored: (data.sponsored_prize_amount || 0) > 0,
           sponsoredAmount: data.sponsored_prize_amount || 0,
           platformCutPercentage: Number(data.platform_cut_percentage) || 10,
+          ambientMusicStyle: (data as any).ambient_music_style || 'chill',
           musicType: 'generated',
           lobbyMusicUrl: '',
           arenaMusicUrl: '',
@@ -738,49 +743,67 @@ export const AdminRumbleControl = () => {
               <div className="space-y-3 pt-4 border-t border-border">
                 <Label className="flex items-center gap-2">
                   <Music className="w-4 h-4 text-muted-foreground" />
-                  Background Music
+                  Background Music Style
                 </Label>
                 
                 <Select
-                  value={formData.musicType}
-                  onValueChange={(value: 'generated' | 'uploaded') => setFormData(prev => ({ ...prev, musicType: value }))}
+                  value={formData.ambientMusicStyle}
+                  onValueChange={(value: 'chill' | 'intense' | 'retro' | 'none') => setFormData(prev => ({ ...prev, ambientMusicStyle: value }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select music type" />
+                    <SelectValue placeholder="Select ambient style" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="generated">
+                    <SelectItem value="chill">
                       <div className="flex items-center gap-2">
-                        <span>🎵</span> Generated (Web Audio)
+                        <span>🌊</span> Chill - Relaxed, smooth vibes
                       </div>
                     </SelectItem>
-                    <SelectItem value="uploaded">
+                    <SelectItem value="intense">
                       <div className="flex items-center gap-2">
-                        <Upload className="w-4 h-4" /> Custom Music Files
+                        <span>🔥</span> Intense - High energy, aggressive
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="retro">
+                      <div className="flex items-center gap-2">
+                        <span>👾</span> Retro - 8-bit arcade style
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="none">
+                      <div className="flex items-center gap-2">
+                        <Upload className="w-4 h-4" /> Custom Upload
                       </div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
+
+                {formData.ambientMusicStyle !== 'none' && (
+                  <p className="text-xs text-muted-foreground bg-primary/10 p-2 rounded">
+                    {formData.ambientMusicStyle === 'chill' && '🎵 Smooth sine waves and warm pads for a relaxed atmosphere'}
+                    {formData.ambientMusicStyle === 'intense' && '🎵 Aggressive sawtooth and punchy bass for high stakes moments'}
+                    {formData.ambientMusicStyle === 'retro' && '🎵 Classic square wave sounds reminiscent of arcade games'}
+                  </p>
+                )}
                 
-                {formData.musicType === 'uploaded' && (
+                {formData.ambientMusicStyle === 'none' && (
                   <div className="space-y-4 p-3 bg-muted/30 rounded-lg border border-border">
                     <MusicUploader
                       label="Lobby Music"
                       value={formData.lobbyMusicUrl}
-                      onChange={(url) => setFormData(prev => ({ ...prev, lobbyMusicUrl: url }))}
+                      onChange={(url) => setFormData(prev => ({ ...prev, lobbyMusicUrl: url, musicType: 'uploaded' }))}
                     />
                     <MusicUploader
                       label="Arena Music"
                       value={formData.arenaMusicUrl}
-                      onChange={(url) => setFormData(prev => ({ ...prev, arenaMusicUrl: url }))}
+                      onChange={(url) => setFormData(prev => ({ ...prev, arenaMusicUrl: url, musicType: 'uploaded' }))}
                     />
                     <MusicUploader
                       label="Tense Music"
                       value={formData.tenseMusicUrl}
-                      onChange={(url) => setFormData(prev => ({ ...prev, tenseMusicUrl: url }))}
+                      onChange={(url) => setFormData(prev => ({ ...prev, tenseMusicUrl: url, musicType: 'uploaded' }))}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Upload MP3 files (max 10MB) or paste URLs. Leave empty to fall back to generated audio.
+                      Upload MP3 files (max 10MB) or paste URLs.
                     </p>
                   </div>
                 )}

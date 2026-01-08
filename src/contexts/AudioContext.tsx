@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from 'react';
 
+export type AmbientMusicStyle = 'chill' | 'intense' | 'retro' | 'none';
+
 interface AudioSettings {
   musicEnabled: boolean;
   sfxEnabled: boolean;
@@ -15,7 +17,7 @@ interface AudioContextType {
   toggleSfx: () => void;
   toggleCommentary: () => void;
   setVolume: (volume: number) => void;
-  playBackgroundMusic: (type: 'lobby' | 'arena' | 'tense', customUrl?: string | null) => void;
+  playBackgroundMusic: (type: 'lobby' | 'arena' | 'tense', customUrl?: string | null, ambientStyle?: AmbientMusicStyle) => void;
   stopBackgroundMusic: () => void;
   toggleHostMute: () => void;
   toggleVoiceRoomMute: () => void;
@@ -33,57 +35,118 @@ export const useAudio = () => {
   return context;
 };
 
-// Ambient sound generators using Web Audio API
-const createAmbientSound = (ctx: AudioContext, type: 'lobby' | 'arena' | 'tense') => {
+// Ambient sound generators using Web Audio API with different styles
+const createAmbientSound = (ctx: AudioContext, type: 'lobby' | 'arena' | 'tense', style: AmbientMusicStyle = 'chill') => {
   const masterGain = ctx.createGain();
   masterGain.connect(ctx.destination);
-  masterGain.gain.value = 0.15; // Increased master volume
+  masterGain.gain.value = 0.15;
 
-  // Create low frequency oscillator for ambient hum
+  const oscillators: OscillatorNode[] = [];
+  const gains: GainNode[] = [];
+
+  // Style-specific configurations
+  const styleConfigs = {
+    chill: {
+      lfoFreq: type === 'tense' ? 55 : type === 'arena' ? 65 : 50,
+      lfoType: 'sine' as OscillatorType,
+      lfoGain: 0.3,
+      pulseFreq: type === 'tense' ? 82.5 : 75,
+      pulseType: 'sine' as OscillatorType,
+      pulseGain: 0.15,
+      padFreq: type === 'tense' ? 165 : type === 'arena' ? 130 : 100,
+      padType: 'sine' as OscillatorType,
+      padGain: 0.1,
+      // Extra warm layer for chill
+      extraFreq: type === 'arena' ? 196 : 147,
+      extraType: 'sine' as OscillatorType,
+      extraGain: 0.08,
+    },
+    intense: {
+      lfoFreq: type === 'tense' ? 73 : type === 'arena' ? 110 : 82,
+      lfoType: 'sawtooth' as OscillatorType,
+      lfoGain: 0.5,
+      pulseFreq: type === 'tense' ? 146 : 130,
+      pulseType: 'square' as OscillatorType,
+      pulseGain: 0.25,
+      padFreq: type === 'tense' ? 293 : type === 'arena' ? 220 : 165,
+      padType: 'triangle' as OscillatorType,
+      padGain: 0.15,
+      // Aggressive sub bass for intense
+      extraFreq: type === 'tense' ? 36 : 30,
+      extraType: 'sine' as OscillatorType,
+      extraGain: 0.4,
+    },
+    retro: {
+      lfoFreq: type === 'tense' ? 65 : type === 'arena' ? 87 : 73,
+      lfoType: 'square' as OscillatorType,
+      lfoGain: 0.2,
+      pulseFreq: type === 'tense' ? 130 : 110,
+      pulseType: 'square' as OscillatorType,
+      pulseGain: 0.15,
+      padFreq: type === 'tense' ? 260 : type === 'arena' ? 175 : 146,
+      padType: 'triangle' as OscillatorType,
+      padGain: 0.12,
+      // 8-bit arpeggio layer for retro
+      extraFreq: type === 'arena' ? 440 : 330,
+      extraType: 'square' as OscillatorType,
+      extraGain: 0.06,
+    },
+  };
+
+  const config = styleConfigs[style === 'none' ? 'chill' : style];
+
+  // LFO layer
   const lfo = ctx.createOscillator();
-  lfo.type = 'sine';
-  lfo.frequency.value = type === 'tense' ? 55 : type === 'arena' ? 80 : 60;
-  
+  lfo.type = config.lfoType;
+  lfo.frequency.value = config.lfoFreq;
   const lfoGain = ctx.createGain();
-  lfoGain.gain.value = 0.4; // Increased from 0.02
-  
+  lfoGain.gain.value = config.lfoGain;
   lfo.connect(lfoGain);
   lfoGain.connect(masterGain);
-  
-  // Add subtle pulse
+  oscillators.push(lfo);
+  gains.push(lfoGain);
+
+  // Pulse layer
   const pulse = ctx.createOscillator();
-  pulse.type = 'triangle';
-  pulse.frequency.value = type === 'tense' ? 110 : 100;
-  
+  pulse.type = config.pulseType;
+  pulse.frequency.value = config.pulseFreq;
   const pulseGain = ctx.createGain();
-  pulseGain.gain.value = 0.2; // Increased from 0.01
-  
+  pulseGain.gain.value = config.pulseGain;
   pulse.connect(pulseGain);
   pulseGain.connect(masterGain);
+  oscillators.push(pulse);
+  gains.push(pulseGain);
 
-  // Add a third layer for richer sound
+  // Pad layer
   const pad = ctx.createOscillator();
-  pad.type = 'sine';
-  pad.frequency.value = type === 'tense' ? 220 : type === 'arena' ? 160 : 120;
-  
+  pad.type = config.padType;
+  pad.frequency.value = config.padFreq;
   const padGain = ctx.createGain();
-  padGain.gain.value = 0.1;
-  
+  padGain.gain.value = config.padGain;
   pad.connect(padGain);
   padGain.connect(masterGain);
+  oscillators.push(pad);
+  gains.push(padGain);
+
+  // Extra layer (style-specific)
+  const extra = ctx.createOscillator();
+  extra.type = config.extraType;
+  extra.frequency.value = config.extraFreq;
+  const extraGain = ctx.createGain();
+  extraGain.gain.value = config.extraGain;
+  extra.connect(extraGain);
+  extraGain.connect(masterGain);
+  oscillators.push(extra);
+  gains.push(extraGain);
 
   return { 
     start: () => {
-      lfo.start();
-      pulse.start();
-      pad.start();
-      console.log('[Audio] Ambient sound started:', type);
+      oscillators.forEach(osc => osc.start());
+      console.log('[Audio] Ambient sound started:', type, 'style:', style);
     },
     stop: () => {
       try {
-        lfo.stop();
-        pulse.stop();
-        pad.stop();
+        oscillators.forEach(osc => osc.stop());
         console.log('[Audio] Ambient sound stopped');
       } catch {}
     },
@@ -149,13 +212,21 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const playBackgroundMusic = useCallback((type: 'lobby' | 'arena' | 'tense', customUrl?: string | null) => {
+  const playBackgroundMusic = useCallback((type: 'lobby' | 'arena' | 'tense', customUrl?: string | null, ambientStyle?: AmbientMusicStyle) => {
     if (!settings.musicEnabled) {
       console.log('[Audio] Music disabled, not playing');
       return;
     }
+
+    const style = ambientStyle || 'chill';
     
-    console.log('[Audio] Playing background music:', type, customUrl ? '(custom)' : '(generated)');
+    // If style is 'none', don't play any music
+    if (style === 'none' && !customUrl) {
+      console.log('[Audio] Music style set to none, not playing');
+      return;
+    }
+    
+    console.log('[Audio] Playing background music:', type, customUrl ? '(custom)' : `(generated: ${style})`);
     
     // Stop existing music (both generated and uploaded)
     if (ambientRef.current) {
@@ -176,9 +247,9 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         audio.volume = settings.volume * 0.3;
         audio.play().catch(err => {
           console.warn('[Audio] Failed to play custom music:', err);
-          // Fallback to generated audio
+          // Fallback to generated audio with style
           const ctx = getContext();
-          ambientRef.current = createAmbientSound(ctx, type);
+          ambientRef.current = createAmbientSound(ctx, type, style);
           ambientRef.current.gainNode.gain.value = settings.volume * 0.15;
           ambientRef.current.start();
         });
@@ -189,9 +260,9 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    // Use generated ambient sounds
+    // Use generated ambient sounds with style
     const ctx = getContext();
-    ambientRef.current = createAmbientSound(ctx, type);
+    ambientRef.current = createAmbientSound(ctx, type, style);
     ambientRef.current.gainNode.gain.value = settings.volume * 0.15;
     ambientRef.current.start();
   }, [settings.musicEnabled, settings.volume, getContext]);

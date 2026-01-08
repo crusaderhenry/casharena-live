@@ -103,6 +103,7 @@ interface CreateGameConfig {
   entry_wait_seconds?: number;
   min_participants_action?: 'reset' | 'cancel' | 'start_anyway';
   // Music settings
+  ambient_music_style?: 'chill' | 'intense' | 'retro' | 'none';
   music_type?: 'generated' | 'uploaded';
   lobby_music_url?: string | null;
   arena_music_url?: string | null;

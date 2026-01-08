@@ -1,13 +1,15 @@
 import { useEffect, useRef } from 'react';
-import { useAudio } from '@/contexts/AudioContext';
+import { useAudio, AmbientMusicStyle } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 
 interface UseLobbyAudioOptions {
   timeUntilLive: number;
   isInLobby: boolean;
+  ambientMusicStyle?: AmbientMusicStyle;
+  customMusicUrl?: string | null;
 }
 
-export const useLobbyAudio = ({ timeUntilLive, isInLobby }: UseLobbyAudioOptions) => {
+export const useLobbyAudio = ({ timeUntilLive, isInLobby, ambientMusicStyle = 'chill', customMusicUrl }: UseLobbyAudioOptions) => {
   const { playBackgroundMusic, stopBackgroundMusic, settings } = useAudio();
   const { play } = useSounds();
   const lastTickRef = useRef<number | null>(null);
@@ -16,8 +18,8 @@ export const useLobbyAudio = ({ timeUntilLive, isInLobby }: UseLobbyAudioOptions
   // Start/stop lobby music based on lobby state and music setting
   useEffect(() => {
     if (isInLobby && settings.musicEnabled) {
-      // Start music if not already started or if re-enabled
-      playBackgroundMusic('lobby');
+      // Start music with style if not already started or if re-enabled
+      playBackgroundMusic('lobby', customMusicUrl, ambientMusicStyle);
       hasStartedRef.current = true;
     } else if (!settings.musicEnabled && hasStartedRef.current) {
       // Stop if music was disabled
@@ -30,7 +32,7 @@ export const useLobbyAudio = ({ timeUntilLive, isInLobby }: UseLobbyAudioOptions
         hasStartedRef.current = false;
       }
     };
-  }, [isInLobby, settings.musicEnabled, playBackgroundMusic, stopBackgroundMusic]);
+  }, [isInLobby, settings.musicEnabled, playBackgroundMusic, stopBackgroundMusic, ambientMusicStyle, customMusicUrl]);
 
   // Countdown tick sounds in last 30 seconds
   useEffect(() => {

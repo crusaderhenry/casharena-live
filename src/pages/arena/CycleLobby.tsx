@@ -46,6 +46,8 @@ interface CycleData {
   live_end_at: string;
   min_participants: number;
   template_name?: string;
+  ambient_music_style?: 'chill' | 'intense' | 'retro' | 'none';
+  lobby_music_url?: string | null;
 }
 
 const MIC_CHECK_KEY = 'royal_rumble_mic_checked';
@@ -67,10 +69,12 @@ export const CycleLobby = () => {
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
-  // Lobby audio hook
+  // Lobby audio hook with ambient style from cycle
   useLobbyAudio({
     timeUntilLive,
     isInLobby: !!cycle && (cycle.status === 'waiting' || cycle.status === 'opening'),
+    ambientMusicStyle: cycle?.ambient_music_style || 'chill',
+    customMusicUrl: cycle?.lobby_music_url,
   });
 
   // Check if mic check should show on first visit
@@ -110,7 +114,11 @@ export const CycleLobby = () => {
       .eq('id', data.template_id)
       .single();
 
-    setCycle({ ...data, template_name: template?.name || 'Royal Rumble' });
+    setCycle({ 
+      ...data, 
+      template_name: template?.name || 'Royal Rumble',
+      ambient_music_style: data.ambient_music_style as CycleData['ambient_music_style'],
+    });
     
     const now = Date.now();
     const entryOpenAt = new Date(data.entry_open_at).getTime();
