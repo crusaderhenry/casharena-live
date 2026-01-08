@@ -185,20 +185,33 @@ export const CycleLobby = () => {
   }, [cycleId, navigate, play, hapticSuccess]);
 
   // Local timer ticker with instant transition at 0
-  // Also includes eager polling when < 10 seconds to ensure backend catches up
+  // Uses dedicated status-check endpoint for faster polling near transitions
   useEffect(() => {
     if (!cycle) return;
 
-    // Eager polling function to trigger backend tick when close to transition
-    const triggerEagerTick = async () => {
+    // Lightweight status check for faster transitions
+    const checkCycleStatus = async () => {
       try {
-        await supabase.functions.invoke('cycle-manager', {
-          body: { action: 'tick' }
+        const { data, error } = await supabase.functions.invoke('cycle-status-check', {
+          body: { cycle_id: cycleId }
         });
+        
+        if (!error && data?.status_updated && data?.current_status === 'live') {
+          // Backend confirmed live - trigger transition immediately
+          play('gameStart');
+          hapticSuccess();
+          setFlashActive(true);
+          setTransitioning(true);
+          setTimeout(() => {
+            navigate(`/arena/${cycleId}/live`, { replace: true });
+          }, 400);
+        }
       } catch (e) {
-        console.log('[CycleLobby] Eager tick failed:', e);
+        console.log('[CycleLobby] Status check failed:', e);
       }
     };
+
+    let fastPollInterval: NodeJS.Timeout | null = null;
 
     const interval = setInterval(() => {
       if (cycle.status === 'waiting') {
@@ -211,9 +224,11 @@ export const CycleLobby = () => {
         setTimeUntilLive(prev => {
           const newVal = Math.max(0, prev - 1);
           
-          // Eager polling when < 10 seconds to ensure backend updates quickly
-          if (newVal > 0 && newVal <= 10 && newVal % 3 === 0) {
-            triggerEagerTick();
+          // Start fast polling when < 10 seconds (every 2 seconds)
+          if (newVal <= 10 && newVal > 0 && !fastPollInterval) {
+            fastPollInterval = setInterval(checkCycleStatus, 2000);
+            // Trigger immediate check
+            checkCycleStatus();
           }
           
           // Transition with flash when timer hits 0 - navigate immediately
@@ -222,8 +237,8 @@ export const CycleLobby = () => {
             hapticSuccess();
             setFlashActive(true);
             setTransitioning(true);
-            // Trigger one more backend tick to ensure status updates
-            triggerEagerTick();
+            // Final status check to ensure backend updates
+            checkCycleStatus();
             setTimeout(() => {
               navigate(`/arena/${cycleId}/live`, { replace: true });
             }, 400);
@@ -233,7 +248,10 @@ export const CycleLobby = () => {
       }
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (fastPollInterval) clearInterval(fastPollInterval);
+    };
   }, [cycle?.status, cycleId, navigate, play, hapticSuccess]);
 
   const handleJoin = async (asSpectator: boolean = false) => {
