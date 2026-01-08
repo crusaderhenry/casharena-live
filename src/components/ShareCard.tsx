@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, memo } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Share2, MessageCircle, Download, Copy, Check, Loader2, Instagram, Facebook } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { useToast } from '@/hooks/use-toast';
@@ -11,7 +11,7 @@ interface ShareCardProps {
   gameType: 'finger' | 'pool';
 }
 
-export const ShareCard = memo(function ShareCard({ username, avatar, position, amount, gameType }: ShareCardProps) {
+export const ShareCard = ({ username, avatar, position, amount, gameType }: ShareCardProps) => {
   const { toast } = useToast();
   const cardRef = useRef<HTMLDivElement>(null);
   const storyCardRef = useRef<HTMLDivElement>(null);
@@ -428,4 +428,4 @@ export const ShareCard = memo(function ShareCard({ username, avatar, position, a
       </div>
     </div>
   );
-});
+};
