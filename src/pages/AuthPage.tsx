@@ -433,6 +433,15 @@ export const AuthPage = () => {
                 </button>
               </form>
 
+              {/* Continue as Spectator link */}
+              <button
+                type="button"
+                onClick={handleSkip}
+                className="w-full mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Continue as Spectator
+              </button>
+
               {/* Google OAuth - only show if enabled */}
               {!settingsLoading && googleAuthEnabled && (
                 <>
