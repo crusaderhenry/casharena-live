@@ -376,10 +376,10 @@ export const CycleArena = () => {
     inputRef.current?.focus();
   };
 
-  const handleFreezeComplete = () => {
+  const handleFreezeComplete = useCallback(() => {
     setShowGameEndFreeze(false);
     navigate(`/arena/${cycleId}/results`, { replace: true });
-  };
+  }, [navigate, cycleId]);
 
   const formatMoney = (amount: number) => {
     if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;

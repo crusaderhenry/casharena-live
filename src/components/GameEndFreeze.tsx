@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Crown, Trophy, Clock, Sparkles } from 'lucide-react';
 import { Confetti } from '@/components/Confetti';
 import { useSounds } from '@/hooks/useSounds';
@@ -26,6 +26,10 @@ export const GameEndFreeze = ({
   const [phase, setPhase] = useState<'drumroll' | 'reveal' | 'celebration'>('drumroll');
   const { play } = useSounds();
   const { enableDramaticSounds } = usePlatformSettings();
+  
+  // Use ref to avoid dependency issues with onComplete
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
     if (!isActive) {
@@ -62,7 +66,8 @@ export const GameEndFreeze = ({
       setCountdown(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          onComplete();
+          // Use ref to call the callback
+          onCompleteRef.current();
           return 0;
         }
         return prev - 1;
@@ -73,7 +78,7 @@ export const GameEndFreeze = ({
       clearInterval(interval);
       clearTimeout(revealTimeout);
     };
-  }, [isActive, freezeDuration, onComplete, play]);
+  }, [isActive, freezeDuration, play, enableDramaticSounds]);
 
   const formatMoney = (amount: number) => {
     return `₦${amount.toLocaleString()}`;
