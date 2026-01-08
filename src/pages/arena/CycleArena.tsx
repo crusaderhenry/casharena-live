@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { GameShareModal } from '@/components/GameShareModal';
+import { MusicToggle } from '@/components/MusicToggle';
 import { 
   ArrowLeft, Send, Users, Timer, Crown, Eye, Trophy, 
   Zap, MessageCircle, Clock, Play, Radio, Sparkles,
@@ -533,6 +534,9 @@ export const CycleArena = () => {
               {isLive ? 'LIVE' : cycle.status.toUpperCase()}
             </span>
           </div>
+          
+          {/* Music Toggle */}
+          <MusicToggle className="w-10 h-10" />
           
           {/* Share button */}
           <button
