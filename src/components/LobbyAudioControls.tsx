@@ -6,21 +6,31 @@ interface LobbyAudioControlsProps {
 }
 
 export const LobbyAudioControls = ({ onMicTest }: LobbyAudioControlsProps) => {
-  const { settings, toggleMusic, toggleSfx } = useAudio();
+  const { settings, toggleMusic, toggleSfx, playBackgroundMusic, stopBackgroundMusic } = useAudio();
   
-  // Combined mute state - both music and SFX are controlled together
+  // Combined mute state - muted when BOTH are off
   const isMuted = !settings.musicEnabled && !settings.sfxEnabled;
+  // Consider "on" if either is enabled
+  const isAudioOn = settings.musicEnabled || settings.sfxEnabled;
 
   const handleToggleMute = () => {
-    // Toggle both music and SFX together
-    if (isMuted) {
-      // Unmute both
-      if (!settings.musicEnabled) toggleMusic();
-      if (!settings.sfxEnabled) toggleSfx();
-    } else {
+    if (isAudioOn) {
       // Mute both
-      if (settings.musicEnabled) toggleMusic();
+      if (settings.musicEnabled) {
+        toggleMusic();
+        stopBackgroundMusic();
+      }
       if (settings.sfxEnabled) toggleSfx();
+    } else {
+      // Unmute both and restart music
+      if (!settings.musicEnabled) {
+        toggleMusic();
+        // Small delay to let state update, then play music
+        setTimeout(() => {
+          playBackgroundMusic('lobby');
+        }, 50);
+      }
+      if (!settings.sfxEnabled) toggleSfx();
     }
   };
 
@@ -30,13 +40,13 @@ export const LobbyAudioControls = ({ onMicTest }: LobbyAudioControlsProps) => {
       <button
         onClick={handleToggleMute}
         className={`p-2 rounded-lg transition-all ${
-          !isMuted 
+          isAudioOn 
             ? 'bg-primary/20 text-primary' 
             : 'bg-muted text-muted-foreground'
         }`}
-        title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+        title={isAudioOn ? 'Mute Audio' : 'Unmute Audio'}
       >
-        {!isMuted ? (
+        {isAudioOn ? (
           <Volume2 className="w-4 h-4" />
         ) : (
           <VolumeX className="w-4 h-4 opacity-50" />
