@@ -26,6 +26,7 @@ const ArenaListing = lazy(() => import("@/pages/arena/ArenaListing").then(m => (
 const CycleLobby = lazy(() => import("@/pages/arena/CycleLobby").then(m => ({ default: m.CycleLobby })));
 const CycleArena = lazy(() => import("@/pages/arena/CycleArena").then(m => ({ default: m.CycleArena })));
 const CycleResults = lazy(() => import("@/pages/arena/CycleResults").then(m => ({ default: m.CycleResults })));
+const WinnerCelebration = lazy(() => import("@/pages/arena/WinnerCelebration").then(m => ({ default: m.WinnerCelebration })));
 
 // Lazy loaded - Other screens
 const RankScreen = lazy(() => import("@/pages/RankScreen").then(m => ({ default: m.RankScreen })));
@@ -207,6 +208,7 @@ const AppRoutes = () => (
       <Route path="/arena" element={<ArenaListing />} />
       <Route path="/arena/:cycleId" element={<CycleLobby />} />
       <Route path="/arena/:cycleId/live" element={<ProtectedRoute><CycleArena /></ProtectedRoute>} />
+      <Route path="/arena/:cycleId/winner" element={<ProtectedRoute><WinnerCelebration /></ProtectedRoute>} />
       <Route path="/arena/:cycleId/results" element={<CycleResults />} />
       
       {/* Other screens */}

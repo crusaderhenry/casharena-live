@@ -416,10 +416,26 @@ export const CycleArena = () => {
     inputRef.current?.focus();
   };
 
-  const handleFreezeComplete = useCallback(() => {
+  const handleFreezeComplete = useCallback(async () => {
     setShowGameEndFreeze(false);
+    
+    // Check if current user is a winner - if so, go to celebration page
+    if (user) {
+      const { data: winData } = await supabase
+        .from('cycle_winners')
+        .select('id')
+        .eq('cycle_id', cycleId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (winData) {
+        navigate(`/arena/${cycleId}/winner`, { replace: true });
+        return;
+      }
+    }
+    
     navigate(`/arena/${cycleId}/results`, { replace: true });
-  }, [navigate, cycleId]);
+  }, [navigate, cycleId, user]);
 
   const formatMoney = (amount: number) => {
     if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;

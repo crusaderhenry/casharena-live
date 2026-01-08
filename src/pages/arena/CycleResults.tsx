@@ -101,12 +101,21 @@ export const CycleResults = () => {
 
         setWinners(enrichedWinners);
 
-        // Check if current user won - delay modal to show after results loaded
+        // Check if current user won
         const userWinData = enrichedWinners.find(w => w.user_id === user?.id);
         if (userWinData) {
           setUserWin(userWinData);
           setShowConfetti(true);
           play('win');
+          
+          // Check if user has seen the celebration page (via sessionStorage)
+          const celebrationKey = `celebration_seen_${cycleId}`;
+          if (!sessionStorage.getItem(celebrationKey)) {
+            sessionStorage.setItem(celebrationKey, 'true');
+            // Redirect to celebration page first
+            navigate(`/arena/${cycleId}/winner`, { replace: true });
+            return;
+          }
         }
       }
 
