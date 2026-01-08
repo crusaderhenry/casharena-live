@@ -1,16 +1,10 @@
-import { useCallback, useState } from 'react';
-import { Mic, MicOff, Volume2, VolumeX, Users, Radio, VolumeOff, Wifi, WifiOff, Volume1 } from 'lucide-react';
+import { useCallback } from 'react';
+import { Mic, MicOff, Volume2, VolumeX, Users, Radio, VolumeOff, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useMockSimulation } from '@/hooks/useMockSimulation';
 import { useLiveKitVoice, VoiceParticipant } from '@/hooks/useLiveKitVoice';
-import { LiveKitAudioPlayer, useParticipantAudio } from '@/components/LiveKitAudioPlayer';
-import { Slider } from '@/components/ui/slider';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { LiveKitAudioPlayer } from '@/components/LiveKitAudioPlayer';
 
 interface VoiceRoomLiveProps {
   gameId: string;
@@ -24,10 +18,6 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
   const { user } = useAuth();
   const { settings: audioSettings, setVoiceRoomMuted, setHostMuted } = useAudio();
   const { mockVoiceParticipants } = useMockSimulation(false, gameId);
-  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-  
-  // Per-user audio controls
-  const { toggleUserMute, setUserVolume, isUserMuted, getUserVolume } = useParticipantAudio();
   
   // LiveKit voice chat
   const {
@@ -61,15 +51,6 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
     onMicToggle?.(nextEnabled);
   }, [toggleMic, isMicEnabled, onMicToggle]);
 
-  const handleUnlockAudio = useCallback(() => {
-    // Find container and call unlock
-    const container = document.querySelector('[data-livekit-audio]');
-    if (container && (container as any).unlockAudio) {
-      (container as any).unlockAudio();
-    }
-    setAutoplayBlocked(false);
-  }, []);
-
   // Use speaker enabled from audio context (inverted from muted)
   const isSpeakerEnabled = !audioSettings.voiceRoomMuted;
   const isHostMuted = audioSettings.hostMuted;
@@ -90,21 +71,7 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
 
   return (
     <div className="bg-card/80 backdrop-blur-sm rounded-xl p-3 border border-border/50">
-      <div data-livekit-audio>
-        <LiveKitAudioPlayer room={room} onAutoplayBlocked={setAutoplayBlocked} />
-      </div>
-
-      {/* Tap to enable audio banner */}
-      {autoplayBlocked && isConnected && (
-        <button
-          onClick={handleUnlockAudio}
-          className="w-full mb-3 p-2 bg-accent/20 border border-accent/30 rounded-lg flex items-center justify-center gap-2 text-accent text-sm font-medium animate-pulse active:scale-[0.98] transition-transform"
-        >
-          <Volume2 className="w-4 h-4" />
-          Tap to enable voice audio
-        </button>
-      )}
-
+      <LiveKitAudioPlayer room={room} />
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -165,89 +132,39 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
         {displayParticipants.map((participant) => {
           const isMe = participant.user_id === user?.id;
           const speaking = participant.is_speaking;
-          const userMuted = isUserMuted(participant.user_id);
-          const userVolume = getUserVolume(participant.user_id);
           
           return (
-            <Popover key={participant.user_id}>
-              <PopoverTrigger asChild>
-                <button 
-                  className="flex flex-col items-center gap-1 focus:outline-none"
-                  disabled={isMe}
+            <div 
+              key={participant.user_id}
+              className="flex flex-col items-center gap-1"
+            >
+              <div className="relative">
+                {/* Speaking ring animation */}
+                {speaking && isSpeakerEnabled && (
+                  <div className="absolute inset-0 rounded-full bg-primary/40 animate-ping" />
+                )}
+                <div
+                  className={`relative w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all ${
+                    speaking && isSpeakerEnabled
+                      ? 'bg-primary/30 ring-2 ring-primary shadow-lg shadow-primary/30'
+                      : participant.is_muted && !isMe
+                        ? 'bg-muted/50 opacity-60'
+                        : 'bg-card-elevated'
+                  } ${isMe ? 'ring-2 ring-accent/50' : ''}`}
                 >
-                  <div className="relative">
-                    {/* Speaking ring animation */}
-                    {speaking && isSpeakerEnabled && !userMuted && (
-                      <div className="absolute inset-0 rounded-full bg-primary/40 animate-ping" />
-                    )}
-                    <div
-                      className={`relative w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all ${
-                        speaking && isSpeakerEnabled && !userMuted
-                          ? 'bg-primary/30 ring-2 ring-primary shadow-lg shadow-primary/30'
-                          : (participant.is_muted || userMuted) && !isMe
-                            ? 'bg-muted/50 opacity-60'
-                            : 'bg-card-elevated'
-                      } ${isMe ? 'ring-2 ring-accent/50' : ''}`}
-                    >
-                      {participant.avatar}
-                      {/* Per-user mute indicator */}
-                      {userMuted && !isMe && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive flex items-center justify-center">
-                          <VolumeX className="w-2.5 h-2.5 text-white" />
-                        </div>
-                      )}
-                    </div>
-                    {/* Small speaking indicator dot */}
-                    {speaking && isSpeakerEnabled && !userMuted && (
-                      <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
-                    )}
-                  </div>
-                  <span className={`text-[9px] truncate max-w-[40px] ${
-                    speaking && isSpeakerEnabled && !userMuted ? 'text-primary font-bold' : isMe ? 'text-primary font-medium' : 'text-muted-foreground'
-                  }`}>
-                    {isMe ? 'You' : participant.username.split(' ')[0]}
-                  </span>
-                </button>
-              </PopoverTrigger>
-              
-              {/* Per-user audio controls popover */}
-              {!isMe && (
-                <PopoverContent className="w-48 p-3" side="top">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium truncate">{participant.username}</span>
-                      <button
-                        onClick={() => toggleUserMute(participant.user_id)}
-                        className={`p-1.5 rounded-full transition-all ${
-                          userMuted 
-                            ? 'bg-destructive/20 text-destructive' 
-                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                        }`}
-                      >
-                        {userMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <Volume1 className="w-3 h-3 text-muted-foreground" />
-                        <Slider
-                          value={[userVolume * 100]}
-                          onValueChange={([val]) => setUserVolume(participant.user_id, val / 100)}
-                          max={100}
-                          step={1}
-                          disabled={userMuted}
-                          className="flex-1"
-                        />
-                        <span className="text-[10px] text-muted-foreground w-7 text-right">
-                          {Math.round(userVolume * 100)}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </PopoverContent>
-              )}
-            </Popover>
+                  {participant.avatar}
+                </div>
+                {/* Small speaking indicator dot */}
+                {speaking && isSpeakerEnabled && (
+                  <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
+                )}
+              </div>
+              <span className={`text-[9px] truncate max-w-[40px] ${
+                speaking && isSpeakerEnabled ? 'text-primary font-bold' : isMe ? 'text-primary font-medium' : 'text-muted-foreground'
+              }`}>
+                {isMe ? 'You' : participant.username.split(' ')[0]}
+              </span>
+            </div>
           );
         })}
         
