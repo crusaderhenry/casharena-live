@@ -561,8 +561,8 @@ export const CycleLobby = () => {
         <div className="h-32" />
       </div>
 
-      {/* Bottom Actions - Fixed */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
+      {/* Bottom Actions - Fixed with safe area */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 p-4 pb-safe bg-background/95 backdrop-blur-lg border-t border-border/30" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
         {participation.isParticipant ? (
           <div className="space-y-3">
             <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-green-500/20 border border-green-500/30">
