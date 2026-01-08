@@ -113,12 +113,15 @@ export function PushNotificationToggle() {
 
   if (permission === 'denied') {
     return (
-      <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
+      <div className="flex items-center justify-between p-4 bg-destructive/10 rounded-xl border border-destructive/20">
         <div className="flex items-center gap-3">
           <BellOff className="h-5 w-5 text-destructive" />
           <div>
-            <p className="text-sm font-medium">Push Notifications</p>
-            <p className="text-xs text-destructive">Blocked - enable in browser settings</p>
+            <p className="text-sm font-medium text-foreground">Push Notifications</p>
+            <p className="text-xs text-destructive">Blocked by browser</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Tap the 🔒 icon in your browser's address bar → Site settings → Allow notifications
+            </p>
           </div>
         </div>
       </div>
