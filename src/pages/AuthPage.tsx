@@ -75,8 +75,10 @@ export const AuthPage = () => {
         body: { email },
       });
 
+      // Handle edge function errors - extract message from response body if available
       if (invokeError) {
-        setError(invokeError.message || 'Failed to send verification code');
+        const errorMessage = data?.error || invokeError.message || 'Failed to send verification code';
+        setError(errorMessage);
         return;
       }
 
@@ -114,8 +116,11 @@ export const AuthPage = () => {
         body: { email, code: otp },
       });
 
+      // Handle edge function errors - extract message from response body if available
       if (invokeError) {
-        setError(invokeError.message || 'Verification failed');
+        // Try to parse error message from the response
+        const errorMessage = data?.error || invokeError.message || 'Verification failed';
+        setError(errorMessage);
         return;
       }
 
@@ -216,8 +221,10 @@ export const AuthPage = () => {
         body: { email },
       });
 
+      // Handle edge function errors - extract message from response body if available
       if (invokeError) {
-        setError(invokeError.message || 'Failed to resend code');
+        const errorMessage = data?.error || invokeError.message || 'Failed to resend code';
+        setError(errorMessage);
         return;
       }
 
