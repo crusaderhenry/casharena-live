@@ -57,7 +57,7 @@ export function usePushNotifications() {
       return false;
     }
 
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
       toast({
         title: 'Not Supported',
         description: 'Push notifications are not supported in this browser',
@@ -190,6 +190,7 @@ export function usePushNotifications() {
     isLoading,
     subscribe,
     unsubscribe,
-    isSupported: 'Notification' in window && 'serviceWorker' in navigator,
+    // Supported when the core Web Push primitives exist
+    isSupported: 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window,
   };
 }
