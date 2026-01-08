@@ -149,23 +149,8 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
           const gameName = template?.name || 'Royal Rumble';
 
-          // Game just went live
-          if (cycle.status === 'live' && oldCycle.status !== 'live') {
-            showNotification({
-              type: 'game_starting',
-              title: '🎮 Game is LIVE!',
-              message: `${gameName} is now live! Pool: ₦${cycle.pool_value.toLocaleString()}`,
-            });
-          }
-
-          // Game ended (settled)
-          if (cycle.status === 'settled' && oldCycle.status === 'live') {
-            showNotification({
-              type: 'game_ended',
-              title: '🏁 Game Ended',
-              message: `${gameName} has ended. Check results!`,
-            });
-          }
+          // Game status changes are now silent in-app (push notifications still work)
+          // Users can see status changes via the live game cards on Home page
         }
       )
       .subscribe();
