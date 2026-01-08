@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { Logo } from '@/components/Logo';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
@@ -53,10 +54,8 @@ export const AdminSidebar = () => {
       <div className="p-4 border-b border-border flex items-center justify-between">
         {!collapsed && (
           <div>
-            <h1 className="text-lg font-black text-foreground">
-              <span className="text-primary">Fortunes</span>HQ
-            </h1>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Admin Console</p>
+            <Logo size="md" />
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Admin Console</p>
           </div>
         )}
         <button 

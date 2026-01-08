@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Zap, Mail, User, ArrowRight, ArrowLeft, Gift, X } from 'lucide-react';
+import { Crown, Mail, User, ArrowRight, ArrowLeft, Gift, X } from 'lucide-react';
 import { z } from 'zod';
 import { FunctionsHttpError, FunctionsFetchError, FunctionsRelayError } from '@supabase/supabase-js';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
@@ -357,11 +357,11 @@ export const AuthPage = () => {
 
       {/* Logo */}
       <div className="mb-8 text-center">
-        <div className="w-20 h-20 rounded-3xl bg-primary/20 flex items-center justify-center mx-auto mb-4 glow-primary">
-          <Zap className="w-10 h-10 text-primary" />
+        <div className="w-20 h-20 rounded-3xl bg-gold/20 flex items-center justify-center mx-auto mb-4 glow-gold">
+          <Crown className="w-10 h-10 text-gold" />
         </div>
         <h1 className="text-3xl font-black text-foreground">
-          <span className="text-primary">Fortunes</span>HQ
+          <span className="text-foreground">Fortunes</span><span className="text-gold">HQ</span>
         </h1>
         <p className="text-sm text-muted-foreground mt-1">Share the pool or Take it all</p>
       </div>
