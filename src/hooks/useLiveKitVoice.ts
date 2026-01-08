@@ -12,6 +12,7 @@ import {
 } from 'livekit-client';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export interface VoiceParticipant {
   user_id: string;
@@ -108,6 +109,10 @@ export const useLiveKitVoice = (gameId?: string): UseLiveKitVoiceReturn => {
         console.log('[LiveKit] Session invalid, signing out:', userError?.message);
         // Session is invalid, sign out locally to clear stale data
         await supabase.auth.signOut({ scope: 'local' });
+        toast.error('Session expired', {
+          description: 'Please log in again to continue.',
+          duration: 5000,
+        });
         throw new Error('Session expired. Please log in again.');
       }
 
@@ -124,6 +129,10 @@ export const useLiveKitVoice = (gameId?: string): UseLiveKitVoiceReturn => {
           // Refresh failed, sign out and throw
           console.log('[LiveKit] Session refresh failed:', refreshError?.message);
           await supabase.auth.signOut({ scope: 'local' });
+          toast.error('Session expired', {
+            description: 'Please log in again to continue.',
+            duration: 5000,
+          });
           throw new Error('Session expired. Please log in again.');
         }
         
