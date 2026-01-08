@@ -407,18 +407,27 @@ export const AuthModal = ({ open, onOpenChange, onSuccess, action = 'game' }: Au
                   onClick={() => setStep('email')}
                   className="w-full gap-2"
                 >
-                  <ArrowRight className="w-4 h-4" />
-                  Sign In
+                  <Mail className="w-4 h-4" />
+                  Continue with Email
                 </Button>
                 
-                <Button
-                  variant="outline"
-                  onClick={() => setStep('email')}
-                  className="w-full gap-2"
-                >
-                  <User className="w-4 h-4" />
-                  Create Account
-                </Button>
+                {!settingsLoading && googleAuthEnabled && (
+                  <button
+                    type="button"
+                    onClick={handleGoogleAuth}
+                    disabled={googleLoading}
+                    className="w-full py-3 bg-white hover:bg-gray-50 text-gray-800 rounded-xl font-medium transition-colors flex items-center justify-center gap-3 border border-gray-300 disabled:opacity-50"
+                  >
+                    {googleLoading ? (
+                      <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <GoogleIcon />
+                        Continue with Google
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
               
               <p className="text-xs text-muted-foreground mt-4">
