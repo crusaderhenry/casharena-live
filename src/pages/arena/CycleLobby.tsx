@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
 import { GameRulesSection } from '@/components/GameRulesSection';
 import { LobbyAudioControls } from '@/components/LobbyAudioControls';
+import { MusicToggle } from '@/components/MusicToggle';
 import { MicCheckModal } from '@/components/MicCheckModal';
 import { AuthPromptModal } from '@/components/AuthPromptModal';
 import { GameShareModal } from '@/components/GameShareModal';
@@ -412,6 +413,9 @@ export const CycleLobby = () => {
                 {isWaiting ? 'Entry opens soon' : 'Entry is open'}
               </p>
             </div>
+            
+            {/* Music Toggle */}
+            <MusicToggle />
             
             {/* Audio Controls with Mic Test */}
             <LobbyAudioControls onMicTest={() => setShowMicCheck(true)} />
