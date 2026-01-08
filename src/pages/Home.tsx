@@ -10,8 +10,9 @@ import { AuthPromptModal } from '@/components/AuthPromptModal';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
 
 import { useOAuthUsername } from '@/hooks/useOAuthUsername';
-import { Zap, Trophy, ChevronRight, Bell, TrendingUp, Calendar, Sparkles, Crown, Radio, Play, Swords, Clock } from 'lucide-react';
+import { Trophy, ChevronRight, Bell, TrendingUp, Calendar, Crown, Radio, Play, Swords, Clock, Zap } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { Logo } from '@/components/Logo';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveCycles } from '@/hooks/useActiveCycles';
 import { useNavigate } from 'react-router-dom';
@@ -179,10 +180,7 @@ export const Home = () => {
         {/* Header */}
         <div className="flex items-center justify-between pt-2">
           <div>
-            <h1 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-2">
-              <span className="text-primary">Fortunes</span>HQ
-              <Sparkles className="w-5 h-5 text-gold" />
-            </h1>
+            <Logo size="lg" />
             <div className="flex items-center gap-3 mt-1">
               {liveCycles.length > 0 && (
                 <span className="flex items-center gap-1.5 text-xs font-medium text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">
