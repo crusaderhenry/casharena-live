@@ -57,6 +57,7 @@ export const ProfileScreen = () => {
   const [deleteOtpSent, setDeleteOtpSent] = useState(false);
   const [deleteOtpCode, setDeleteOtpCode] = useState('');
   const [deleteOtpLoading, setDeleteOtpLoading] = useState(false);
+  const [deleteResendCountdown, setDeleteResendCountdown] = useState(0);
 
   const handleKycVerified = (firstName: string, lastName: string) => {
     setKycStatus({
@@ -221,7 +222,15 @@ export const ProfileScreen = () => {
     setShowDeleteDialog(true);
     setDeleteOtpSent(false);
     setDeleteOtpCode('');
+    setDeleteResendCountdown(0);
   };
+
+  // Countdown timer for resend OTP
+  useEffect(() => {
+    if (deleteResendCountdown <= 0) return;
+    const timer = setTimeout(() => setDeleteResendCountdown(deleteResendCountdown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [deleteResendCountdown]);
 
   const sendDeleteOtp = async () => {
     if (!profile?.email) return;
@@ -239,6 +248,7 @@ export const ProfileScreen = () => {
       }
 
       setDeleteOtpSent(true);
+      setDeleteResendCountdown(60);
       toast.success('Verification code sent to your email');
     } catch (err) {
       console.error('Error sending OTP:', err);
@@ -668,6 +678,17 @@ export const ProfileScreen = () => {
                       placeholder="000000"
                       className="w-full text-center text-2xl font-mono tracking-[0.5em] py-3 px-4 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground"
                     />
+                    <button
+                      onClick={sendDeleteOtp}
+                      disabled={deleteOtpLoading || deleteResendCountdown > 0}
+                      className="mt-3 text-sm text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
+                    >
+                      {deleteOtpLoading 
+                        ? 'Sending...' 
+                        : deleteResendCountdown > 0 
+                          ? `Resend code in ${deleteResendCountdown}s` 
+                          : 'Resend code'}
+                    </button>
                   </>
                 )}
               </div>
