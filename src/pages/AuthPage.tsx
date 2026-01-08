@@ -356,9 +356,14 @@ export const AuthPage = () => {
               </button>
 
               <h2 className="text-xl font-bold text-foreground mb-2">Check your email</h2>
-              <p className="text-sm text-muted-foreground mb-6">
+              <p className="text-sm text-muted-foreground mb-4">
                 We sent a 6-digit code to <span className="text-foreground font-medium">{email}</span>
               </p>
+              <div className="p-3 bg-muted/50 border border-border rounded-xl mb-6">
+                <p className="text-xs text-muted-foreground">
+                  💡 <span className="font-medium text-foreground">Can't find it?</span> Check your spam/junk folder. Look for an email with a 6-digit code.
+                </p>
+              </div>
 
               <form onSubmit={handleVerifyOTP} className="space-y-4">
                 <div className="flex justify-center">
