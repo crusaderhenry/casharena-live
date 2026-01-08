@@ -1,7 +1,13 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
 
-type SoundType = 'click' | 'success' | 'win' | 'error' | 'timer' | 'countdown' | 'notification' | 'coin' | 'send' | 'tick' | 'urgent' | 'gameOver' | 'leaderChange' | 'prizeWin' | 'gameStart' | 'drumroll' | 'crowdCheer' | 'victoryFanfare' | 'tenseCrescendo' | 'heartbeat' | 'heartbeatFast';
+type SoundType = 'click' | 'success' | 'win' | 'error' | 'timer' | 'countdown' | 'notification' | 'coin' | 'send' | 'tick' | 'urgent' | 'gameOver' | 'leaderChange' | 'prizeWin' | 'gameStart' | 'drumroll' | 'crowdCheer' | 'victoryFanfare' | 'tenseCrescendo' | 'heartbeat' | 'heartbeatFast' | 'welcomeBonus';
+
+// Global event for triggering sounds from non-hook contexts
+export const SOUND_EVENT = 'global-sound';
+export const triggerSound = (sound: SoundType) => {
+  window.dispatchEvent(new CustomEvent(SOUND_EVENT, { detail: { sound } }));
+};
 
 // Create audio context lazily
 const createAudioContext = () => {
@@ -185,6 +191,26 @@ export const useSounds = () => {
         setTimeout(() => playTone(60, 0.08, 'sine', 0.25), 80);
         setTimeout(() => playTone(75, 0.1, 'sine', 0.3), 300);
         setTimeout(() => playTone(65, 0.08, 'sine', 0.25), 380);
+        break;
+      case 'welcomeBonus':
+        // Celebratory coins and chime cascade for welcome bonus
+        // Coin shower effect
+        for (let i = 0; i < 6; i++) {
+          setTimeout(() => {
+            playTone(1318.51 + (i * 100), 0.1, 'sine', 0.12);
+            playTone(1567.98 + (i * 80), 0.08, 'sine', 0.1);
+          }, i * 100);
+        }
+        // Rising celebration notes
+        setTimeout(() => playTone(523.25, 0.15, 'sine', 0.15), 600);
+        setTimeout(() => playTone(659.25, 0.15, 'sine', 0.15), 750);
+        setTimeout(() => playTone(783.99, 0.15, 'sine', 0.15), 900);
+        setTimeout(() => playTone(1046.50, 0.25, 'sine', 0.2), 1050);
+        // Final sparkle
+        setTimeout(() => {
+          playTone(1567.98, 0.15, 'sine', 0.15);
+          playTone(2093.00, 0.2, 'sine', 0.12);
+        }, 1300);
         break;
     }
   }, [playTone, settings.sfxEnabled]);
