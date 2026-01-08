@@ -46,6 +46,7 @@ export const AdminSettings = () => {
     welcomeBonusAmount: 5000,
     welcomeBonusLimit: 1000,
     welcomeBonusEnabled: true,
+    welcomeBonusMessage: 'Get your welcome bonus! Limited spots available.',
   });
 
   useEffect(() => {
@@ -74,6 +75,7 @@ export const AdminSettings = () => {
         welcomeBonusAmount: (dbSettings as any).welcome_bonus_amount ?? 5000,
         welcomeBonusLimit: (dbSettings as any).welcome_bonus_limit ?? 1000,
         welcomeBonusEnabled: (dbSettings as any).welcome_bonus_enabled ?? true,
+        welcomeBonusMessage: (dbSettings as any).welcome_bonus_message ?? 'Get your welcome bonus! Limited spots available.',
       }));
     }
   }, [dbSettings]);
@@ -119,6 +121,7 @@ export const AdminSettings = () => {
       welcome_bonus_amount: localSettings.welcomeBonusAmount,
       welcome_bonus_limit: localSettings.welcomeBonusLimit,
       welcome_bonus_enabled: localSettings.welcomeBonusEnabled,
+      welcome_bonus_message: localSettings.welcomeBonusMessage,
     } as any);
     
     if (success) {
@@ -353,6 +356,24 @@ export const AdminSettings = () => {
                 />
                 <p className="text-[10px] text-muted-foreground mt-1">
                   Only the first {localSettings.welcomeBonusLimit} users will receive the welcome bonus (0 = unlimited)
+                </p>
+              </div>
+
+              {/* Welcome Bonus Banner Message */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Bonus Banner Message (Auth Page)
+                </label>
+                <textarea
+                  value={localSettings.welcomeBonusMessage}
+                  onChange={(e) => setLocalSettings(prev => ({ ...prev, welcomeBonusMessage: e.target.value }))}
+                  className="w-full max-w-lg px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground resize-none"
+                  rows={2}
+                  maxLength={120}
+                  placeholder="e.g. Get ₦5,000 Free! Limited spots only"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Banner shown on auth page. Use {'{amount}'} for bonus and {'{spots}'} for remaining slots ({localSettings.welcomeBonusMessage.length}/120)
                 </p>
               </div>
             </>
