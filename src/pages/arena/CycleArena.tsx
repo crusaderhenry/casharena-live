@@ -15,6 +15,7 @@ import { VoiceRoomLive } from '@/components/VoiceRoomLive';
 import { CompactHostBanner } from '@/components/CompactHostBanner';
 import { GameEndFreeze } from '@/components/GameEndFreeze';
 import { LiveTimer } from '@/components/Countdown';
+import { Confetti } from '@/components/Confetti';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -100,6 +101,7 @@ export const CycleArena = () => {
   const [isEntering, setIsEntering] = useState(true);
   const [showGameEndFreeze, setShowGameEndFreeze] = useState(false);
   const [gameWinner, setGameWinner] = useState<{ name: string; avatar: string; prize: number } | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
   const commentsContainerRef = useRef<HTMLDivElement>(null);
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
@@ -356,10 +358,16 @@ export const CycleArena = () => {
     if (isDemoMode) {
       addUserComment(commentText);
       setCommentText('');
+      // Show confetti when user takes the lead
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3000);
     } else {
       const success = await sendRealComment(commentText);
       if (success) {
         setCommentText('');
+        // Show confetti when user takes the lead
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
       }
     }
     
@@ -417,6 +425,9 @@ export const CycleArena = () => {
 
   return (
     <div className={`min-h-screen bg-background flex flex-col transition-all duration-500 ease-out ${isEntering ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+      {/* Confetti on winning comment */}
+      {showConfetti && <Confetti duration={3000} />}
+      
       {/* Game End Freeze Overlay */}
       {gameWinner && (
         <GameEndFreeze
