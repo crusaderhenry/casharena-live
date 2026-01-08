@@ -101,17 +101,39 @@ export const useLiveKitVoice = (gameId?: string): UseLiveKitVoiceReturn => {
     setConnectionError(null);
 
     try {
-      // Get token from edge function
-      const { data: sessionData } = await supabase.auth.getSession();
+      // Get token from edge function with automatic session refresh
+      let { data: sessionData } = await supabase.auth.getSession();
+      
+      // If session exists but might be stale, try refreshing it first
+      if (sessionData?.session) {
+        const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
+        if (!refreshError && refreshedData?.session) {
+          sessionData = refreshedData;
+        }
+      }
+      
       const accessToken = sessionData?.session?.access_token;
 
       if (!accessToken) {
         throw new Error('Not authenticated');
       }
 
-      const response = await supabase.functions.invoke('livekit-token', {
+      let response = await supabase.functions.invoke('livekit-token', {
         body: { roomName: gameId }
       });
+
+      // If we get a 401, try refreshing the session and retry once
+      if (response.error?.message?.includes('401') || response.error?.message?.includes('Unauthorized')) {
+        console.log('[LiveKit] Got 401, attempting session refresh and retry');
+        const { data: refreshedSession, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (!refreshError && refreshedSession?.session) {
+          // Retry the request with refreshed session
+          response = await supabase.functions.invoke('livekit-token', {
+            body: { roomName: gameId }
+          });
+        }
+      }
 
       if (response.error) {
         throw new Error(response.error.message || 'Failed to get token');
