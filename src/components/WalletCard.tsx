@@ -1,7 +1,9 @@
-import { Plus, Sparkles, ArrowUpRight, Loader2 } from 'lucide-react';
+import { Plus, Sparkles, ArrowUpRight, Loader2, LogIn } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AuthPromptModal } from '@/components/AuthPromptModal';
 
 interface WalletCardProps {
   compact?: boolean;
@@ -10,8 +12,10 @@ interface WalletCardProps {
 }
 
 export const WalletCard = ({ compact = false, onDepositClick, onWithdrawClick }: WalletCardProps) => {
-  const { profile, loading } = useAuth();
+  const { profile, loading, user } = useAuth();
   const { isTestMode } = usePlatformSettings();
+  const navigate = useNavigate();
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   
   const realBalance = profile?.wallet_balance ?? 0;
   const [displayBalance, setDisplayBalance] = useState(realBalance);
@@ -50,6 +54,55 @@ export const WalletCard = ({ compact = false, onDepositClick, onWithdrawClick }:
       maximumFractionDigits: 0,
     }).format(amount);
   };
+
+  // Show sign in prompt for unauthenticated users
+  if (!user && !loading) {
+    if (compact) {
+      return (
+        <>
+          <button 
+            onClick={() => setShowAuthPrompt(true)}
+            className="flex items-center gap-3 bg-card rounded-xl px-4 py-3 border border-border/50 w-full hover:border-primary/40 transition-colors"
+          >
+            <div className="flex-1 text-left">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Wallet</p>
+              <p className="text-sm font-medium text-foreground">Sign in to view balance</p>
+            </div>
+            <div className="flex items-center gap-1 text-primary text-sm font-medium">
+              <LogIn className="w-4 h-4" />
+              Sign In
+            </div>
+          </button>
+          <AuthPromptModal open={showAuthPrompt} onOpenChange={setShowAuthPrompt} action="wallet" />
+        </>
+      );
+    }
+    
+    return (
+      <>
+        <button 
+          onClick={() => setShowAuthPrompt(true)}
+          className="card-panel glow-soft relative overflow-hidden w-full text-left hover:border-primary/40 transition-colors"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className="relative flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center glow-primary">
+              <Sparkles className="w-7 h-7 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Your Wallet</p>
+              <p className="text-lg font-bold text-foreground">Sign in to access</p>
+            </div>
+            <div className="flex items-center gap-2 text-primary font-medium">
+              <LogIn className="w-5 h-5" />
+              Sign In
+            </div>
+          </div>
+        </button>
+        <AuthPromptModal open={showAuthPrompt} onOpenChange={setShowAuthPrompt} action="wallet" />
+      </>
+    );
+  }
 
   if (loading) {
     return (

@@ -6,6 +6,7 @@ import { CycleStatusCard } from '@/components/CycleStatusCard';
 import { WinnerStories } from '@/components/WinnerStories';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { UsernamePromptModal } from '@/components/UsernamePromptModal';
+import { AuthPromptModal } from '@/components/AuthPromptModal';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
 
 import { useOAuthUsername } from '@/hooks/useOAuthUsername';
@@ -26,6 +27,7 @@ export const Home = () => {
   const [recentWinners, setRecentWinners] = useState<any[]>([]);
   const [activeNotification, setActiveNotification] = useState(0);
   const [userParticipations, setUserParticipations] = useState<Set<string>>(new Set());
+  const [showRankAuthPrompt, setShowRankAuthPrompt] = useState(false);
 
   const { newBadge, showCelebration, dismissCelebration } = useBadgeUnlock({
     total_wins: profile?.total_wins || 0,
@@ -225,7 +227,15 @@ export const Home = () => {
         {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => { play('click'); buttonClick(); navigate('/rank'); }}
+            onClick={() => { 
+              play('click'); 
+              buttonClick(); 
+              if (!user) {
+                setShowRankAuthPrompt(true);
+              } else {
+                navigate('/rank'); 
+              }
+            }}
             className="relative overflow-hidden rounded-2xl border border-border bg-card p-4 text-left hover:border-primary/40 transition-all group"
           >
             <div className="absolute top-0 right-0 w-20 h-20 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-colors" />
@@ -235,7 +245,7 @@ export const Home = () => {
               </div>
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Your Rank</p>
-                <p className="text-2xl font-black text-foreground">#{userRank}</p>
+                <p className="text-2xl font-black text-foreground">{user ? `#${userRank}` : '—'}</p>
               </div>
             </div>
           </button>
@@ -356,6 +366,12 @@ export const Home = () => {
           </button>
         )}
       </div>
+      
+      <AuthPromptModal 
+        open={showRankAuthPrompt} 
+        onOpenChange={setShowRankAuthPrompt}
+        action="rank"
+      />
       
       <BottomNav />
     </div>
