@@ -243,31 +243,33 @@ const AppRoutes = () => (
   </Routes>
 );
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <WalletProvider>
-          <GameProvider>
-            <AudioProvider>
-              <NotificationProvider>
-                <Toaster />
-                <Sonner />
-                <GlobalConfetti />
-                <GlobalSoundPlayer />
-                <BrowserRouter>
-                  <TestModeBanner />
-                  <PWAInstallPrompt />
-                  <PushNotificationBanner />
-                  <AppRoutes />
-                </BrowserRouter>
-              </NotificationProvider>
-            </AudioProvider>
-          </GameProvider>
-        </WalletProvider>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AuthProvider>
+          <WalletProvider>
+            <GameProvider>
+              <AudioProvider>
+                <NotificationProvider>
+                  <Toaster />
+                  <Sonner />
+                  <GlobalConfetti />
+                  <GlobalSoundPlayer />
+                  <BrowserRouter>
+                    <TestModeBanner />
+                    <PWAInstallPrompt />
+                    <PushNotificationBanner />
+                    <AppRoutes />
+                  </BrowserRouter>
+                </NotificationProvider>
+              </AudioProvider>
+            </GameProvider>
+          </WalletProvider>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
