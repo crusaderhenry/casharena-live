@@ -6,6 +6,7 @@ import { CycleStatusCard } from '@/components/CycleStatusCard';
 import { WinnerStories } from '@/components/WinnerStories';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
+import { useCrusaderWelcome } from '@/hooks/useCrusaderWelcome';
 import { Zap, Trophy, ChevronRight, Bell, TrendingUp, Calendar, Sparkles, Crown, Radio, Play, Swords, Clock } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +30,12 @@ export const Home = () => {
   const { newBadge, showCelebration, dismissCelebration } = useBadgeUnlock({
     total_wins: profile?.total_wins || 0,
     games_played: profile?.games_played || 0,
+  });
+
+  // Welcome new users with Crusader's voice
+  useCrusaderWelcome({
+    username: profile?.username,
+    userId: user?.id,
   });
 
   // Fetch user's current participations

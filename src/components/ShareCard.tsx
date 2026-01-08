@@ -267,6 +267,7 @@ export const ShareCard = ({ username, avatar, position, amount, gameType }: Shar
             
             {/* Tagline */}
             <p className="text-2xl text-white/50">Play • Win • Celebrate</p>
+            <p className="text-lg text-white/40 mt-2">💰 Real Money | 👥 Real Players | 🎙️ Live Show</p>
           </div>
         </div>
       </div>
@@ -340,6 +341,7 @@ export const ShareCard = ({ username, avatar, position, amount, gameType }: Shar
           
           {/* Tagline */}
           <p className="text-xs text-white/50 mt-2">Play • Win • Celebrate</p>
+          <p className="text-[10px] text-white/40 mt-1">💰 Real Money | 👥 Real Players | 🎙️ Live Show</p>
         </div>
       </div>
 
