@@ -342,6 +342,9 @@ export type Database = {
           live_end_at: string
           live_start_at: string
           min_participants: number
+          mock_users_enabled: boolean
+          mock_users_max: number
+          mock_users_min: number
           participant_count: number
           platform_cut_percentage: number
           pool_value: number
@@ -349,6 +352,7 @@ export type Database = {
           real_pool_value: number
           settled_at: string | null
           settlement_data: Json | null
+          sponsor_name: string | null
           sponsored_prize_amount: number | null
           status: string
           template_id: string
@@ -368,6 +372,9 @@ export type Database = {
           live_end_at: string
           live_start_at: string
           min_participants?: number
+          mock_users_enabled?: boolean
+          mock_users_max?: number
+          mock_users_min?: number
           participant_count?: number
           platform_cut_percentage?: number
           pool_value?: number
@@ -375,6 +382,7 @@ export type Database = {
           real_pool_value?: number
           settled_at?: string | null
           settlement_data?: Json | null
+          sponsor_name?: string | null
           sponsored_prize_amount?: number | null
           status?: string
           template_id: string
@@ -394,6 +402,9 @@ export type Database = {
           live_end_at?: string
           live_start_at?: string
           min_participants?: number
+          mock_users_enabled?: boolean
+          mock_users_max?: number
+          mock_users_min?: number
           participant_count?: number
           platform_cut_percentage?: number
           pool_value?: number
@@ -401,6 +412,7 @@ export type Database = {
           real_pool_value?: number
           settled_at?: string | null
           settlement_data?: Json | null
+          sponsor_name?: string | null
           sponsored_prize_amount?: number | null
           status?: string
           template_id?: string
@@ -429,12 +441,16 @@ export type Database = {
           is_active: boolean
           max_live_duration: number
           min_participants: number
+          mock_users_enabled: boolean
+          mock_users_max: number
+          mock_users_min: number
           name: string
           open_entry_duration: number
           platform_cut_percentage: number
           prize_distribution: number[]
           recurrence_start_time: string | null
           recurrence_type: string
+          sponsor_name: string | null
           sponsored_prize_amount: number | null
           updated_at: string
           waiting_duration: number
@@ -452,12 +468,16 @@ export type Database = {
           is_active?: boolean
           max_live_duration?: number
           min_participants?: number
+          mock_users_enabled?: boolean
+          mock_users_max?: number
+          mock_users_min?: number
           name?: string
           open_entry_duration?: number
           platform_cut_percentage?: number
           prize_distribution?: number[]
           recurrence_start_time?: string | null
           recurrence_type?: string
+          sponsor_name?: string | null
           sponsored_prize_amount?: number | null
           updated_at?: string
           waiting_duration?: number
@@ -475,12 +495,16 @@ export type Database = {
           is_active?: boolean
           max_live_duration?: number
           min_participants?: number
+          mock_users_enabled?: boolean
+          mock_users_max?: number
+          mock_users_min?: number
           name?: string
           open_entry_duration?: number
           platform_cut_percentage?: number
           prize_distribution?: number[]
           recurrence_start_time?: string | null
           recurrence_type?: string
+          sponsor_name?: string | null
           sponsored_prize_amount?: number | null
           updated_at?: string
           waiting_duration?: number
