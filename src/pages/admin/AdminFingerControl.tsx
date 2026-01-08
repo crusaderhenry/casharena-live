@@ -131,6 +131,9 @@ export const AdminRumbleControl = () => {
     is_active: boolean;
     created_at: string;
     sponsored_prize_amount: number | null;
+    mock_users_enabled: boolean;
+    mock_users_min: number;
+    mock_users_max: number;
   }
   const [templates, setTemplates] = useState<GameTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
@@ -183,6 +186,55 @@ export const AdminRumbleControl = () => {
     
     if (!error) {
       setTemplates(prev => prev.filter(t => t.id !== templateId));
+    }
+  };
+
+  // Template edit state
+  const [showTemplateEditDialog, setShowTemplateEditDialog] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [templateFormData, setTemplateFormData] = useState({
+    mockUsersEnabled: false,
+    mockUsersMin: 0,
+    mockUsersMax: 100,
+  });
+
+  // Open template edit dialog
+  const handleOpenTemplateEdit = (template: GameTemplate) => {
+    setEditingTemplateId(template.id);
+    setTemplateFormData({
+      mockUsersEnabled: template.mock_users_enabled || false,
+      mockUsersMin: template.mock_users_min || 0,
+      mockUsersMax: template.mock_users_max || 100,
+    });
+    setShowTemplateEditDialog(true);
+  };
+
+  // Save template changes
+  const handleSaveTemplate = async () => {
+    if (!editingTemplateId) return;
+    
+    const { error } = await supabase
+      .from('game_templates')
+      .update({
+        mock_users_enabled: templateFormData.mockUsersEnabled,
+        mock_users_min: templateFormData.mockUsersMin,
+        mock_users_max: templateFormData.mockUsersMax,
+      })
+      .eq('id', editingTemplateId);
+    
+    if (!error) {
+      setTemplates(prev => prev.map(t => 
+        t.id === editingTemplateId 
+          ? { 
+              ...t, 
+              mock_users_enabled: templateFormData.mockUsersEnabled,
+              mock_users_min: templateFormData.mockUsersMin,
+              mock_users_max: templateFormData.mockUsersMax,
+            } 
+          : t
+      ));
+      setShowTemplateEditDialog(false);
+      setEditingTemplateId(null);
     }
   };
 
@@ -1295,6 +1347,53 @@ export const AdminRumbleControl = () => {
                 </div>
               </div>
 
+              {/* Mock Users */}
+              <div className="space-y-3 p-3 bg-purple-500/5 rounded-lg border border-purple-500/20">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-purple-400" />
+                      Mock Users
+                    </Label>
+                    <p className="text-xs text-muted-foreground">Simulate players for testing</p>
+                  </div>
+                  <Switch
+                    checked={formData.mockUsersEnabled}
+                    onCheckedChange={(checked) => setFormData(prev => ({ 
+                      ...prev, 
+                      mockUsersEnabled: checked,
+                    }))}
+                  />
+                </div>
+
+                {formData.mockUsersEnabled && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-mockMin">Min Mock Users</Label>
+                      <Input
+                        id="edit-mockMin"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={formData.mockUsersMin}
+                        onChange={(e) => setFormData(prev => ({ ...prev, mockUsersMin: parseInt(e.target.value) || 0 }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-mockMax">Max Mock Users</Label>
+                      <Input
+                        id="edit-mockMax"
+                        type="number"
+                        min={0}
+                        max={200}
+                        value={formData.mockUsersMax}
+                        onChange={(e) => setFormData(prev => ({ ...prev, mockUsersMax: parseInt(e.target.value) || 100 }))}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Platform Cut */}
               <div className="space-y-2 pt-4 border-t border-border">
                 <Label htmlFor="edit-platformCut" className="flex items-center gap-2">
@@ -1609,7 +1708,7 @@ export const AdminRumbleControl = () => {
                   <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Template</th>
                   <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Entry Fee</th>
                   <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Duration</th>
-                  <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Winners</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Mock Users</th>
                   <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Recurrence</th>
                   <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Status</th>
                   <th className="text-left text-xs font-medium text-muted-foreground uppercase px-4 py-3">Actions</th>
@@ -1633,7 +1732,16 @@ export const AdminRumbleControl = () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-foreground">{template.max_live_duration}min</td>
-                    <td className="px-4 py-3 text-foreground">Top {template.winner_count}</td>
+                    <td className="px-4 py-3">
+                      {template.mock_users_enabled ? (
+                        <span className="px-2 py-1 text-xs rounded-full bg-purple-500/20 text-purple-400 flex items-center gap-1 w-fit">
+                          <Bot className="w-3 h-3" />
+                          {template.mock_users_min}-{template.mock_users_max}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Off</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 text-xs rounded-full ${
                         template.recurrence_type === 'infinity' 
@@ -1670,6 +1778,13 @@ export const AdminRumbleControl = () => {
                           )}
                         </button>
                         <button
+                          onClick={() => handleOpenTemplateEdit(template)}
+                          className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                          title="Edit template"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => deleteTemplate(template.id)}
                           className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
                           title="Delete template"
@@ -1684,6 +1799,89 @@ export const AdminRumbleControl = () => {
             </table>
           </div>
         )}
+
+        {/* Template Edit Dialog */}
+        <Dialog open={showTemplateEditDialog} onOpenChange={(open) => {
+          setShowTemplateEditDialog(open);
+          if (!open) setEditingTemplateId(null);
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-purple-400" />
+                Edit Template - Mock Users
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="flex items-center justify-between p-3 bg-purple-500/5 rounded-lg border border-purple-500/20">
+                <div>
+                  <Label className="flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-purple-400" />
+                    Enable Mock Users
+                  </Label>
+                  <p className="text-xs text-muted-foreground">Auto-populate with simulated players</p>
+                </div>
+                <Switch
+                  checked={templateFormData.mockUsersEnabled}
+                  onCheckedChange={(checked) => setTemplateFormData(prev => ({ 
+                    ...prev, 
+                    mockUsersEnabled: checked,
+                  }))}
+                />
+              </div>
+
+              {templateFormData.mockUsersEnabled && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="tpl-mockMin">Min Mock Users</Label>
+                    <Input
+                      id="tpl-mockMin"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={templateFormData.mockUsersMin}
+                      onChange={(e) => setTemplateFormData(prev => ({ ...prev, mockUsersMin: parseInt(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tpl-mockMax">Max Mock Users</Label>
+                    <Input
+                      id="tpl-mockMax"
+                      type="number"
+                      min={0}
+                      max={200}
+                      value={templateFormData.mockUsersMax}
+                      onChange={(e) => setTemplateFormData(prev => ({ ...prev, mockUsersMax: parseInt(e.target.value) || 100 }))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+                Changes will apply to future game cycles created from this template.
+              </p>
+            </div>
+            
+            <DialogFooter>
+              <button
+                onClick={() => {
+                  setShowTemplateEditDialog(false);
+                  setEditingTemplateId(null);
+                }}
+                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveTemplate}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+              >
+                Save Changes
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Game Settings */}
