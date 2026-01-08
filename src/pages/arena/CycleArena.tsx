@@ -437,8 +437,17 @@ export const CycleArena = () => {
     );
   }
 
-  // Redirect non-live games to lobby
-  if (cycle.status === 'waiting' || cycle.status === 'opening') {
+  // Redirect non-live games to lobby - BUT accept 'opening' if live_start_at has passed
+  // This handles the race condition where frontend navigates before backend updates status
+  const liveStartPassed = cycle.live_start_at && new Date(cycle.live_start_at).getTime() <= Date.now();
+  
+  if (cycle.status === 'waiting') {
+    navigate(`/arena/${cycleId}`, { replace: true });
+    return null;
+  }
+  
+  // Only redirect to lobby if opening AND live time hasn't passed yet
+  if (cycle.status === 'opening' && !liveStartPassed) {
     navigate(`/arena/${cycleId}`, { replace: true });
     return null;
   }

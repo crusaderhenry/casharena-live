@@ -185,8 +185,20 @@ export const CycleLobby = () => {
   }, [cycleId, navigate, play, hapticSuccess]);
 
   // Local timer ticker with instant transition at 0
+  // Also includes eager polling when < 10 seconds to ensure backend catches up
   useEffect(() => {
     if (!cycle) return;
+
+    // Eager polling function to trigger backend tick when close to transition
+    const triggerEagerTick = async () => {
+      try {
+        await supabase.functions.invoke('cycle-manager', {
+          body: { action: 'tick' }
+        });
+      } catch (e) {
+        console.log('[CycleLobby] Eager tick failed:', e);
+      }
+    };
 
     const interval = setInterval(() => {
       if (cycle.status === 'waiting') {
@@ -198,12 +210,20 @@ export const CycleLobby = () => {
       } else if (cycle.status === 'opening') {
         setTimeUntilLive(prev => {
           const newVal = Math.max(0, prev - 1);
-          // Transition with flash when timer hits 0
+          
+          // Eager polling when < 10 seconds to ensure backend updates quickly
+          if (newVal > 0 && newVal <= 10 && newVal % 3 === 0) {
+            triggerEagerTick();
+          }
+          
+          // Transition with flash when timer hits 0 - navigate immediately
           if (newVal === 0 && prev > 0) {
             play('gameStart');
             hapticSuccess();
             setFlashActive(true);
             setTransitioning(true);
+            // Trigger one more backend tick to ensure status updates
+            triggerEagerTick();
             setTimeout(() => {
               navigate(`/arena/${cycleId}/live`, { replace: true });
             }, 400);
@@ -253,7 +273,7 @@ export const CycleLobby = () => {
   };
 
   const formatTimeDetailed = (seconds: number) => {
-    if (seconds <= 0) return 'Now';
+    if (seconds <= 0) return '🚀 GOING LIVE!';
     if (seconds < 60) return `${seconds}s`;
     if (seconds < 3600) {
       const mins = Math.floor(seconds / 60);
