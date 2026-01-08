@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.send-transactional-email]
 verify_jwt = false
+
+[functions.livekit-token]
+verify_jwt = false
