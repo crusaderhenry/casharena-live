@@ -147,19 +147,19 @@ const steps = [
   {
     illustration: TimerIllustration,
     title: "The Timer Is Key",
-    description: "If no one comments for 60 seconds, the game ends. The last 3 people to comment WIN!",
+    description: "If no one comments for 60 seconds, the game ends. The last players to comment WIN!",
     highlight: "primary",
   },
   {
     illustration: TrophyIllustration,
     title: "Win Big Prizes",
-    description: "1st place gets 50%, 2nd gets 30%, 3rd gets 20% of the prize pool!",
+    description: "Top players share the prize pool. Some games are winner-takes-all, others split between top 3!",
     highlight: "gold",
   },
   {
     illustration: WalletIllustration,
     title: "Fund Your Wallet",
-    description: "Add money to your wallet to join paid games. Quick deposits, instant withdrawals.",
+    description: "Add money to join paid games, or play daily sponsored games for free with real cash prizes!",
     highlight: "primary",
   },
   {
