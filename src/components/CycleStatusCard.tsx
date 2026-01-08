@@ -106,9 +106,18 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
   // Calculate effective prize pool
   const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
 
-  // Status-based styling
+  // Compute display status for instant UI transitions
+  // When local countdown hits 0, show next phase immediately
+  const displayStatus = (() => {
+    if (cycle.status === 'waiting' && localCountdown.secondsUntilOpening <= 0) {
+      return 'opening';
+    }
+    return cycle.status;
+  })();
+
+  // Status-based styling using displayStatus for instant transitions
   const getStatusConfig = () => {
-    switch (cycle.status) {
+    switch (displayStatus) {
       case 'live':
         return {
           badge: 'LIVE',
@@ -224,7 +233,7 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
 
         {/* Action Row */}
         <div className="flex items-center justify-between pt-2 border-t border-border">
-          {cycle.status === 'opening' ? (
+          {displayStatus === 'opening' ? (
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-green-400">
                 {cycle.entry_fee > 0 ? formatMoney(cycle.entry_fee) : 'FREE'} Entry
@@ -233,7 +242,7 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
                 <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">JOINED</span>
               )}
             </div>
-          ) : cycle.status === 'live' || cycle.status === 'ending' ? (
+          ) : displayStatus === 'live' || displayStatus === 'ending' ? (
             <div className="flex items-center gap-2">
               {isParticipant ? (
                 <span className="text-sm font-bold text-green-400 flex items-center gap-1">
@@ -269,9 +278,9 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
             
             {/* CTA - Always leads to Lobby */}
             <div className="flex items-center gap-1 text-primary text-sm font-medium group-hover:translate-x-1 transition-transform">
-              {cycle.status === 'live' || cycle.status === 'ending' 
+              {displayStatus === 'live' || displayStatus === 'ending' 
                 ? 'Watch Live' 
-                : cycle.status === 'opening' 
+                : displayStatus === 'opening' 
                   ? 'Enter Game' 
                   : 'View Lobby'}
               <Zap className="w-4 h-4" />

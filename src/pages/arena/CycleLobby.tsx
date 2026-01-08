@@ -214,20 +214,24 @@ export const CycleLobby = () => {
     let fastPollInterval: NodeJS.Timeout | null = null;
 
     const interval = setInterval(() => {
-      if (cycle.status === 'waiting') {
+      // Always tick both timers regardless of backend status
+      // This ensures instant UI transitions when timers hit 0
+      if (cycle.status === 'waiting' || cycle.status === 'opening') {
         setTimeUntilOpening(prev => {
           const newVal = Math.max(0, prev - 1);
+          // Trigger backend sync when entry opens
+          if (newVal === 0 && prev > 0) {
+            checkCycleStatus();
+          }
           return newVal;
         });
-        setTimeUntilLive(prev => Math.max(0, prev - 1));
-      } else if (cycle.status === 'opening') {
+        
         setTimeUntilLive(prev => {
           const newVal = Math.max(0, prev - 1);
           
           // Start fast polling when < 10 seconds (every 2 seconds)
           if (newVal <= 10 && newVal > 0 && !fastPollInterval) {
             fastPollInterval = setInterval(checkCycleStatus, 2000);
-            // Trigger immediate check
             checkCycleStatus();
           }
           
@@ -237,7 +241,6 @@ export const CycleLobby = () => {
             hapticSuccess();
             setFlashActive(true);
             setTransitioning(true);
-            // Final status check to ensure backend updates
             checkCycleStatus();
             setTimeout(() => {
               navigate(`/arena/${cycleId}/live`, { replace: true });
@@ -327,8 +330,18 @@ export const CycleLobby = () => {
   }
 
   const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
-  const isWaiting = cycle.status === 'waiting';
-  const isOpening = cycle.status === 'opening';
+  
+  // Compute display status based on local timers for instant UI transitions
+  // When entry_open_at countdown reaches 0, show "opening" UI immediately
+  const displayStatus = (() => {
+    if (cycle.status === 'waiting' && timeUntilOpening <= 0) {
+      return 'opening'; // Show "Game Goes Live In" before backend confirms
+    }
+    return cycle.status;
+  })();
+  
+  const isWaiting = displayStatus === 'waiting';
+  const isOpening = displayStatus === 'opening';
   const canJoin = isOpening && !participation.isParticipant;
   const hasBalance = (profile?.wallet_balance || 0) >= cycle.entry_fee;
   const isLastMinute = timeUntilLive <= 30;
