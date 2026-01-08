@@ -111,6 +111,11 @@ export function PushNotificationToggle() {
     );
   }
 
+  const handleRequestAgain = () => {
+    alert('To enable notifications:\n\n1. Tap the 🔒 icon in your browser\'s address bar\n2. Find "Notifications" in site settings\n3. Change to "Allow"\n4. The page will reload after you close this');
+    window.location.reload();
+  };
+
   if (permission === 'denied') {
     return (
       <div className="flex items-center justify-between p-4 bg-destructive/10 rounded-xl border border-destructive/20">
@@ -124,6 +129,14 @@ export function PushNotificationToggle() {
             </p>
           </div>
         </div>
+        <Button
+          onClick={handleRequestAgain}
+          variant="outline"
+          size="sm"
+          className="flex-shrink-0 text-xs"
+        >
+          Request Again
+        </Button>
       </div>
     );
   }
