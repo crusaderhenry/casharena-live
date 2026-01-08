@@ -640,6 +640,7 @@ export type Database = {
           hot_game_threshold_live: number
           hot_game_threshold_opening: number
           id: string
+          leave_window_minutes: number
           maintenance_mode: boolean
           platform_cut_percent: number
           platform_name: string
@@ -662,6 +663,7 @@ export type Database = {
           hot_game_threshold_live?: number
           hot_game_threshold_opening?: number
           id?: string
+          leave_window_minutes?: number
           maintenance_mode?: boolean
           platform_cut_percent?: number
           platform_name?: string
@@ -684,6 +686,7 @@ export type Database = {
           hot_game_threshold_live?: number
           hot_game_threshold_opening?: number
           id?: string
+          leave_window_minutes?: number
           maintenance_mode?: boolean
           platform_cut_percent?: number
           platform_name?: string
