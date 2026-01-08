@@ -124,11 +124,11 @@ export const AuthPage = () => {
         return;
       }
 
-      if (data?.token && data?.type) {
+      if (data?.tokenHash && data?.type) {
         // Verify the magic link token to establish a session
         const { error: verifyError } = await supabase.auth.verifyOtp({
-          token_hash: data.token,
-          type: data.type,
+          token_hash: data.tokenHash,
+          type: 'magiclink',
         });
 
         if (verifyError) {

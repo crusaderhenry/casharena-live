@@ -90,9 +90,11 @@ Deno.serve(async (req) => {
       userId = existingUser.id;
       console.log('Existing user found:', userId);
     } else {
-      // Create new user
+      // Create new user with a random password (they'll use OTP to login)
+      const randomPassword = crypto.randomUUID() + crypto.randomUUID();
       const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
         email: normalizedEmail,
+        password: randomPassword,
         email_confirm: true,
         user_metadata: {
           avatar: '🎮',
@@ -112,7 +114,8 @@ Deno.serve(async (req) => {
       console.log('New user created:', userId);
     }
 
-    // Generate a magic link token for the user to sign in
+    // Generate a session for the user using signInWithPassword won't work
+    // Instead, use generateLink and extract the access token
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
       email: normalizedEmail,
@@ -126,18 +129,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Extract the token from the link
-    const linkUrl = new URL(linkData.properties.action_link);
-    const token = linkUrl.searchParams.get('token');
-    const type = linkUrl.searchParams.get('type');
-
-    if (!token) {
-      console.error('No token in magic link');
-      return new Response(
-        JSON.stringify({ error: 'Failed to create session' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // The linkData contains the hashed_token we need
+    const actionLink = linkData.properties.action_link;
+    const url = new URL(actionLink);
+    const tokenHash = url.searchParams.get('token');
+    const type = url.searchParams.get('type') || 'magiclink';
 
     // Check if user has a username set
     const { data: profile } = await supabase
@@ -159,11 +155,12 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        token,
-        type: type || 'magiclink',
+        tokenHash,
+        type,
         isNewUser,
         hasUsername,
         userId,
+        email: normalizedEmail,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
