@@ -419,6 +419,9 @@ async function settleCycle(supabase: any, cycleId: string) {
   }
 
   // Get the last N commenters (winners) - ordered by server_timestamp DESC
+  // This handles both:
+  // 1. Comment timer expiry - last commenter wins
+  // 2. Game time expiry - last commenter at game end wins (tie-breaker)
   const { data: comments, error: commentsError } = await supabase
     .from('cycle_comments')
     .select('user_id, server_timestamp')
@@ -430,7 +433,10 @@ async function settleCycle(supabase: any, cycleId: string) {
     throw commentsError;
   }
 
+  console.log(`[settle] Found ${comments?.length || 0} total comments for cycle ${cycleId}`);
+
   // Get unique commenters in order (last comment wins position)
+  // The person who commented last is in position 1 (winner)
   const seenUsers = new Set<string>();
   const orderedCommenters: string[] = [];
   
@@ -440,6 +446,8 @@ async function settleCycle(supabase: any, cycleId: string) {
       orderedCommenters.push(comment.user_id);
     }
   }
+
+  console.log(`[settle] Unique commenters ordered by last comment: ${orderedCommenters.length}`);
 
   // Filter out mock users from winners
   const { data: profiles } = await supabase

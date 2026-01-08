@@ -36,7 +36,7 @@ export const useLobbyAudio = ({ timeUntilLive, isInLobby, ambientMusicStyle = 'c
 
   // Countdown tick sounds in last 30 seconds
   useEffect(() => {
-    if (!isInLobby || !settings.sfxEnabled) return;
+    if (!isInLobby || !settings.sfxEnabled || !settings.tickEnabled) return;
     
     // Only tick in the last 30 seconds
     if (timeUntilLive <= 30 && timeUntilLive > 0) {
@@ -54,7 +54,7 @@ export const useLobbyAudio = ({ timeUntilLive, isInLobby, ambientMusicStyle = 'c
         }
       }
     }
-  }, [timeUntilLive, isInLobby, settings.sfxEnabled, play]);
+  }, [timeUntilLive, isInLobby, settings.sfxEnabled, settings.tickEnabled, play]);
 
   // Reset tick ref when timer resets
   useEffect(() => {

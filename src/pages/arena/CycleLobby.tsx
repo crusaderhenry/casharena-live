@@ -408,6 +408,20 @@ export const CycleLobby = () => {
                 </>
               )}
             </div>
+
+            {/* View Pool CTA */}
+            <div className="mt-4">
+              <PoolParticipantsSheet
+                gameId={cycle.id}
+                gameName={cycle.template_name || 'Royal Rumble'}
+                participantCount={cycle.participant_count}
+                poolValue={effectivePrizePool}
+                entryFee={cycle.entry_fee}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                View {cycle.participant_count} in pool
+              </PoolParticipantsSheet>
+            </div>
           </div>
         </div>
 
@@ -447,16 +461,8 @@ export const CycleLobby = () => {
           />
         </div>
 
-        {/* Participants Sheet */}
-        <div className="mx-4 mt-4 mb-32">
-          <PoolParticipantsSheet
-            gameId={cycle.id}
-            gameName={cycle.template_name || 'Royal Rumble'}
-            participantCount={cycle.participant_count}
-            poolValue={effectivePrizePool}
-            entryFee={cycle.entry_fee}
-          />
-        </div>
+        {/* Bottom spacing for fixed CTA */}
+        <div className="h-32" />
       </div>
 
       {/* Bottom Actions - Fixed */}
