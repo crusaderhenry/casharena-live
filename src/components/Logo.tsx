@@ -1,12 +1,12 @@
-import { Crown } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
-  showIcon?: boolean;
+  showSparkle?: boolean;
   className?: string;
 }
 
-export const Logo = ({ size = 'md', showIcon = true, className = '' }: LogoProps) => {
+export const Logo = ({ size = 'md', showSparkle = true, className = '' }: LogoProps) => {
   const sizeClasses = {
     sm: 'text-lg',
     md: 'text-xl',
@@ -14,27 +14,22 @@ export const Logo = ({ size = 'md', showIcon = true, className = '' }: LogoProps
     xl: 'text-3xl',
   };
 
-  const iconSizes = {
-    sm: 'w-4 h-4',
-    md: 'w-5 h-5',
-    lg: 'w-6 h-6',
-    xl: 'w-8 h-8',
+  const sparkleSizes = {
+    sm: 'w-3 h-3',
+    md: 'w-4 h-4',
+    lg: 'w-5 h-5',
+    xl: 'w-6 h-6',
   };
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      {showIcon && (
-        <div className="relative">
-          <Crown className={`${iconSizes[size]} text-gold`} />
-          <div className="absolute inset-0 blur-sm">
-            <Crown className={`${iconSizes[size]} text-gold/50`} />
-          </div>
-        </div>
-      )}
+    <div className={`flex items-center gap-1 ${className}`}>
       <span className={`font-black tracking-tight ${sizeClasses[size]}`}>
-        <span className="text-foreground">Fortunes</span>
-        <span className="text-gold">HQ</span>
+        <span className="text-[#4fd1c5]">Fortunes</span>
+        <span className="text-gold"> HQ</span>
       </span>
+      {showSparkle && (
+        <Sparkles className={`${sparkleSizes[size]} text-gold`} />
+      )}
     </div>
   );
 };

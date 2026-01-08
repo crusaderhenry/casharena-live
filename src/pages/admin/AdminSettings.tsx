@@ -1,4 +1,4 @@
-import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy, Clock, Flame, Volume2, MessageCircle, Gift, TrendingUp } from 'lucide-react';
+import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy, Clock, Flame, Volume2, MessageCircle, Gift, TrendingUp, Image, Palette } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAdmin } from '@/contexts/AdminContext';
@@ -206,6 +206,94 @@ export const AdminSettings = () => {
             </span>
           </div>
         )}
+      </div>
+
+      {/* Branding Settings */}
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h2 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+          <Palette className="w-5 h-5 text-primary" />
+          Branding & Assets
+        </h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          Manage your platform logo, icons, and social share images
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Logo Preview */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-foreground block">Platform Logo</label>
+            <div className="p-6 bg-muted/50 rounded-xl border border-border flex items-center justify-center">
+              <div className="flex items-center gap-1">
+                <span className="text-2xl font-black tracking-tight">
+                  <span className="text-[#4fd1c5]">Fortunes</span>
+                  <span className="text-gold"> HQ</span>
+                </span>
+                <span className="text-gold">✨</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Text logo with teal "Fortunes" and gold "HQ" styling
+            </p>
+          </div>
+
+          {/* App Icon Preview */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-foreground block">App Icon (PWA)</label>
+            <div className="p-6 bg-muted/50 rounded-xl border border-border flex items-center justify-center">
+              <img 
+                src="/pwa-192x192.png" 
+                alt="App Icon" 
+                className="w-16 h-16 rounded-xl shadow-lg"
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              192×192 and 512×512 icons for PWA installation
+            </p>
+          </div>
+
+          {/* Favicon Preview */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-foreground block">Favicon</label>
+            <div className="p-6 bg-muted/50 rounded-xl border border-border flex items-center justify-center">
+              <img 
+                src="/favicon.png" 
+                alt="Favicon" 
+                className="w-8 h-8"
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Browser tab icon
+            </p>
+          </div>
+
+          {/* Share Image Preview */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-foreground block">Social Share Image (OG)</label>
+            <div className="p-4 bg-muted/50 rounded-xl border border-border">
+              <img 
+                src="/og-image.png" 
+                alt="Share Image" 
+                className="w-full rounded-lg shadow-lg"
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              1920×1024 image shown when sharing on social media
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+          <div className="flex items-start gap-3">
+            <Image className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-foreground">Custom Branding</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                To update logos and icons, replace the image files in the /public folder: 
+                pwa-192x192.png, pwa-512x512.png, favicon.png, og-image.png
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* General Settings */}

@@ -92,20 +92,27 @@ Deno.serve(async (req) => {
       ],
       subject: `Your verification code: ${code}`,
       htmlbody: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h1 style="color: #1a1a1a; font-size: 24px; margin-bottom: 20px;">Your Verification Code</h1>
-          <p style="color: #666; font-size: 16px; margin-bottom: 20px;">
-            Enter this code to sign in to your account:
-          </p>
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 20px;">
-            <span style="color: white; font-size: 36px; font-weight: bold; letter-spacing: 8px;">${code}</span>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0a0a0f;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="font-size: 28px; font-weight: 900; margin: 0;">
+              <span style="color: #4fd1c5;">Fortunes</span><span style="color: #f59e0b;"> HQ</span> <span style="color: #f59e0b;">✨</span>
+            </h1>
+            <p style="color: #6b7280; font-size: 12px; margin-top: 5px;">Real Money | Real Players | Live Show</p>
           </div>
-          <p style="color: #999; font-size: 14px;">
-            This code expires in 10 minutes. If you didn't request this, you can ignore this email.
-          </p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-          <p style="color: #999; font-size: 12px; text-align: center;">
-            ${fromName}
+          <div style="background: #1a1a2e; border-radius: 16px; padding: 30px; border: 1px solid #2d2d44;">
+            <h2 style="color: #ffffff; font-size: 20px; margin: 0 0 15px 0;">Your Verification Code</h2>
+            <p style="color: #9ca3af; font-size: 14px; margin-bottom: 25px;">
+              Enter this code to sign in to your account:
+            </p>
+            <div style="background: linear-gradient(135deg, #4fd1c5 0%, #f59e0b 100%); border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 25px;">
+              <span style="color: #0a0a0f; font-size: 32px; font-weight: bold; letter-spacing: 8px;">${code}</span>
+            </div>
+            <p style="color: #6b7280; font-size: 12px;">
+              This code expires in 10 minutes. If you didn't request this, you can safely ignore this email.
+            </p>
+          </div>
+          <p style="color: #4b5563; font-size: 11px; text-align: center; margin-top: 30px;">
+            © ${new Date().getFullYear()} FortunesHQ. Play responsibly.
           </p>
         </div>
       `,
