@@ -456,6 +456,18 @@ export const ProfileScreen = () => {
                 className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
               />
             </div>
+
+            {/* Test Sound Button */}
+            <button
+              onClick={() => {
+                play('success');
+                buttonClick();
+              }}
+              className="w-full mt-4 py-2.5 px-4 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-xl text-primary text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <Volume2 className="w-4 h-4" />
+              Test Sound
+            </button>
           </div>
         </div>
 
