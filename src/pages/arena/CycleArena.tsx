@@ -566,82 +566,67 @@ export const CycleArena = () => {
 
       {/* Main Content - Scrollable */}
       <div className="flex-1 flex flex-col overflow-hidden px-4">
-        {/* Comment Timer - Compact Inline Bar */}
+        {/* Comment Timer - PROMINENT */}
         {isLive && (
-          <div className="mb-3">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className={`text-xs font-semibold uppercase tracking-wide ${isCountdownCritical ? 'text-red-400' : 'text-muted-foreground'}`}>
-                {isCountdownCritical ? '🔥 Type Now!' : '⏱️ Comment Timer'}
-              </span>
-              <span className={`text-sm font-bold tabular-nums ${isCountdownCritical ? 'text-red-400' : 'text-foreground'}`}>
-                {displayCountdown}s
-              </span>
-            </div>
-            <div className={`h-2 rounded-full overflow-hidden ${isCountdownCritical ? 'bg-red-500/20' : 'bg-muted'}`}>
-              <div 
-                className={`h-full rounded-full transition-all duration-1000 ease-linear ${
-                  isCountdownCritical 
-                    ? 'bg-gradient-to-r from-red-500 to-orange-500 animate-pulse' 
-                    : 'bg-gradient-to-r from-primary to-primary/70'
-                }`}
-                style={{ width: `${Math.min(100, (displayCountdown / (cycle.comment_timer || 30)) * 100)}%` }}
-              />
+          <div className={`mb-3 p-4 rounded-2xl text-center ${
+            isCountdownCritical 
+              ? 'bg-gradient-to-r from-red-500/30 via-red-500/40 to-red-500/30 border-2 border-red-500/60 shadow-lg shadow-red-500/20' 
+              : 'bg-gradient-to-r from-primary/15 via-primary/25 to-primary/15 border border-primary/40'
+          }`}>
+            <div className="flex items-center justify-center gap-3">
+              {isCountdownCritical ? (
+                <AlertTriangle className="w-6 h-6 text-red-400 animate-bounce" />
+              ) : (
+                <Timer className="w-5 h-5 text-primary" />
+              )}
+              <div>
+                <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isCountdownCritical ? 'text-red-400' : 'text-muted-foreground'}`}>
+                  ⏱️ Comment to Stay Alive
+                </p>
+                <LiveTimer 
+                  seconds={displayCountdown} 
+                  size="lg" 
+                  warning={isCountdownCritical} 
+                />
+              </div>
+              {isCountdownCritical ? (
+                <Flame className="w-6 h-6 text-red-400 animate-bounce" />
+              ) : (
+                <Target className="w-5 h-5 text-primary" />
+              )}
             </div>
           </div>
         )}
 
-        {/* Top Contenders - Podium Style */}
+        {/* Top Contenders - Compact podium */}
         {isLive && orderedCommenters.length > 0 && (
-          <div className="mb-3">
-            <div className="flex items-end justify-center gap-2">
+          <div className="mb-3 p-2.5 rounded-xl bg-gradient-to-r from-gold/5 via-gold/10 to-gold/5 border border-gold/20">
+            <div className="flex items-center justify-center gap-1">
               {(() => {
                 const top3 = orderedCommenters.slice(0, Math.min(3, cycle.winner_count));
-                
-                // Reorder to show 2nd - 1st - 3rd for classic podium look
-                const podiumOrder = top3.length >= 2 
+                const reordered = top3.length >= 2 
                   ? [top3[1], top3[0], top3[2]].filter(Boolean)
                   : top3;
                 
-                return podiumOrder.map((c) => {
+                return reordered.map((c) => {
                   const actualPosition = c === top3[0] ? 0 : c === top3[1] ? 1 : 2;
                   const prizePercent = cycle.prize_distribution[actualPosition] || 0;
                   const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (prizePercent / 100));
                   const isFirst = actualPosition === 0;
-                  const isSecond = actualPosition === 1;
-                  const isThird = actualPosition === 2;
-                  
-                  // Podium heights: 1st tallest, 2nd medium, 3rd shortest
-                  const podiumHeight = isFirst ? 'h-20' : isSecond ? 'h-16' : 'h-12';
-                  const avatarSize = isFirst ? 'text-3xl' : 'text-2xl';
-                  const cardWidth = isFirst ? 'w-28' : 'w-24';
                   
                   return (
                     <div 
                       key={c.user_id} 
-                      className={`flex flex-col items-center ${cardWidth} ${isFirst ? 'order-2' : isSecond ? 'order-1' : 'order-3'}`}
-                    >
-                      {/* Avatar with crown for 1st */}
-                      <div className="relative mb-1">
-                        {isFirst && (
-                          <Crown className="absolute -top-3 left-1/2 -translate-x-1/2 w-5 h-5 text-gold drop-shadow-lg" />
-                        )}
-                        <div className={`${avatarSize} ${isFirst ? 'animate-pulse' : ''}`}>
-                          {c.avatar}
-                        </div>
-                      </div>
-                      
-                      {/* Podium block */}
-                      <div className={`w-full ${podiumHeight} rounded-t-lg flex flex-col items-center justify-start pt-2 ${
+                      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg ${
                         isFirst 
-                          ? 'bg-gradient-to-b from-gold/40 to-gold/20 border-t-2 border-x-2 border-gold/50' 
-                          : isSecond 
-                            ? 'bg-gradient-to-b from-slate-400/30 to-slate-400/10 border-t-2 border-x-2 border-slate-400/40'
-                            : 'bg-gradient-to-b from-amber-700/30 to-amber-700/10 border-t-2 border-x-2 border-amber-700/40'
-                      }`}>
-                        <span className="text-base mb-0.5">
-                          {isFirst ? '🥇' : isSecond ? '🥈' : '🥉'}
-                        </span>
-                        <span className={`text-[10px] font-bold truncate w-full text-center px-1 ${isFirst ? 'text-gold' : 'text-foreground'}`}>
+                          ? 'bg-gold/20 border border-gold/40 scale-105 mx-1' 
+                          : 'bg-muted/30 border border-border/50'
+                      }`}
+                    >
+                      <span className="text-sm">{actualPosition === 0 ? '🥇' : actualPosition === 1 ? '🥈' : '🥉'}</span>
+                      <span className="text-lg">{c.avatar}</span>
+                      <div className="flex flex-col">
+                        <span className={`text-[10px] font-bold truncate max-w-[60px] ${isFirst ? 'text-gold' : 'text-foreground'}`}>
                           {c.username}
                         </span>
                         <span className={`text-[9px] ${isFirst ? 'text-gold/80' : 'text-muted-foreground'}`}>
