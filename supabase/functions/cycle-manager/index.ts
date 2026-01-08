@@ -612,11 +612,20 @@ async function settleCycle(supabase: any, cycleId: string) {
 async function refundCycleParticipants(supabase: any, cycleId: string) {
   const { data: cycle } = await supabase
     .from('game_cycles')
-    .select('entry_fee')
+    .select('entry_fee, template_id')
     .eq('id', cycleId)
     .single();
 
   if (!cycle || cycle.entry_fee === 0) return;
+
+  // Get template name for email
+  const { data: template } = await supabase
+    .from('game_templates')
+    .select('name')
+    .eq('id', cycle.template_id)
+    .single();
+
+  const gameName = template?.name || 'Royal Rumble';
 
   const { data: participants } = await supabase
     .from('cycle_participants')
@@ -628,7 +637,7 @@ async function refundCycleParticipants(supabase: any, cycleId: string) {
     // Refund wallet
     const { data: profile } = await supabase
       .from('profiles')
-      .select('wallet_balance')
+      .select('wallet_balance, user_type')
       .eq('id', p.user_id)
       .single();
 
@@ -645,6 +654,29 @@ async function refundCycleParticipants(supabase: any, cycleId: string) {
         amount: cycle.entry_fee,
         description: 'Royal Rumble Cancelled - Refund',
       });
+
+      // Send game cancelled email (only to real users)
+      if (profile.user_type !== 'mock') {
+        try {
+          await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-transactional-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({
+              template_key: 'game_cancelled_refund',
+              user_id: p.user_id,
+              data: {
+                game_name: gameName,
+                amount: cycle.entry_fee.toLocaleString(),
+              },
+            }),
+          });
+        } catch (emailError) {
+          console.error(`[refund] Failed to send email to ${p.user_id}:`, emailError);
+        }
+      }
     }
   }
 

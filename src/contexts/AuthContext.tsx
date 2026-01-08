@@ -86,6 +86,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             description: 'Your welcome bonus has been added to your wallet',
             duration: 6000,
           });
+
+          // Send welcome bonus email (fire and forget)
+          supabase.functions.invoke('send-transactional-email', {
+            body: {
+              template_key: 'welcome_bonus',
+              user_id: userId,
+              data: { amount: profileData.wallet_balance.toLocaleString() },
+            },
+          }).catch(err => console.error('Welcome email failed:', err));
         }, 1500);
       }
     }

@@ -202,6 +202,30 @@ Deno.serve(async (req) => {
 
     console.log(`[verify-kyc] User ${user.id} verified via ${type.toUpperCase()}: ${verifiedFirstName} ${verifiedLastName}`);
 
+    // Send KYC verified email
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({
+          template_key: 'kyc_verified',
+          user_id: user.id,
+          data: {
+            first_name: verifiedFirstName,
+            last_name: verifiedLastName,
+            kyc_type: type.toUpperCase(),
+          },
+        }),
+      });
+      console.log(`[verify-kyc] KYC verified email sent to user ${user.id}`);
+    } catch (emailError) {
+      console.error('[verify-kyc] Failed to send email:', emailError);
+      // Don't fail the whole request if email fails
+    }
+
     return new Response(JSON.stringify({ 
       success: true,
       first_name: verifiedFirstName,

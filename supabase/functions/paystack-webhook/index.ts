@@ -157,10 +157,10 @@ Deno.serve(async (req) => {
         })
         .eq('reference', reference);
 
-      // Unlock user's wallet
+      // Unlock user's wallet and send email
       const { data: tx } = await supabase
         .from('wallet_transactions')
-        .select('user_id')
+        .select('user_id, amount')
         .eq('reference', reference)
         .single();
 
@@ -169,6 +169,37 @@ Deno.serve(async (req) => {
           .from('profiles')
           .update({ wallet_locked: false })
           .eq('id', tx.user_id);
+
+        // Get user's bank details for email
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('bank_account_name, bank_account_number')
+          .eq('id', tx.user_id)
+          .single();
+
+        // Send withdrawal complete email
+        try {
+          await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-transactional-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({
+              template_key: 'withdrawal_complete',
+              user_id: tx.user_id,
+              data: {
+                amount: Math.abs(tx.amount).toLocaleString(),
+                reference: reference,
+                bank_name: profile?.bank_account_name || 'Bank',
+                account_number: profile?.bank_account_number ? `****${profile.bank_account_number.slice(-4)}` : '****',
+              },
+            }),
+          });
+          console.log(`Withdrawal complete email sent for ${reference}`);
+        } catch (emailError) {
+          console.error('Failed to send withdrawal email:', emailError);
+        }
       }
 
       console.log(`Withdrawal completed: ${reference}`);
@@ -211,6 +242,29 @@ Deno.serve(async (req) => {
             description: 'Withdrawal failed - refunded',
           })
           .eq('reference', reference);
+
+        // Send withdrawal failed email
+        try {
+          await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-transactional-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({
+              template_key: 'withdrawal_failed',
+              user_id: tx.user_id,
+              data: {
+                amount: Math.abs(tx.amount).toLocaleString(),
+                reference: reference,
+                reason: data.reason || 'Transfer failed',
+              },
+            }),
+          });
+          console.log(`Withdrawal failed email sent for ${reference}`);
+        } catch (emailError) {
+          console.error('Failed to send withdrawal failed email:', emailError);
+        }
 
         console.log(`Withdrawal failed and refunded: ${reference}`);
       }

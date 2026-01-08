@@ -33,6 +33,7 @@ const navItems = [
   { label: 'Rank & Rewards', icon: Trophy, path: '/admin/rank' },
   { label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
   { label: 'Audit Logs', icon: Shield, path: '/admin/audit-logs' },
+  { label: 'Email Templates', icon: Mail, path: '/admin/email-templates' },
   { label: 'Communication', icon: Mail, path: '/admin/communication' },
   { label: 'Settings', icon: Settings, path: '/admin/settings' },
 ];

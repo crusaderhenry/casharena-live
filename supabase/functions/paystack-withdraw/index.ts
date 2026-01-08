@@ -142,6 +142,30 @@ Deno.serve(async (req) => {
         })
         .eq('id', user.id);
 
+      // Send withdrawal complete email
+      try {
+        await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-transactional-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          },
+          body: JSON.stringify({
+            template_key: 'withdrawal_complete',
+            user_id: user.id,
+            data: {
+              amount: amount.toLocaleString(),
+              reference: reference,
+              bank_name: 'Test Bank',
+              account_number: `****${account_number.slice(-4)}`,
+            },
+          }),
+        });
+        console.log(`[TEST MODE] Withdrawal complete email sent`);
+      } catch (emailError) {
+        console.error('Failed to send withdrawal email:', emailError);
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
