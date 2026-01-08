@@ -54,6 +54,9 @@ export const ProfileScreen = () => {
   const [showKycModal, setShowKycModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteOtpSent, setDeleteOtpSent] = useState(false);
+  const [deleteOtpCode, setDeleteOtpCode] = useState('');
+  const [deleteOtpLoading, setDeleteOtpLoading] = useState(false);
 
   const handleKycVerified = (firstName: string, lastName: string) => {
     setKycStatus({
@@ -216,13 +219,57 @@ export const ProfileScreen = () => {
       return;
     }
     setShowDeleteDialog(true);
+    setDeleteOtpSent(false);
+    setDeleteOtpCode('');
+  };
+
+  const sendDeleteOtp = async () => {
+    if (!profile?.email) return;
+    
+    setDeleteOtpLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-otp', {
+        body: { email: profile.email }
+      });
+
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      setDeleteOtpSent(true);
+      toast.success('Verification code sent to your email');
+    } catch (err) {
+      console.error('Error sending OTP:', err);
+      toast.error('Failed to send verification code');
+    } finally {
+      setDeleteOtpLoading(false);
+    }
   };
 
   const confirmDeleteAccount = async () => {
-    if (!user) return;
+    if (!user || !profile?.email) return;
+    
+    if (!deleteOtpCode || deleteOtpCode.length !== 6) {
+      toast.error('Please enter the 6-digit verification code');
+      return;
+    }
     
     setDeleteLoading(true);
     try {
+      // Verify OTP first
+      const { data: otpData, error: otpError } = await supabase.functions.invoke('verify-otp', {
+        body: { email: profile.email, code: deleteOtpCode }
+      });
+
+      if (otpError) throw otpError;
+      if (otpData?.error) {
+        toast.error(otpData.error);
+        setDeleteLoading(false);
+        return;
+      }
+
       // Call edge function to delete user (need service role)
       const { error } = await supabase.functions.invoke('delete-account', {
         body: { userId: user.id }
@@ -577,21 +624,52 @@ export const ProfileScreen = () => {
       />
 
       {/* Delete Account Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialog open={showDeleteDialog} onOpenChange={(open) => {
+        setShowDeleteDialog(open);
+        if (!open) {
+          setDeleteOtpSent(false);
+          setDeleteOtpCode('');
+        }
+      }}>
         <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-foreground">
               <AlertTriangle className="w-5 h-5 text-red-400" />
               Delete Your Account
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-muted-foreground">
-              <p className="mb-3">
-                Are you sure you want to permanently delete your account?
-              </p>
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg mb-3">
-                <p className="text-red-400 text-sm">
-                  This action cannot be undone. All your data, game history, achievements, and wallet transactions will be permanently deleted.
-                </p>
+            <AlertDialogDescription asChild>
+              <div className="text-muted-foreground">
+                {!deleteOtpSent ? (
+                  <>
+                    <p className="mb-3">
+                      Are you sure you want to permanently delete your account?
+                    </p>
+                    <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg mb-3">
+                      <p className="text-red-400 text-sm">
+                        This action cannot be undone. All your data, game history, achievements, and wallet transactions will be permanently deleted.
+                      </p>
+                    </div>
+                    <p className="text-sm">
+                      To continue, we'll send a verification code to <strong className="text-foreground">{profile?.email}</strong>
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mb-3">
+                      Enter the 6-digit code sent to <strong className="text-foreground">{profile?.email}</strong>
+                    </p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      value={deleteOtpCode}
+                      onChange={(e) => setDeleteOtpCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="000000"
+                      className="w-full text-center text-2xl font-mono tracking-[0.5em] py-3 px-4 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground"
+                    />
+                  </>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -599,13 +677,23 @@ export const ProfileScreen = () => {
             <AlertDialogCancel className="bg-muted text-foreground border-border hover:bg-muted/80">
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteAccount}
-              disabled={deleteLoading}
-              className="bg-red-500 hover:bg-red-600 text-white"
-            >
-              {deleteLoading ? 'Deleting...' : 'Delete My Account'}
-            </AlertDialogAction>
+            {!deleteOtpSent ? (
+              <button
+                onClick={sendDeleteOtp}
+                disabled={deleteOtpLoading}
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-red-500 hover:bg-red-600 text-white h-10 px-4 py-2 disabled:opacity-50"
+              >
+                {deleteOtpLoading ? 'Sending...' : 'Send Verification Code'}
+              </button>
+            ) : (
+              <AlertDialogAction
+                onClick={confirmDeleteAccount}
+                disabled={deleteLoading || deleteOtpCode.length !== 6}
+                className="bg-red-500 hover:bg-red-600 text-white disabled:opacity-50"
+              >
+                {deleteLoading ? 'Deleting...' : 'Delete My Account'}
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
