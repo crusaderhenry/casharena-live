@@ -131,15 +131,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // THEN check for existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      // If a stale/invalid session exists in storage, clear it so the app can re-auth.
+      // If a stale/invalid session exists in storage, validate it first
       if (session?.user) {
         const { error: userError } = await supabase.auth.getUser();
         if (userError) {
           console.warn('[Auth] Invalid session detected, signing out:', userError.message);
-          await supabase.auth.signOut();
+          // Clear all local state and storage
+          await supabase.auth.signOut({ scope: 'local' });
           setSession(null);
           setUser(null);
           setProfile(null);
@@ -147,10 +145,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
+        // Session is valid, set state
+        setSession(session);
+        setUser(session.user);
         fetchProfile(session.user.id).then((profileData) => {
           setProfile(profileData);
           checkWelcomeBonusToast(session.user.id, profileData);
         });
+      } else {
+        setSession(null);
+        setUser(null);
       }
 
       setLoading(false);
