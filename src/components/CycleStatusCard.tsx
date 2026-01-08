@@ -4,9 +4,10 @@ import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAuth } from '@/contexts/AuthContext';
-import { Crown, Users, Timer, Zap, Eye, Play, Radio, Clock, Sparkles, Flame } from 'lucide-react';
+import { Crown, Users, Timer, Zap, Eye, Play, Radio, Clock, Sparkles, Flame, Share2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { AuthPromptModal } from '@/components/AuthPromptModal';
+import { GameShareModal } from '@/components/GameShareModal';
 
 interface CycleStatusCardProps {
   cycle: GameCycle;
@@ -20,6 +21,7 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
   const { hotGameThresholds } = usePlatformSettings();
   const { user } = useAuth();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   
   // Helper to determine if game is "hot" using platform settings
   const isHotGame = (participantCount: number, status: string): boolean => {
@@ -251,14 +253,29 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
             </div>
           )}
           
-          {/* CTA - Always leads to Lobby */}
-          <div className="flex items-center gap-1 text-primary text-sm font-medium group-hover:translate-x-1 transition-transform">
-            {cycle.status === 'live' || cycle.status === 'ending' 
-              ? 'Watch Live' 
-              : cycle.status === 'opening' 
-                ? 'Enter Game' 
-                : 'View Lobby'}
-            <Zap className="w-4 h-4" />
+          <div className="flex items-center gap-2">
+            {/* Share Button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                play('click');
+                buttonClick();
+                setShowShareModal(true);
+              }}
+              className="p-2 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+            
+            {/* CTA - Always leads to Lobby */}
+            <div className="flex items-center gap-1 text-primary text-sm font-medium group-hover:translate-x-1 transition-transform">
+              {cycle.status === 'live' || cycle.status === 'ending' 
+                ? 'Watch Live' 
+                : cycle.status === 'opening' 
+                  ? 'Enter Game' 
+                  : 'View Lobby'}
+              <Zap className="w-4 h-4" />
+            </div>
           </div>
         </div>
       </button>
@@ -267,6 +284,13 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
         open={showAuthPrompt} 
         onOpenChange={setShowAuthPrompt}
         action="game"
+      />
+      
+      <GameShareModal
+        open={showShareModal}
+        onOpenChange={setShowShareModal}
+        cycle={cycle}
+        variant="card"
       />
     </>
   );
