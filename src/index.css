@@ -329,6 +329,15 @@
     padding-top: env(safe-area-inset-top, 0);
   }
 
+  /* Mobile performance: iOS blur can be expensive while scrolling */
+  @media (max-width: 640px) {
+    .sticky-header {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background: hsl(var(--background) / 0.98);
+    }
+  }
+
   /* Smooth iOS Scrolling - required for sticky to work */
   .scroll-smooth-ios {
     -webkit-overflow-scrolling: touch;

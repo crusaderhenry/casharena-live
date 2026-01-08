@@ -347,7 +347,7 @@ export const CycleLobby = () => {
         transitioning ? 'opacity-0 scale-110 blur-sm' : 'opacity-100 animate-fade-in'
       }`}>
         {/* Header */}
-        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="sticky top-0 z-20 pt-safe bg-background/95 backdrop-blur-sm border-b border-border">
           <div className="p-4 flex items-center gap-4">
             <button
               onClick={() => { play('click'); buttonClick(); navigate('/arena'); }}

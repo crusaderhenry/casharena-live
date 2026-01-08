@@ -178,7 +178,7 @@ export const CycleResults = () => {
       )}
 
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+      <div className="sticky top-0 z-10 pt-safe bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="p-4 flex items-center gap-4">
           <button
             onClick={() => { play('click'); buttonClick(); navigate('/arena'); }}
