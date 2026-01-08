@@ -190,7 +190,11 @@ export const CycleArena = () => {
       .eq('id', data.template_id)
       .single();
 
-    setCycle({ ...data, template_name: template?.name || 'Royal Rumble' });
+    setCycle({ 
+      ...data, 
+      template_name: template?.name || 'Royal Rumble',
+      ambient_music_style: (data.ambient_music_style as CycleData['ambient_music_style']) || 'intense',
+    });
     setLocalCountdown(data.countdown);
     
     // Use server-synced time for accurate timing across all devices
