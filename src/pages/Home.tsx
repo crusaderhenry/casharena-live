@@ -11,6 +11,7 @@ import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
 
 import { useOAuthUsername } from '@/hooks/useOAuthUsername';
 import { Zap, Trophy, ChevronRight, Bell, TrendingUp, Calendar, Sparkles, Crown, Radio, Play, Swords, Clock } from 'lucide-react';
+import { NotificationCenter } from '@/components/NotificationCenter';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveCycles } from '@/hooks/useActiveCycles';
 import { useNavigate } from 'react-router-dom';
@@ -198,6 +199,8 @@ export const Home = () => {
             </div>
           </div>
           
+          {/* Notification Center */}
+          <NotificationCenter />
         </div>
 
         {/* Notification Ticker */}
