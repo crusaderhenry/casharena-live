@@ -23,6 +23,7 @@ const GoogleIcon = () => (
 export const AuthPage = () => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -31,6 +32,7 @@ export const AuthPage = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [devLoading, setDevLoading] = useState<'member' | 'admin' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [rememberEmail, setRememberEmail] = useState(true);
 
   // Load remembered email on mount
@@ -119,6 +121,40 @@ export const AuthPage = () => {
 
         navigate('/home');
       }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    try {
+      emailSchema.parse(email);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setError(err.errors[0].message);
+      }
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?reset=true`,
+      });
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      setSuccess('Password reset link sent! Check your email.');
     } catch (err) {
       setError('An unexpected error occurred');
     } finally {
@@ -233,9 +269,64 @@ export const AuthPage = () => {
       <div className="w-full max-w-sm">
         <div className="bg-card rounded-2xl border border-border p-6">
           <h2 className="text-xl font-bold text-foreground mb-6">
-            {isLogin ? 'Welcome Back' : 'Create Account'}
+            {showForgotPassword ? 'Reset Password' : isLogin ? 'Welcome Back' : 'Create Account'}
           </h2>
 
+          {showForgotPassword ? (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="w-full pl-12 pr-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+                    disabled={loading}
+                    required
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                  <p className="text-sm text-red-400">{error}</p>
+                </div>
+              )}
+
+              {success && (
+                <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
+                  <p className="text-sm text-green-400">{success}</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                ) : (
+                  <>Send Reset Link</>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setError(null);
+                  setSuccess(null);
+                }}
+                className="w-full py-3 text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
+              >
+                ← Back to Sign In
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleAuth} className="space-y-4">
             {!isLogin && (
               <div>
@@ -293,18 +384,33 @@ export const AuthPage = () => {
               </div>
             </div>
 
-            {/* Remember Email Toggle */}
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="rememberEmail"
-                checked={rememberEmail}
-                onChange={(e) => setRememberEmail(e.target.checked)}
-                className="w-4 h-4 rounded border-border bg-muted text-primary focus:ring-primary"
-              />
-              <label htmlFor="rememberEmail" className="text-sm text-muted-foreground">
-                Remember my email
-              </label>
+            {/* Remember Email & Forgot Password */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="rememberEmail"
+                  checked={rememberEmail}
+                  onChange={(e) => setRememberEmail(e.target.checked)}
+                  className="w-4 h-4 rounded border-border bg-muted text-primary focus:ring-primary"
+                />
+                <label htmlFor="rememberEmail" className="text-sm text-muted-foreground">
+                  Remember my email
+                </label>
+              </div>
+              {isLogin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(true);
+                    setError(null);
+                    setSuccess(null);
+                  }}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Forgot password?
+                </button>
+              )}
             </div>
 
             {error && (
@@ -328,45 +434,51 @@ export const AuthPage = () => {
               )}
             </button>
           </form>
+          )}
 
-          {/* OAuth Divider */}
-          <div className="flex items-center gap-4 my-6">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-sm text-muted-foreground">or continue with</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
+          {!showForgotPassword && (
+            <>
+              {/* OAuth Divider */}
+              <div className="flex items-center gap-4 my-6">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-sm text-muted-foreground">or continue with</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
 
-          {/* Google OAuth Button */}
-          <button
-            type="button"
-            onClick={handleGoogleAuth}
-            disabled={googleLoading || loading}
-            className="w-full py-3 bg-white hover:bg-gray-50 text-gray-800 rounded-xl font-medium transition-colors flex items-center justify-center gap-3 border border-gray-300 disabled:opacity-50"
-          >
-            {googleLoading ? (
-              <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-            ) : (
-              <>
-                <GoogleIcon />
-                Continue with Google
-              </>
-            )}
-          </button>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              {isLogin ? "Don't have an account?" : 'Already have an account?'}
+              {/* Google OAuth Button */}
               <button
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  setError(null);
-                }}
-                className="ml-2 text-primary font-medium hover:underline"
+                type="button"
+                onClick={handleGoogleAuth}
+                disabled={googleLoading || loading}
+                className="w-full py-3 bg-white hover:bg-gray-50 text-gray-800 rounded-xl font-medium transition-colors flex items-center justify-center gap-3 border border-gray-300 disabled:opacity-50"
               >
-                {isLogin ? 'Sign Up' : 'Sign In'}
+                {googleLoading ? (
+                  <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <GoogleIcon />
+                    Continue with Google
+                  </>
+                )}
               </button>
-            </p>
-          </div>
+
+              <div className="mt-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  {isLogin ? "Don't have an account?" : 'Already have an account?'}
+                  <button
+                    onClick={() => {
+                      setIsLogin(!isLogin);
+                      setError(null);
+                      setSuccess(null);
+                    }}
+                    className="ml-2 text-primary font-medium hover:underline"
+                  >
+                    {isLogin ? 'Sign Up' : 'Sign In'}
+                  </button>
+                </p>
+              </div>
+            </>
+          )}
 
           {/* Quick Dev Logins */}
           <div className="mt-4 pt-4 border-t border-border space-y-2">
