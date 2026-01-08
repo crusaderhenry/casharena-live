@@ -50,6 +50,7 @@ import { AdminAnalytics } from "@/pages/admin/AdminAnalytics";
 import { AdminAuditLogs } from "@/pages/admin/AdminAuditLogs";
 import { AdminSettings } from "@/pages/admin/AdminSettings";
 import { AdminCommunication } from "@/pages/admin/AdminCommunication";
+import AdminEmailTemplates from "@/pages/admin/AdminEmailTemplates";
 // Moderator
 import { ModeratorLayout } from "@/pages/moderator/ModeratorLayout";
 import { ModeratorDashboard } from "@/pages/moderator/ModeratorDashboard";
@@ -226,6 +227,7 @@ const AppRoutes = () => (
       <Route path="rank" element={<AdminRank />} />
       <Route path="analytics" element={<AdminAnalytics />} />
       <Route path="audit-logs" element={<AdminAuditLogs />} />
+      <Route path="email-templates" element={<AdminEmailTemplates />} />
       <Route path="settings" element={<AdminSettings />} />
       <Route path="communication" element={<AdminCommunication />} />
     </Route>
