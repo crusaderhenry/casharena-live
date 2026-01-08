@@ -104,8 +104,15 @@ async function generateToken(
     }
   };
 
-  const base64UrlEncode = (data: string): string => {
-    return btoa(data).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  // Properly encode UTF-8 strings to base64url
+  const base64UrlEncode = (str: string): string => {
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(str);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   };
 
   const encodedHeader = base64UrlEncode(JSON.stringify(header));
