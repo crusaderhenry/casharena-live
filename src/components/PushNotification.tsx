@@ -3,6 +3,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import { Trophy, Zap, Bell, X, Flag } from 'lucide-react';
 
 interface PushNotification {
@@ -49,6 +50,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   const { play } = useSounds();
   const { vibrate, prizeWin, gameStart, notification: hapticNotification } = useHaptics();
   const { user } = useAuth();
+  const { preferences } = useNotificationPreferences();
 
   const showNotification = useCallback((notification: Omit<PushNotification, 'id'>) => {
     const id = `notif_${Date.now()}`;
@@ -149,8 +151,26 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
           const gameName = template?.name || 'Royal Rumble';
 
-          // Game status changes are now silent in-app (push notifications still work)
-          // Users can see status changes via the live game cards on Home page
+          // Show in-app notification only if enabled
+          if (preferences.inAppGameStatus) {
+            // Game just went live
+            if (cycle.status === 'live' && oldCycle.status !== 'live') {
+              showNotification({
+                type: 'game_starting',
+                title: '🎮 Game is LIVE!',
+                message: `${gameName} is now live! Pool: ₦${cycle.pool_value.toLocaleString()}`,
+              });
+            }
+
+            // Game ended (settled)
+            if (cycle.status === 'settled' && oldCycle.status === 'live') {
+              showNotification({
+                type: 'game_ended',
+                title: '🏁 Game Ended',
+                message: `${gameName} has ended. Check results!`,
+              });
+            }
+          }
         }
       )
       .subscribe();
@@ -186,7 +206,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         supabase.removeChannel(winnersChannel);
       }
     };
-  }, [user, showNotification, announceWin]);
+  }, [user, showNotification, announceWin, preferences.inAppGameStatus]);
 
   return (
     <NotificationContext.Provider value={{ showNotification, scheduleGameReminder, announceWin }}>
