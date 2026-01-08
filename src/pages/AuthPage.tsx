@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Zap, Mail, User, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Zap, Mail, User, ArrowRight, ArrowLeft, Gift } from 'lucide-react';
 import { z } from 'zod';
 import { FunctionsHttpError, FunctionsFetchError, FunctionsRelayError } from '@supabase/supabase-js';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
@@ -62,7 +62,13 @@ type AuthStep = 'email' | 'otp' | 'username';
 
 export const AuthPage = () => {
   const navigate = useNavigate();
-  const { googleAuthEnabled, loading: settingsLoading } = usePlatformSettings();
+  const { 
+    googleAuthEnabled, 
+    loading: settingsLoading,
+    welcomeBonusEnabled,
+    welcomeBonusAmount,
+    welcomeBonusLimit
+  } = usePlatformSettings();
   
   const [step, setStep] = useState<AuthStep>('email');
   const [email, setEmail] = useState('');
@@ -73,6 +79,30 @@ export const AuthPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [bonusRecipientCount, setBonusRecipientCount] = useState(0);
+  const [bonusLoading, setBonusLoading] = useState(true);
+
+  // Fetch bonus recipient count
+  useEffect(() => {
+    const fetchBonusCount = async () => {
+      if (!welcomeBonusEnabled) {
+        setBonusLoading(false);
+        return;
+      }
+      
+      const { count, error } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('received_welcome_bonus', true);
+      
+      if (!error) {
+        setBonusRecipientCount(count || 0);
+      }
+      setBonusLoading(false);
+    };
+    
+    fetchBonusCount();
+  }, [welcomeBonusEnabled]);
 
   // Load remembered email on mount
   useEffect(() => {
@@ -326,7 +356,26 @@ export const AuthPage = () => {
           {step === 'email' && (
             <>
               <h2 className="text-xl font-bold text-foreground mb-2">Enter your email</h2>
-              <p className="text-sm text-muted-foreground mb-6">We'll send you a verification code</p>
+              <p className="text-sm text-muted-foreground mb-4">We'll send you a verification code</p>
+
+              {/* Welcome Bonus Banner */}
+              {welcomeBonusEnabled && !bonusLoading && welcomeBonusLimit > bonusRecipientCount && (
+                <div className="mb-6 p-3 bg-gradient-to-r from-primary/10 to-gold/10 border border-primary/30 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+                      <Gift className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-foreground">
+                        Get ₦{welcomeBonusAmount.toLocaleString()} Free!
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Only {(welcomeBonusLimit - bonusRecipientCount).toLocaleString()} spots left
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <form onSubmit={handleSendOTP} className="space-y-4">
                 <div>

@@ -10,6 +10,7 @@ import { PoolParticipantsSheet } from '@/components/PoolParticipantsSheet';
 import { GameRulesSection } from '@/components/GameRulesSection';
 import { LobbyAudioControls } from '@/components/LobbyAudioControls';
 import { MicCheckModal } from '@/components/MicCheckModal';
+import { AuthPromptModal } from '@/components/AuthPromptModal';
 import { 
   ArrowLeft, Users, Timer, Crown, Eye, Trophy, 
   Clock, Play, Radio, Sparkles, Ticket, Wallet,
@@ -70,6 +71,7 @@ export const CycleLobby = () => {
   const [flashActive, setFlashActive] = useState(false);
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
   // Lobby audio hook with ambient style from cycle
   useLobbyAudio({
@@ -217,6 +219,12 @@ export const CycleLobby = () => {
     play('click');
     buttonClick();
 
+    // Check if user is authenticated
+    if (!user) {
+      setShowAuthPrompt(true);
+      return;
+    }
+
     const result = await joinCycle(cycleId, asSpectator);
     if (result.success) {
       setParticipation({ isParticipant: true, isSpectator: asSpectator });
@@ -327,6 +335,13 @@ export const CycleLobby = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Auth Prompt for Guests */}
+      <AuthPromptModal 
+        open={showAuthPrompt} 
+        onOpenChange={setShowAuthPrompt}
+        action="game"
+      />
 
       {/* Header */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">

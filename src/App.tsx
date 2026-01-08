@@ -197,14 +197,14 @@ const AppRoutes = () => (
     <Route path="/finger" element={<Navigate to="/arena" replace />} />
     <Route path="/finger/*" element={<Navigate to="/arena" replace />} />
     
-    {/* Royal Rumble Arena */}
-    <Route path="/arena" element={<ProtectedRoute><ArenaListing /></ProtectedRoute>} />
-    <Route path="/arena/:cycleId" element={<ProtectedRoute><CycleLobby /></ProtectedRoute>} />
+    {/* Royal Rumble Arena - Public access */}
+    <Route path="/arena" element={<ArenaListing />} />
+    <Route path="/arena/:cycleId" element={<CycleLobby />} />
     <Route path="/arena/:cycleId/live" element={<ProtectedRoute><CycleArena /></ProtectedRoute>} />
-    <Route path="/arena/:cycleId/results" element={<ProtectedRoute><CycleResults /></ProtectedRoute>} />
+    <Route path="/arena/:cycleId/results" element={<CycleResults />} />
     
     {/* Other screens */}
-    <Route path="/rank" element={<ProtectedRoute><RankScreen /></ProtectedRoute>} />
+    <Route path="/rank" element={<RankScreen />} />
     <Route path="/profile" element={<ProtectedRoute><ProfileScreen /></ProtectedRoute>} />
     <Route path="/wallet" element={<ProtectedRoute><WalletMain /></ProtectedRoute>} />
     <Route path="/wallet/history" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
