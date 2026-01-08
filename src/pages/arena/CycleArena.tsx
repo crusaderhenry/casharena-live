@@ -11,6 +11,7 @@ import { useMockVoiceRoom } from '@/hooks/useMockVoiceRoom';
 import { useMobileFullscreen } from '@/hooks/useMobileFullscreen';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAudio } from '@/contexts/AudioContext';
+import { useServerTime } from '@/hooks/useServerTime';
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceRoomLive } from '@/components/VoiceRoomLive';
 import { CompactHostBanner } from '@/components/CompactHostBanner';
@@ -74,6 +75,9 @@ export const CycleArena = () => {
   // Platform settings for winner screen duration
   const { winnerScreenDuration } = usePlatformSettings();
   
+  // Server time sync for accurate timing across devices
+  const { secondsUntil, getServerTime } = useServerTime();
+  
   // Mobile fullscreen hook - auto fullscreen disabled
   const { isFullscreen, isMobile, toggleFullscreen } = useMobileFullscreen(false);
   
@@ -114,6 +118,7 @@ export const CycleArena = () => {
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
+  const gameEndTriggeredRef = useRef(false);
   
   // Use simulated or real data based on demo mode
   const comments = isDemoMode ? simulatedComments : realComments;
@@ -185,17 +190,16 @@ export const CycleArena = () => {
     setCycle({ ...data, template_name: template?.name || 'Royal Rumble' });
     setLocalCountdown(data.countdown);
     
-    const now = Date.now();
-    const entryOpenAt = new Date(data.entry_open_at).getTime();
-    const liveStartAt = new Date(data.live_start_at).getTime();
-    const liveEndAt = new Date(data.live_end_at).getTime();
+    // Use server-synced time for accurate timing across all devices
+    setTimeUntilOpening(secondsUntil(data.entry_open_at));
+    setTimeUntilLive(secondsUntil(data.live_start_at));
+    setGameTimeRemaining(secondsUntil(data.live_end_at));
     
-    setTimeUntilOpening(Math.max(0, Math.floor((entryOpenAt - now) / 1000)));
-    setTimeUntilLive(Math.max(0, Math.floor((liveStartAt - now) / 1000)));
-    setGameTimeRemaining(Math.max(0, Math.floor((liveEndAt - now) / 1000)));
+    // Reset game end trigger on fresh data
+    gameEndTriggeredRef.current = false;
     
     setLoading(false);
-  }, [cycleId, navigate]);
+  }, [cycleId, navigate, secondsUntil]);
 
   // Initial fetch
   useEffect(() => {
@@ -258,45 +262,62 @@ export const CycleArena = () => {
     };
   }, [cycleId, getOrderedCommenters, play, announceGameOver]);
 
-  // Local countdown ticker
+  // Local countdown ticker - use server time for accurate sync
   useEffect(() => {
     if (!cycle) return;
 
+    const triggerGameEnd = () => {
+      if (gameEndTriggeredRef.current || showGameEndFreeze) return;
+      gameEndTriggeredRef.current = true;
+      
+      const orderedCommenters = getOrderedCommenters();
+      const winner = orderedCommenters[0];
+      const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
+      const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (cycle.prize_distribution[0] / 100));
+      
+      if (winner) {
+        play('prizeWin');
+        setGameWinner({
+          name: winner.username,
+          avatar: winner.avatar,
+          prize: prizeAmount,
+        });
+        announceGameOver(winner.username, prizeAmount);
+        setShowGameEndFreeze(true);
+      }
+    };
+
     const interval = setInterval(() => {
       if (cycle.status === 'live') {
+        // Use server-synced time for game end to ensure all clients are in sync
+        const serverSyncedGameTime = secondsUntil(cycle.live_end_at);
+        setGameTimeRemaining(serverSyncedGameTime);
+        
+        // CRITICAL: When game end time reaches 0, override countdown and end game
+        if (serverSyncedGameTime <= 0) {
+          setLocalCountdown(0);
+          triggerGameEnd();
+          return;
+        }
+        
         setLocalCountdown(prev => {
           const newVal = Math.max(0, prev - 1);
-          // Trigger freeze when countdown hits 0
-          if (newVal === 0 && prev > 0) {
-            const orderedCommenters = getOrderedCommenters();
-            const winner = orderedCommenters[0];
-            const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
-            const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (cycle.prize_distribution[0] / 100));
-            
-            if (winner && !showGameEndFreeze) {
-              play('prizeWin');
-              setGameWinner({
-                name: winner.username,
-                avatar: winner.avatar,
-                prize: prizeAmount,
-              });
-              announceGameOver(winner.username, prizeAmount);
-              setShowGameEndFreeze(true);
-            }
+          // Trigger freeze when comment countdown hits 0 (only if game time hasn't ended)
+          if (newVal === 0 && prev > 0 && serverSyncedGameTime > 0) {
+            triggerGameEnd();
           }
           return newVal;
         });
-        setGameTimeRemaining(prev => Math.max(0, prev - 1));
       } else if (cycle.status === 'waiting') {
-        setTimeUntilOpening(prev => Math.max(0, prev - 1));
-        setTimeUntilLive(prev => Math.max(0, prev - 1));
+        setTimeUntilOpening(secondsUntil(cycle.entry_open_at));
+        setTimeUntilLive(secondsUntil(cycle.live_start_at));
       } else if (cycle.status === 'opening') {
-        setTimeUntilLive(prev => Math.max(0, prev - 1));
+        setTimeUntilLive(secondsUntil(cycle.live_start_at));
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [cycle?.status, getOrderedCommenters, play, announceGameOver, showGameEndFreeze]);
+  }, [cycle, getOrderedCommenters, play, announceGameOver, showGameEndFreeze, secondsUntil]);
 
   // Timer warning announcements
   useEffect(() => {
@@ -555,16 +576,24 @@ export const CycleArena = () => {
                 </p>
                 <p className="text-lg font-bold text-foreground">{comments.length}</p>
               </div>
-              <div className={`text-center py-2 rounded-xl ${
+              <div className={`text-center py-2 rounded-xl transition-all ${
                 gameTimeRemaining <= 60 
-                  ? 'bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30' 
+                  ? 'bg-gradient-to-r from-orange-500/30 to-red-500/30 border-2 border-orange-500/50 animate-pulse' 
                   : 'bg-muted/50'
               } backdrop-blur-sm`}>
-                <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
-                  <Hourglass className={`w-3 h-3 ${gameTimeRemaining <= 60 ? 'text-red-400 animate-pulse' : ''}`} /> 
-                  Game Ends
+                <p className={`text-[10px] uppercase flex items-center justify-center gap-1 ${
+                  gameTimeRemaining <= 60 ? 'text-orange-400 font-bold' : 'text-muted-foreground'
+                }`}>
+                  <Hourglass className={`w-3 h-3 ${gameTimeRemaining <= 60 ? 'text-orange-400 animate-bounce' : ''}`} /> 
+                  {gameTimeRemaining <= 60 ? 'ENDING SOON!' : 'Game Ends'}
                 </p>
-                <p className={`text-lg font-bold ${gameTimeRemaining <= 60 ? 'text-red-400' : 'text-foreground'}`}>
+                <p className={`text-lg font-bold ${
+                  gameTimeRemaining <= 60 
+                    ? gameTimeRemaining <= 10 
+                      ? 'text-red-500 animate-pulse text-xl' 
+                      : 'text-orange-400' 
+                    : 'text-foreground'
+                }`}>
                   {formatTime(gameTimeRemaining)}
                 </p>
               </div>

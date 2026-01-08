@@ -154,9 +154,15 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
                 >
                   {participant.avatar}
                 </div>
-                {/* Small speaking indicator dot */}
+                {/* Voice waveform indicator for speaking participants */}
                 {speaking && isSpeakerEnabled && (
-                  <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
+                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-end gap-[1px]">
+                    <span className="w-[2px] h-[6px] bg-primary rounded-full animate-[wave_0.5s_ease-in-out_infinite]" />
+                    <span className="w-[2px] h-[10px] bg-primary rounded-full animate-[wave_0.5s_ease-in-out_infinite_0.1s]" />
+                    <span className="w-[2px] h-[8px] bg-primary rounded-full animate-[wave_0.5s_ease-in-out_infinite_0.2s]" />
+                    <span className="w-[2px] h-[12px] bg-primary rounded-full animate-[wave_0.5s_ease-in-out_infinite_0.15s]" />
+                    <span className="w-[2px] h-[6px] bg-primary rounded-full animate-[wave_0.5s_ease-in-out_infinite_0.25s]" />
+                  </div>
                 )}
               </div>
               <span className={`text-[9px] truncate max-w-[40px] ${
