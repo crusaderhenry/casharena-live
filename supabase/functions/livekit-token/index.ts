@@ -147,7 +147,8 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.log('No authorization header or invalid format');
       return new Response(
         JSON.stringify({ error: 'No authorization header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -161,9 +162,21 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Get user from token
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
+    // Validate JWT using getClaims - more reliable than getUser
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      console.log('Invalid token or claims error:', claimsError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = claimsData.claims.sub as string;
+    if (!userId) {
+      console.log('No user ID in claims');
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -183,7 +196,7 @@ serve(async (req) => {
     const { data: profile } = await supabase
       .from('profiles')
       .select('username, avatar')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single();
 
     const participantName = profile?.username || 'Player';
@@ -204,24 +217,24 @@ serve(async (req) => {
 
     // Generate access token
     const metadata = JSON.stringify({ avatar: participantAvatar });
-    const token = await generateToken(
+    const livekitToken = await generateToken(
       apiKey,
       apiSecret,
       roomName,
-      user.id,
+      userId,
       participantName,
       metadata
     );
 
-    console.log(`Generated LiveKit token for user ${user.id} in room ${roomName}`);
+    console.log(`Generated LiveKit token for user ${userId} in room ${roomName}`);
 
     return new Response(
       JSON.stringify({ 
-        token,
+        token: livekitToken,
         url: livekitUrl,
         roomName,
         participantName,
-        participantIdentity: user.id
+        participantIdentity: userId
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
