@@ -5,13 +5,29 @@ interface LobbyAudioControlsProps {
   onMicTest?: () => void;
 }
 
+// Audio wave bars animation component
+const AudioWaveAnimation = () => (
+  <div className="flex items-end gap-[2px] h-3">
+    {[1, 2, 3].map((bar) => (
+      <div
+        key={bar}
+        className="w-[3px] bg-primary rounded-full animate-pulse"
+        style={{
+          height: `${40 + bar * 20}%`,
+          animationDelay: `${bar * 150}ms`,
+          animationDuration: '0.6s',
+        }}
+      />
+    ))}
+  </div>
+);
+
 export const LobbyAudioControls = ({ onMicTest }: LobbyAudioControlsProps) => {
   const { settings, toggleMusic, toggleSfx, playBackgroundMusic, stopBackgroundMusic } = useAudio();
   
-  // Combined mute state - muted when BOTH are off
-  const isMuted = !settings.musicEnabled && !settings.sfxEnabled;
   // Consider "on" if either is enabled
   const isAudioOn = settings.musicEnabled || settings.sfxEnabled;
+  const isMusicPlaying = settings.musicEnabled;
 
   const handleToggleMute = () => {
     if (isAudioOn) {
@@ -39,7 +55,7 @@ export const LobbyAudioControls = ({ onMicTest }: LobbyAudioControlsProps) => {
       {/* Combined Audio Toggle (Music + SFX) */}
       <button
         onClick={handleToggleMute}
-        className={`p-2 rounded-lg transition-all ${
+        className={`p-2 rounded-lg transition-all flex items-center gap-1.5 ${
           isAudioOn 
             ? 'bg-primary/20 text-primary' 
             : 'bg-muted text-muted-foreground'
@@ -47,7 +63,10 @@ export const LobbyAudioControls = ({ onMicTest }: LobbyAudioControlsProps) => {
         title={isAudioOn ? 'Mute Audio' : 'Unmute Audio'}
       >
         {isAudioOn ? (
-          <Volume2 className="w-4 h-4" />
+          <>
+            <Volume2 className="w-4 h-4" />
+            {isMusicPlaying && <AudioWaveAnimation />}
+          </>
         ) : (
           <VolumeX className="w-4 h-4 opacity-50" />
         )}
