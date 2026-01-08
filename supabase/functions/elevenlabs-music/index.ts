@@ -101,31 +101,40 @@ Deno.serve(async (req) => {
     const audioBuffer = await response.arrayBuffer();
     console.log(`[elevenlabs-music] Generated ${audioBuffer.byteLength} bytes of audio`);
 
-    // Store in Supabase Storage for caching
-    const { error: uploadError } = await supabase.storage
-      .from(bucketName)
-      .upload(filePath, audioBuffer, {
-        contentType: 'audio/mpeg',
-        upsert: true,
-      });
+    // Try to store in Supabase Storage for caching
+    let signedUrl: string | null = null;
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, audioBuffer, {
+          contentType: 'audio/mpeg',
+          upsert: true,
+        });
 
-    if (uploadError) {
-      console.error('[elevenlabs-music] Failed to cache audio:', uploadError);
+      if (uploadError) {
+        console.warn('[elevenlabs-music] Failed to cache audio:', uploadError.message);
+      } else {
+        // Get signed URL for the uploaded file
+        const { data: signedUrlData } = await supabase.storage
+          .from(bucketName)
+          .createSignedUrl(filePath, 3600);
+        
+        if (signedUrlData?.signedUrl) {
+          signedUrl = signedUrlData.signedUrl;
+        }
+      }
+    } catch (storageErr) {
+      console.warn('[elevenlabs-music] Storage error:', storageErr);
     }
 
-    // Get signed URL for the uploaded file
-    const { data: signedUrlData } = await supabase.storage
-      .from(bucketName)
-      .createSignedUrl(filePath, 3600);
-
-    if (signedUrlData?.signedUrl) {
+    if (signedUrl) {
       return new Response(
-        JSON.stringify({ audioUrl: signedUrlData.signedUrl, cached: false }),
+        JSON.stringify({ audioUrl: signedUrl, cached: false }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Fallback: return base64 encoded audio
+    // Fallback: return base64 encoded audio directly
     const base64Audio = base64Encode(audioBuffer);
     return new Response(
       JSON.stringify({ audioContent: base64Audio, cached: false }),
