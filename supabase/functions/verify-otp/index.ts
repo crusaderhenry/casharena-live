@@ -16,8 +16,8 @@ Deno.serve(async (req) => {
 
     if (!email || !code) {
       return new Response(
-        JSON.stringify({ error: 'Email and code are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Email and code are required' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -46,8 +46,8 @@ Deno.serve(async (req) => {
     if (findError || !otpRecord) {
       console.log('OTP not found for:', normalizedEmail);
       return new Response(
-        JSON.stringify({ error: 'Invalid verification code' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Invalid verification code' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -60,8 +60,8 @@ Deno.serve(async (req) => {
         .eq('id', otpRecord.id);
 
       return new Response(
-        JSON.stringify({ error: 'Verification code has expired' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Verification code has expired' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
