@@ -10,9 +10,19 @@ interface JoinResult {
   isSpectator?: boolean;
 }
 
+interface LeaveResult {
+  success: boolean;
+  error?: string;
+  refunded?: boolean;
+  amount?: number;
+  was_spectator?: boolean;
+  seconds_until_live?: number;
+}
+
 export const useCycleJoin = () => {
   const { user, refreshProfile } = useAuth();
   const [joining, setJoining] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   const joinCycle = useCallback(async (cycleId: string, asSpectator: boolean = false): Promise<JoinResult> => {
     if (!user) {
@@ -61,6 +71,51 @@ export const useCycleJoin = () => {
     }
   }, [user, refreshProfile]);
 
+  const leaveCycle = useCallback(async (cycleId: string): Promise<LeaveResult> => {
+    if (!user) {
+      toast.error('Please log in');
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    setLeaving(true);
+    try {
+      const { data, error } = await supabase.rpc('leave_cycle_atomic', {
+        p_cycle_id: cycleId,
+        p_user_id: user.id,
+      });
+
+      if (error) {
+        console.error('[useCycleJoin] Leave RPC error:', error);
+        toast.error(error.message);
+        return { success: false, error: error.message };
+      }
+
+      const result = data as unknown as LeaveResult;
+      
+      if (!result || !result.success) {
+        const errorMsg = result?.error || 'Failed to leave game';
+        toast.error(errorMsg);
+        return { success: false, error: errorMsg };
+      }
+
+      if (result.refunded) {
+        toast.success(`Left game. ₦${result.amount?.toLocaleString()} refunded!`);
+      } else {
+        toast.success('Left game successfully');
+      }
+      
+      await refreshProfile();
+      return result;
+    } catch (err) {
+      console.error('[useCycleJoin] Leave error:', err);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      toast.error(message);
+      return { success: false, error: message };
+    } finally {
+      setLeaving(false);
+    }
+  }, [user, refreshProfile]);
+
   const checkParticipation = useCallback(async (cycleId: string): Promise<{ isParticipant: boolean; isSpectator: boolean }> => {
     if (!user) return { isParticipant: false, isSpectator: false };
 
@@ -80,7 +135,9 @@ export const useCycleJoin = () => {
 
   return {
     joinCycle,
+    leaveCycle,
     checkParticipation,
     joining,
+    leaving,
   };
 };

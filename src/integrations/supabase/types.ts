@@ -1127,6 +1127,10 @@ export type Database = {
         Args: { p_game_id: string; p_user_id: string }
         Returns: Json
       }
+      leave_cycle_atomic: {
+        Args: { p_cycle_id: string; p_user_id: string }
+        Returns: Json
+      }
       tick_game_countdowns: {
         Args: never
         Returns: {
