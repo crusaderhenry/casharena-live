@@ -8,6 +8,7 @@ import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { UsernamePromptModal } from '@/components/UsernamePromptModal';
 import { AuthPromptModal } from '@/components/AuthPromptModal';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
+import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutorial';
 
 import { useOAuthUsername } from '@/hooks/useOAuthUsername';
 import { Trophy, ChevronRight, Bell, TrendingUp, Calendar, Crown, Radio, Play, Swords, Clock, Zap, Users } from 'lucide-react';
@@ -51,6 +52,9 @@ export const Home = () => {
     total_wins: profile?.total_wins || 0,
     games_played: profile?.games_played || 0,
   });
+
+  // Onboarding tutorial for first-time visitors
+  const { showOnboarding, completeOnboarding, remindLater } = useOnboarding();
 
   // Check if OAuth user needs to set username
   const { needsUsername, markComplete } = useOAuthUsername(user?.id);
@@ -178,6 +182,14 @@ export const Home = () => {
 
   return (
     <div ref={containerRef} className="min-h-screen bg-background pb-24 scroll-smooth-ios">
+
+      {/* Onboarding Tutorial for first-time visitors */}
+      {showOnboarding && (
+        <OnboardingTutorial 
+          onComplete={completeOnboarding} 
+          onRemindLater={remindLater} 
+        />
+      )}
 
       {/* Username prompt for OAuth users */}
       {user?.id && needsUsername && (

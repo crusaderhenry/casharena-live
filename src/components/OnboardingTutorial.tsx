@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, ChevronRight, ChevronLeft } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Clock } from 'lucide-react';
 
 interface OnboardingTutorialProps {
   onComplete: () => void;
+  onRemindLater: () => void;
 }
 
 // Animated SVG illustrations for each step
@@ -85,11 +86,56 @@ const TrophyIllustration = () => (
   </svg>
 );
 
+const WalletIllustration = () => (
+  <svg viewBox="0 0 120 120" className="w-full h-full">
+    <defs>
+      <linearGradient id="walletGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#0FB9B1" />
+        <stop offset="100%" stopColor="#0A3F3C" />
+      </linearGradient>
+    </defs>
+    <rect x="20" y="35" width="80" height="50" rx="8" fill="url(#walletGrad)" opacity="0.3" />
+    <rect x="25" y="40" width="70" height="40" rx="6" fill="#0FB9B1" opacity="0.2" />
+    <circle cx="80" cy="60" r="8" fill="#0FB9B1">
+      <animate attributeName="r" values="6;10;6" dur="1.5s" repeatCount="indefinite" />
+    </circle>
+    <text x="50" y="65" textAnchor="middle" fill="#0FB9B1" fontSize="16" fontWeight="bold">₦</text>
+    <rect x="30" y="50" width="30" height="4" rx="2" fill="#0FB9B1" opacity="0.5">
+      <animate attributeName="width" values="30;40;30" dur="2s" repeatCount="indefinite" />
+    </rect>
+    <rect x="30" y="58" width="20" height="4" rx="2" fill="#0FB9B1" opacity="0.3" />
+  </svg>
+);
+
+const GamepadIllustration = () => (
+  <svg viewBox="0 0 120 120" className="w-full h-full">
+    <defs>
+      <linearGradient id="gameGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#0FB9B1" />
+        <stop offset="100%" stopColor="#0A3F3C" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="60" cy="95" rx="30" ry="6" fill="#0FB9B1" opacity="0.2">
+      <animate attributeName="rx" values="25;35;25" dur="2s" repeatCount="indefinite" />
+    </ellipse>
+    <rect x="25" y="40" width="70" height="40" rx="20" fill="url(#gameGrad)" opacity="0.4" />
+    <circle cx="42" cy="60" r="10" fill="#0FB9B1" opacity="0.3" />
+    <rect x="38" y="55" width="8" height="10" rx="1" fill="#0FB9B1" />
+    <rect x="35" y="57" width="14" height="6" rx="1" fill="#0FB9B1" />
+    <circle cx="78" cy="55" r="5" fill="#0FB9B1">
+      <animate attributeName="opacity" values="1;0.5;1" dur="0.8s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="78" cy="67" r="5" fill="#0FB9B1" opacity="0.7" />
+    <circle cx="72" cy="61" r="5" fill="#0FB9B1" opacity="0.7" />
+    <circle cx="84" cy="61" r="5" fill="#0FB9B1" opacity="0.7" />
+  </svg>
+);
+
 const steps = [
   {
     illustration: ZapIllustration,
     title: "Welcome to Royal Rumble!",
-    description: "A live social cash showdown where the last active players win.",
+    description: "A live social cash showdown where the last active players win big prizes.",
     highlight: "primary",
   },
   {
@@ -107,14 +153,27 @@ const steps = [
   {
     illustration: TrophyIllustration,
     title: "Win Big Prizes",
-    description: "1st place gets 50%, 2nd gets 30%, 3rd gets 20% of the prize pool. Entry is just ₦700!",
+    description: "1st place gets 50%, 2nd gets 30%, 3rd gets 20% of the prize pool!",
     highlight: "gold",
+  },
+  {
+    illustration: WalletIllustration,
+    title: "Fund Your Wallet",
+    description: "Add money to your wallet to join paid games. Quick deposits, instant withdrawals.",
+    highlight: "primary",
+  },
+  {
+    illustration: GamepadIllustration,
+    title: "Join & Compete",
+    description: "Browse games, enter the lobby, and battle to be the last one standing!",
+    highlight: "primary",
   },
 ];
 
-export const OnboardingTutorial = ({ onComplete }: OnboardingTutorialProps) => {
+export const OnboardingTutorial = ({ onComplete, onRemindLater }: OnboardingTutorialProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+  const [isExiting, setIsExiting] = useState(false);
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -131,13 +190,30 @@ export const OnboardingTutorial = ({ onComplete }: OnboardingTutorialProps) => {
   };
 
   const handleComplete = () => {
-    setIsVisible(false);
-    localStorage.setItem('fortuneshq_onboarding_complete', 'true');
-    onComplete();
+    setIsExiting(true);
+    setTimeout(() => {
+      setIsVisible(false);
+      localStorage.setItem('fortuneshq_onboarding_complete', 'true');
+      sessionStorage.removeItem('fortuneshq_onboarding_reminded');
+      onComplete();
+    }, 200);
   };
 
   const handleSkip = () => {
     handleComplete();
+  };
+
+  const handleRemindLater = () => {
+    setIsExiting(true);
+    setTimeout(() => {
+      setIsVisible(false);
+      sessionStorage.setItem('fortuneshq_onboarding_reminded', 'true');
+      onRemindLater();
+    }, 200);
+  };
+
+  const handleClose = () => {
+    handleRemindLater();
   };
 
   if (!isVisible) return null;
@@ -146,11 +222,12 @@ export const OnboardingTutorial = ({ onComplete }: OnboardingTutorialProps) => {
   const Illustration = step.illustration;
 
   return (
-    <div className="fixed inset-0 z-[200] bg-background/95 backdrop-blur-md flex items-center justify-center p-6">
-      {/* Close/Skip button */}
+    <div className={`fixed inset-0 z-[200] bg-background/95 backdrop-blur-md flex items-center justify-center p-6 transition-opacity duration-200 ${isExiting ? 'opacity-0' : 'opacity-100'}`}>
+      {/* Close button */}
       <button
-        onClick={handleSkip}
+        onClick={handleClose}
         className="absolute top-6 right-6 p-2 text-muted-foreground hover:text-foreground transition-colors"
+        aria-label="Close tutorial"
       >
         <X className="w-6 h-6" />
       </button>
@@ -159,15 +236,17 @@ export const OnboardingTutorial = ({ onComplete }: OnboardingTutorialProps) => {
         {/* Progress dots */}
         <div className="flex items-center justify-center gap-2 mb-8">
           {steps.map((_, index) => (
-            <div
+            <button
               key={index}
+              onClick={() => setCurrentStep(index)}
               className={`h-2 rounded-full transition-all duration-300 ${
                 index === currentStep
                   ? 'w-8 bg-primary'
                   : index < currentStep
-                  ? 'w-2 bg-primary/50'
-                  : 'w-2 bg-muted'
+                  ? 'w-2 bg-primary/50 hover:bg-primary/70'
+                  : 'w-2 bg-muted hover:bg-muted-foreground/30'
               }`}
+              aria-label={`Go to step ${index + 1}`}
             />
           ))}
         </div>
@@ -175,7 +254,7 @@ export const OnboardingTutorial = ({ onComplete }: OnboardingTutorialProps) => {
         {/* Animated Illustration */}
         <div className="flex justify-center mb-6">
           <div
-            className={`w-32 h-32 rounded-3xl flex items-center justify-center ${
+            className={`w-32 h-32 rounded-3xl flex items-center justify-center transition-transform duration-300 ${
               step.highlight === 'gold'
                 ? 'bg-gold/10'
                 : 'bg-primary/10'
@@ -184,6 +263,11 @@ export const OnboardingTutorial = ({ onComplete }: OnboardingTutorialProps) => {
             <Illustration />
           </div>
         </div>
+
+        {/* Step counter */}
+        <p className="text-center text-xs text-muted-foreground mb-2">
+          Step {currentStep + 1} of {steps.length}
+        </p>
 
         {/* Content */}
         <div className="text-center mb-8">
@@ -196,7 +280,7 @@ export const OnboardingTutorial = ({ onComplete }: OnboardingTutorialProps) => {
           {currentStep > 0 && (
             <button
               onClick={handlePrev}
-              className="flex-1 btn-outline flex items-center justify-center gap-2"
+              className="flex-1 py-3 px-4 rounded-xl border border-border bg-card text-foreground font-medium flex items-center justify-center gap-2 hover:bg-muted transition-colors"
             >
               <ChevronLeft className="w-5 h-5" />
               Back
@@ -204,7 +288,7 @@ export const OnboardingTutorial = ({ onComplete }: OnboardingTutorialProps) => {
           )}
           <button
             onClick={handleNext}
-            className={`flex-1 btn-primary flex items-center justify-center gap-2 ${
+            className={`flex-1 py-3 px-4 rounded-xl bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors ${
               currentStep === 0 ? 'w-full' : ''
             }`}
           >
@@ -213,14 +297,27 @@ export const OnboardingTutorial = ({ onComplete }: OnboardingTutorialProps) => {
           </button>
         </div>
 
-        {/* Skip hint */}
-        <p className="text-center text-xs text-muted-foreground mt-6">
+        {/* Footer actions */}
+        <div className="flex items-center justify-center gap-4 mt-6">
           {currentStep < steps.length - 1 && (
-            <button onClick={handleSkip} className="hover:text-foreground transition-colors">
-              Skip tutorial
-            </button>
+            <>
+              <button 
+                onClick={handleSkip} 
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Skip tutorial
+              </button>
+              <span className="text-muted-foreground/30">•</span>
+            </>
           )}
-        </p>
+          <button 
+            onClick={handleRemindLater} 
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+          >
+            <Clock className="w-3 h-3" />
+            Remind me later
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -232,7 +329,9 @@ export const useOnboarding = () => {
 
   useEffect(() => {
     const completed = localStorage.getItem('fortuneshq_onboarding_complete');
-    if (!completed) {
+    const reminded = sessionStorage.getItem('fortuneshq_onboarding_reminded');
+    
+    if (!completed && !reminded) {
       // Small delay for smooth initial load
       const timer = setTimeout(() => setShowOnboarding(true), 500);
       return () => clearTimeout(timer);
@@ -243,10 +342,15 @@ export const useOnboarding = () => {
     setShowOnboarding(false);
   };
 
+  const remindLater = () => {
+    setShowOnboarding(false);
+  };
+
   const resetOnboarding = () => {
     localStorage.removeItem('fortuneshq_onboarding_complete');
+    sessionStorage.removeItem('fortuneshq_onboarding_reminded');
     setShowOnboarding(true);
   };
 
-  return { showOnboarding, completeOnboarding, resetOnboarding };
+  return { showOnboarding, completeOnboarding, remindLater, resetOnboarding };
 };
