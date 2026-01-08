@@ -106,7 +106,7 @@ export const usePlatformSettings = () => {
     settings,
     loading,
     error,
-    isTestMode: settings?.test_mode ?? true,
+    isTestMode: settings?.test_mode ?? false,
     platformName: settings?.platform_name ?? 'FortunesHQ',
     platformCut: settings?.platform_cut_percent ?? 10,
     selectedHost: settings?.selected_host ?? 'crusader',
