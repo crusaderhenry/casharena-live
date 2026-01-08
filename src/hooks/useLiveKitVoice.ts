@@ -101,38 +101,36 @@ export const useLiveKitVoice = (gameId?: string): UseLiveKitVoiceReturn => {
     setConnectionError(null);
 
     try {
-      // Get token from edge function with automatic session refresh
-      let { data: sessionData } = await supabase.auth.getSession();
+      // Validate session is still valid before making request
+      const { data: userData, error: userError } = await supabase.auth.getUser();
       
-      // If session exists but might be stale, try refreshing it first
-      if (sessionData?.session) {
-        const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
-        if (!refreshError && refreshedData?.session) {
-          sessionData = refreshedData;
-        }
-      }
-      
-      const accessToken = sessionData?.session?.access_token;
-
-      if (!accessToken) {
-        throw new Error('Not authenticated');
+      if (userError || !userData?.user) {
+        console.log('[LiveKit] Session invalid, signing out:', userError?.message);
+        // Session is invalid, sign out locally to clear stale data
+        await supabase.auth.signOut({ scope: 'local' });
+        throw new Error('Session expired. Please log in again.');
       }
 
       let response = await supabase.functions.invoke('livekit-token', {
         body: { roomName: gameId }
       });
 
-      // If we get a 401, try refreshing the session and retry once
+      // If we get a 401, the session might have just expired - try refresh once
       if (response.error?.message?.includes('401') || response.error?.message?.includes('Unauthorized')) {
         console.log('[LiveKit] Got 401, attempting session refresh and retry');
         const { data: refreshedSession, error: refreshError } = await supabase.auth.refreshSession();
         
-        if (!refreshError && refreshedSession?.session) {
-          // Retry the request with refreshed session
-          response = await supabase.functions.invoke('livekit-token', {
-            body: { roomName: gameId }
-          });
+        if (refreshError || !refreshedSession?.session) {
+          // Refresh failed, sign out and throw
+          console.log('[LiveKit] Session refresh failed:', refreshError?.message);
+          await supabase.auth.signOut({ scope: 'local' });
+          throw new Error('Session expired. Please log in again.');
         }
+        
+        // Retry with fresh session
+        response = await supabase.functions.invoke('livekit-token', {
+          body: { roomName: gameId }
+        });
       }
 
       if (response.error) {
