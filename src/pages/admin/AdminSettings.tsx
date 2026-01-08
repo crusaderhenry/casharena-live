@@ -35,6 +35,7 @@ export const AdminSettings = () => {
     hotGameThresholdOpening: 5,
     enableDramaticSounds: true,
     enableCoHostBanter: true,
+    leaveWindowMinutes: 5,
   });
 
   useEffect(() => {
@@ -56,6 +57,7 @@ export const AdminSettings = () => {
         hotGameThresholdOpening: dbSettings.hot_game_threshold_opening ?? 5,
         enableDramaticSounds: dbSettings.enable_dramatic_sounds ?? true,
         enableCoHostBanter: dbSettings.enable_cohost_banter ?? true,
+        leaveWindowMinutes: dbSettings.leave_window_minutes ?? 5,
       }));
     }
   }, [dbSettings]);
@@ -76,6 +78,7 @@ export const AdminSettings = () => {
       hot_game_threshold_opening: localSettings.hotGameThresholdOpening,
       enable_dramatic_sounds: localSettings.enableDramaticSounds,
       enable_cohost_banter: localSettings.enableCoHostBanter,
+      leave_window_minutes: localSettings.leaveWindowMinutes,
     });
     
     if (success) {
@@ -434,7 +437,7 @@ export const AdminSettings = () => {
 
         <div className="space-y-6">
           {/* Hot Game Thresholds */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
                 <Flame className="w-4 h-4 text-red-400" />
@@ -464,6 +467,21 @@ export const AdminSettings = () => {
                 max={100}
               />
               <p className="text-[10px] text-muted-foreground mt-1">Min players for HOT badge on opening games</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+                <Clock className="w-4 h-4 text-blue-400" />
+                Leave Window (min)
+              </label>
+              <input
+                type="number"
+                value={localSettings.leaveWindowMinutes}
+                onChange={(e) => setLocalSettings(prev => ({ ...prev, leaveWindowMinutes: parseInt(e.target.value) || 5 }))}
+                className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+                min={1}
+                max={60}
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Players can't leave within X min of start</p>
             </div>
           </div>
 

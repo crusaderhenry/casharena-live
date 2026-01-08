@@ -22,6 +22,7 @@ export interface PlatformSettings {
   hot_game_threshold_opening: number;
   enable_dramatic_sounds: boolean;
   enable_cohost_banter: boolean;
+  leave_window_minutes: number;
 }
 
 export const usePlatformSettings = () => {
@@ -128,6 +129,7 @@ export const usePlatformSettings = () => {
     },
     enableDramaticSounds: settings?.enable_dramatic_sounds ?? true,
     enableCoHostBanter: settings?.enable_cohost_banter ?? true,
+    leaveWindowMinutes: settings?.leave_window_minutes ?? 5,
     updateSettings,
     toggleTestMode,
     refetch: fetchSettings,
