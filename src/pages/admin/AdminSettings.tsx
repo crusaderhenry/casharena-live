@@ -1,4 +1,4 @@
-import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy, Clock, Flame, Volume2, MessageCircle } from 'lucide-react';
+import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy, Clock, Flame, Volume2, MessageCircle, Gift } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAdmin } from '@/contexts/AdminContext';
@@ -37,6 +37,11 @@ export const AdminSettings = () => {
     enableCoHostBanter: true,
     leaveWindowMinutes: 5,
     googleAuthEnabled: false,
+    // Welcome settings
+    welcomeMessage: 'Welcome to FortunesHQ! 🎉 Get ready to play and win!',
+    welcomeBonusAmount: 5000,
+    welcomeBonusLimit: 1000,
+    welcomeBonusEnabled: true,
   });
 
   useEffect(() => {
@@ -60,6 +65,11 @@ export const AdminSettings = () => {
         enableCoHostBanter: dbSettings.enable_cohost_banter ?? true,
         leaveWindowMinutes: dbSettings.leave_window_minutes ?? 5,
         googleAuthEnabled: dbSettings.google_auth_enabled ?? false,
+        // Welcome settings
+        welcomeMessage: (dbSettings as any).welcome_message ?? 'Welcome to FortunesHQ! 🎉 Get ready to play and win!',
+        welcomeBonusAmount: (dbSettings as any).welcome_bonus_amount ?? 5000,
+        welcomeBonusLimit: (dbSettings as any).welcome_bonus_limit ?? 1000,
+        welcomeBonusEnabled: (dbSettings as any).welcome_bonus_enabled ?? true,
       }));
     }
   }, [dbSettings]);
@@ -82,7 +92,12 @@ export const AdminSettings = () => {
       enable_cohost_banter: localSettings.enableCoHostBanter,
       leave_window_minutes: localSettings.leaveWindowMinutes,
       google_auth_enabled: localSettings.googleAuthEnabled,
-    });
+      // Welcome settings
+      welcome_message: localSettings.welcomeMessage,
+      welcome_bonus_amount: localSettings.welcomeBonusAmount,
+      welcome_bonus_limit: localSettings.welcomeBonusLimit,
+      welcome_bonus_enabled: localSettings.welcomeBonusEnabled,
+    } as any);
     
     if (success) {
       toast.success('Settings saved');
@@ -217,6 +232,92 @@ export const AdminSettings = () => {
             />
             <p className="text-[10px] text-muted-foreground mt-1">
               Spectators can join the pool until this many minutes remain. Default: 10 minutes.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Welcome & Onboarding Settings */}
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h2 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+          <Gift className="w-5 h-5 text-primary" />
+          Welcome & Onboarding
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Configure welcome message and bonus for new users
+        </p>
+
+        <div className="space-y-6">
+          {/* Welcome Bonus Toggle */}
+          <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+            <div>
+              <p className="font-medium text-foreground">Welcome Bonus</p>
+              <p className="text-sm text-muted-foreground">Give new users a starting bonus</p>
+            </div>
+            <button
+              onClick={() => setLocalSettings(prev => ({ ...prev, welcomeBonusEnabled: !prev.welcomeBonusEnabled }))}
+              className={`relative w-14 h-7 rounded-full transition-colors ${
+                localSettings.welcomeBonusEnabled ? 'bg-primary' : 'bg-muted'
+              }`}
+            >
+              <div className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                localSettings.welcomeBonusEnabled ? 'translate-x-7' : 'translate-x-1'
+              }`} />
+            </button>
+          </div>
+
+          {localSettings.welcomeBonusEnabled && (
+            <>
+              {/* Welcome Bonus Amount */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Welcome Bonus Amount (₦)
+                </label>
+                <input
+                  type="number"
+                  value={localSettings.welcomeBonusAmount}
+                  onChange={(e) => setLocalSettings(prev => ({ ...prev, welcomeBonusAmount: parseInt(e.target.value) || 0 }))}
+                  className="w-full max-w-md px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+                  min={0}
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Amount credited to new user wallets
+                </p>
+              </div>
+
+              {/* Welcome Bonus Limit */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  First N Users to Get Bonus
+                </label>
+                <input
+                  type="number"
+                  value={localSettings.welcomeBonusLimit}
+                  onChange={(e) => setLocalSettings(prev => ({ ...prev, welcomeBonusLimit: parseInt(e.target.value) || 0 }))}
+                  className="w-full max-w-md px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+                  min={0}
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Only the first {localSettings.welcomeBonusLimit} users will receive the welcome bonus (0 = unlimited)
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Welcome Message */}
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              Welcome Toast Message
+            </label>
+            <textarea
+              value={localSettings.welcomeMessage}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, welcomeMessage: e.target.value }))}
+              className="w-full max-w-lg px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground resize-none"
+              rows={2}
+              maxLength={100}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Message shown to new users after signup ({localSettings.welcomeMessage.length}/100 characters)
             </p>
           </div>
         </div>

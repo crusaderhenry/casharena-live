@@ -181,6 +181,98 @@ export type Database = {
           },
         ]
       }
+      email_campaign_recipients: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          email: string
+          error_message: string | null
+          id: string
+          sent_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          email: string
+          error_message?: string | null
+          id?: string
+          sent_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          email?: string
+          error_message?: string | null
+          id?: string
+          sent_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_campaigns: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          failed_count: number | null
+          id: string
+          name: string
+          scheduled_at: string | null
+          sent_at: string | null
+          sent_count: number | null
+          status: string
+          subject: string
+          target_audience: string
+          total_recipients: number | null
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          failed_count?: number | null
+          id?: string
+          name: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sent_count?: number | null
+          status?: string
+          subject: string
+          target_audience?: string
+          total_recipients?: number | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          failed_count?: number | null
+          id?: string
+          name?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sent_count?: number | null
+          status?: string
+          subject?: string
+          target_audience?: string
+          total_recipients?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fastest_finger_games: {
         Row: {
           arena_music_url: string | null
@@ -707,6 +799,10 @@ export type Database = {
           selected_host: string
           test_mode: boolean
           updated_at: string
+          welcome_bonus_amount: number | null
+          welcome_bonus_enabled: boolean | null
+          welcome_bonus_limit: number | null
+          welcome_message: string | null
         }
         Insert: {
           default_comment_timer?: number
@@ -731,6 +827,10 @@ export type Database = {
           selected_host?: string
           test_mode?: boolean
           updated_at?: string
+          welcome_bonus_amount?: number | null
+          welcome_bonus_enabled?: boolean | null
+          welcome_bonus_limit?: number | null
+          welcome_message?: string | null
         }
         Update: {
           default_comment_timer?: number
@@ -755,6 +855,10 @@ export type Database = {
           selected_host?: string
           test_mode?: boolean
           updated_at?: string
+          welcome_bonus_amount?: number | null
+          welcome_bonus_enabled?: boolean | null
+          welcome_bonus_limit?: number | null
+          welcome_message?: string | null
         }
         Relationships: []
       }

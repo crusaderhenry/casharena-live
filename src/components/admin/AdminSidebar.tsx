@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Clock,
   Bot,
+  Mail,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,7 @@ const navItems = [
   { label: 'Rank & Rewards', icon: Trophy, path: '/admin/rank' },
   { label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
   { label: 'Audit Logs', icon: Shield, path: '/admin/audit-logs' },
+  { label: 'Communication', icon: Mail, path: '/admin/communication' },
   { label: 'Settings', icon: Settings, path: '/admin/settings' },
 ];
 

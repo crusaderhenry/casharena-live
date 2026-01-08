@@ -47,7 +47,7 @@ import { AdminRank } from "@/pages/admin/AdminRank";
 import { AdminAnalytics } from "@/pages/admin/AdminAnalytics";
 import { AdminAuditLogs } from "@/pages/admin/AdminAuditLogs";
 import { AdminSettings } from "@/pages/admin/AdminSettings";
-
+import { AdminCommunication } from "@/pages/admin/AdminCommunication";
 // Moderator
 import { ModeratorLayout } from "@/pages/moderator/ModeratorLayout";
 import { ModeratorDashboard } from "@/pages/moderator/ModeratorDashboard";
@@ -191,7 +191,7 @@ const AppRoutes = () => (
     <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
     
     {/* Protected Routes */}
-    <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+    <Route path="/home" element={<Home />} />
     
     {/* Legacy finger routes - redirect to new arena */}
     <Route path="/finger" element={<Navigate to="/arena" replace />} />
@@ -225,6 +225,7 @@ const AppRoutes = () => (
       <Route path="analytics" element={<AdminAnalytics />} />
       <Route path="audit-logs" element={<AdminAuditLogs />} />
       <Route path="settings" element={<AdminSettings />} />
+      <Route path="communication" element={<AdminCommunication />} />
     </Route>
     
     {/* Moderator Dashboard - Requires moderator or admin role */}
