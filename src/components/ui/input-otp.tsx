@@ -10,6 +10,8 @@ const InputOTP = React.forwardRef<React.ElementRef<typeof OTPInput>, React.Compo
       ref={ref}
       containerClassName={cn("flex items-center gap-2 has-[:disabled]:opacity-50", containerClassName)}
       className={cn("disabled:cursor-not-allowed", className)}
+      inputMode="numeric"
+      pattern="[0-9]*"
       {...props}
     />
   ),

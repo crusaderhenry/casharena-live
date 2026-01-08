@@ -1,8 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Search, Eye, Ban, Flag, CheckCircle, RefreshCw, UserPlus } from 'lucide-react';
+import { Users, Search, Eye, Ban, Flag, CheckCircle, RefreshCw, UserPlus, Trash2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface AdminUser {
   id: string;
@@ -27,6 +37,9 @@ export const AdminUsers = () => {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -98,6 +111,39 @@ export const AdminUsers = () => {
   const suspendUser = (userId: string) => updateUserStatus(userId, 'suspended');
   const flagUser = (userId: string) => updateUserStatus(userId, 'flagged');
   const activateUser = (userId: string) => updateUserStatus(userId, 'active');
+
+  const handleDeleteClick = (user: AdminUser) => {
+    setUserToDelete(user);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    
+    setDeleteLoading(true);
+    try {
+      // Delete user from auth (this will cascade to profiles due to foreign key)
+      const { error } = await supabase.functions.invoke('role-manager', {
+        body: { action: 'delete-user', userId: userToDelete.id }
+      });
+
+      if (error) throw error;
+
+      setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+      toast({ 
+        title: 'User Deleted', 
+        description: `${userToDelete.username} has been permanently deleted`
+      });
+      setShowProfile(false);
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      toast({ title: 'Error', description: 'Failed to delete user', variant: 'destructive' });
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteDialog(false);
+      setUserToDelete(null);
+    }
+  };
 
   const filteredUsers = users.filter(u => {
     const matchesSearch = u.username.toLowerCase().includes(search.toLowerCase()) ||
@@ -353,9 +399,65 @@ export const AdminUsers = () => {
                 </button>
               )}
             </div>
+
+            {/* Delete User Button */}
+            <button
+              onClick={() => handleDeleteClick(selectedUserData)}
+              className="w-full mt-4 py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete User Permanently
+            </button>
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-foreground">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+              Delete User Permanently
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              {userToDelete && (
+                <>
+                  <p className="mb-3">
+                    Are you sure you want to delete <strong className="text-foreground">{userToDelete.username}</strong>?
+                  </p>
+                  {userToDelete.balance > 0 && (
+                    <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg mb-3">
+                      <p className="text-yellow-400 font-medium flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        Warning: User has ₦{userToDelete.balance.toLocaleString()} in wallet
+                      </p>
+                      <p className="text-sm text-yellow-400/80 mt-1">
+                        This balance will be lost. Consider suspending instead or requesting withdrawal first.
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-sm">
+                    This action cannot be undone. All user data, game history, and transactions will be permanently deleted.
+                  </p>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-muted text-foreground border-border hover:bg-muted/80">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteUser}
+              disabled={deleteLoading}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              {deleteLoading ? 'Deleting...' : 'Delete Permanently'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

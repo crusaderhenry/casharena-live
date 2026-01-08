@@ -7,12 +7,22 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award, ShieldCheck, ShieldX, Bell, Timer } from 'lucide-react';
+import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award, ShieldCheck, ShieldX, Bell, Timer, Trash2, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const avatarOptions = ['🎮', '👑', '💎', '🚀', '⚡', '🔥', '🌟', '🎯'];
 
@@ -42,6 +52,8 @@ export const ProfileScreen = () => {
     lastName: '' 
   });
   const [showKycModal, setShowKycModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const handleKycVerified = (firstName: string, lastName: string) => {
     setKycStatus({
@@ -188,6 +200,46 @@ export const ProfileScreen = () => {
     buttonClick();
     await signOut();
     navigate('/auth');
+  };
+
+  const handleDeleteAccount = () => {
+    // Check if user has balance
+    const walletBalance = profile?.wallet_balance || 0;
+    if (walletBalance > 0) {
+      toast.error('Please withdraw your balance before deleting your account', {
+        description: `You have ₦${walletBalance.toLocaleString()} in your wallet`,
+        action: {
+          label: 'Go to Wallet',
+          onClick: () => navigate('/wallet'),
+        },
+      });
+      return;
+    }
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (!user) return;
+    
+    setDeleteLoading(true);
+    try {
+      // Call edge function to delete user (need service role)
+      const { error } = await supabase.functions.invoke('delete-account', {
+        body: { userId: user.id }
+      });
+
+      if (error) throw error;
+
+      toast.success('Account deleted successfully');
+      await signOut();
+      navigate('/auth');
+    } catch (err) {
+      console.error('Error deleting account:', err);
+      toast.error('Failed to delete account. Please contact support.');
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteDialog(false);
+    }
   };
 
   const stats = [
@@ -497,6 +549,15 @@ export const ProfileScreen = () => {
           <span className="font-medium">Sign Out</span>
         </button>
 
+        {/* Delete Account */}
+        <button
+          onClick={handleDeleteAccount}
+          className="w-full card-panel flex items-center justify-center gap-2 text-red-400 hover:bg-red-500/10 border-red-500/30 transition-colors"
+        >
+          <Trash2 className="w-5 h-5" />
+          <span className="font-medium">Delete Account</span>
+        </button>
+
         {/* App Info */}
         <div className="text-center py-4">
           <p className="text-sm text-muted-foreground">
@@ -514,6 +575,40 @@ export const ProfileScreen = () => {
         onOpenChange={setShowKycModal}
         onVerified={handleKycVerified}
       />
+
+      {/* Delete Account Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-foreground">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+              Delete Your Account
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              <p className="mb-3">
+                Are you sure you want to permanently delete your account?
+              </p>
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg mb-3">
+                <p className="text-red-400 text-sm">
+                  This action cannot be undone. All your data, game history, achievements, and wallet transactions will be permanently deleted.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-muted text-foreground border-border hover:bg-muted/80">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteAccount}
+              disabled={deleteLoading}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              {deleteLoading ? 'Deleting...' : 'Delete My Account'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
