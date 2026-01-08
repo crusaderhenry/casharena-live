@@ -2,7 +2,6 @@ import { BottomNav } from '@/components/BottomNav';
 import { ProfileBadges } from '@/components/ProfileBadges';
 import { KycVerificationModal } from '@/components/wallet/KycVerificationModal';
 import { PushNotificationToggle } from '@/components/PushNotificationBanner';
-import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
@@ -35,7 +34,6 @@ interface KycStatus {
 
 export const ProfileScreen = () => {
   const navigate = useNavigate();
-  const { userProfile, updateProfile, isTestMode } = useGame();
   const { user, profile, signOut, refreshProfile } = useAuth();
   const { isAdmin, isModerator } = useUserRole();
   const { settings, toggleMusic, toggleSfx, toggleCommentary, toggleTick, setVolume } = useAudio();
@@ -70,10 +68,10 @@ export const ProfileScreen = () => {
     toast.success('Identity verified successfully!');
   };
 
-  // Use real profile data - don't fallback to mock data for authenticated users
+  // Use real profile data
   const displayProfile = {
-    username: profile?.username ?? userProfile.username,
-    avatar: profile?.avatar ?? userProfile.avatar,
+    username: profile?.username ?? 'Player',
+    avatar: profile?.avatar ?? '🎮',
     gamesPlayed: profile?.games_played ?? 0,
     wins: profile?.total_wins ?? 0,
     rank: profile?.weekly_rank ?? null,
@@ -128,37 +126,27 @@ export const ProfileScreen = () => {
       }
     };
 
-    if (!isTestMode) {
-      fetchEarnings();
-    } else {
-      setTotalEarnings(userProfile.totalEarnings);
-    }
-  }, [user, isTestMode, userProfile.totalEarnings]);
+    fetchEarnings();
+  }, [user]);
 
   const handleSave = async () => {
-    if (!newName.trim()) return;
+    if (!newName.trim() || !user) return;
     
     setSaving(true);
     
-    if (!isTestMode && user) {
-      // Update in Supabase
-      const { error } = await supabase
-        .from('profiles')
-        .update({ username: newName.trim() })
-        .eq('id', user.id);
-      
-      if (error) {
-        toast.error('Failed to update username');
-        setSaving(false);
-        return;
-      }
-      
-      await refreshProfile();
-      toast.success('Username updated!');
-    } else {
-      // Test mode - update local state
-      updateProfile({ username: newName });
+    const { error } = await supabase
+      .from('profiles')
+      .update({ username: newName.trim() })
+      .eq('id', user.id);
+    
+    if (error) {
+      toast.error('Failed to update username');
+      setSaving(false);
+      return;
     }
+    
+    await refreshProfile();
+    toast.success('Username updated!');
     
     setIsEditing(false);
     play('success');
@@ -167,24 +155,21 @@ export const ProfileScreen = () => {
   };
 
   const handleAvatarChange = async (emoji: string) => {
+    if (!user) return;
     play('click');
     buttonClick();
     
-    if (!isTestMode && user) {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ avatar: emoji })
-        .eq('id', user.id);
-      
-      if (error) {
-        toast.error('Failed to update avatar');
-        return;
-      }
-      
-      await refreshProfile();
-    } else {
-      updateProfile({ avatar: emoji });
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar: emoji })
+      .eq('id', user.id);
+    
+    if (error) {
+      toast.error('Failed to update avatar');
+      return;
     }
+    
+    await refreshProfile();
   };
 
   const handleBack = () => {
@@ -321,7 +306,6 @@ export const ProfileScreen = () => {
               <h1 className="text-xl font-black text-foreground">Profile</h1>
               <p className="text-sm text-muted-foreground">
                 Your Royal Rumble stats
-                {isTestMode && <span className="text-primary ml-2">(Test Mode)</span>}
               </p>
             </div>
           </div>

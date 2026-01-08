@@ -30,9 +30,8 @@ interface VoiceRoomLiveProps {
 
 export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMuteToggle, simulatedParticipants }: VoiceRoomLiveProps) => {
   const { user, profile } = useAuth();
-  const { isTestMode } = useGame();
   const { settings: audioSettings, setVoiceRoomMuted, setHostMuted } = useAudio();
-  const { mockVoiceParticipants } = useMockSimulation(isTestMode, gameId);
+  const { mockVoiceParticipants } = useMockSimulation(false, gameId);
   
   // Priority: simulatedParticipants > mockVoiceParticipants > real participants
   const hasSimulatedParticipants = simulatedParticipants && simulatedParticipants.length > 0;

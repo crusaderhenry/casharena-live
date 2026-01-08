@@ -10,7 +10,6 @@ import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
 
 import { useOAuthUsername } from '@/hooks/useOAuthUsername';
 import { Zap, Trophy, ChevronRight, Bell, TrendingUp, Calendar, Sparkles, Crown, Radio, Play, Swords, Clock } from 'lucide-react';
-import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveCycles } from '@/hooks/useActiveCycles';
 import { useNavigate } from 'react-router-dom';
@@ -19,7 +18,6 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
 
 export const Home = () => {
-  const { isTestMode } = useGame();
   const { profile, user } = useAuth();
   const { cycles, waitingCycles, openingCycles, liveCycles, loading, refetch } = useActiveCycles();
   const navigate = useNavigate();

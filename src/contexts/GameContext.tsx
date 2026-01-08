@@ -54,35 +54,7 @@ interface GameContextType {
   // Activity feed
   recentActivity: ActivityItem[];
   addActivity: (activity: Omit<ActivityItem, 'id' | 'timestamp'>) => void;
-  
-  // Test mode
-  isTestMode: boolean;
-  setTestMode: (active: boolean) => void;
-  
-  // User profile
-  userProfile: {
-    username: string;
-    avatar: string;
-    rank: number;
-    gamesPlayed: number;
-    wins: number;
-    totalEarnings: number;
-  };
-  updateProfile: (updates: Partial<GameContextType['userProfile']>) => void;
 }
-
-export const mockPlayers: Player[] = [
-  { id: '1', name: 'CryptoKing', avatar: '👑' },
-  { id: '2', name: 'LuckyAce', avatar: '🎰' },
-  { id: '3', name: 'FastHands', avatar: '⚡' },
-  { id: '4', name: 'GoldRush', avatar: '💰' },
-  { id: '5', name: 'NightOwl', avatar: '🦉' },
-  { id: '6', name: 'StarPlayer', avatar: '⭐' },
-  { id: '7', name: 'DiamondPro', avatar: '💎' },
-  { id: '8', name: 'ThunderBolt', avatar: '🌩️' },
-  { id: '9', name: 'SilverFox', avatar: '🦊' },
-  { id: '10', name: 'MoonRider', avatar: '🌙' },
-];
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
@@ -90,58 +62,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Finger game
   const [fingerPlayers, setFingerPlayers] = useState<Player[]>([]);
   const [fingerComments, setFingerComments] = useState<Comment[]>([]);
-  const [fingerPoolValue, setFingerPoolValueState] = useState(35000);
+  const [fingerPoolValue, setFingerPoolValueState] = useState(0);
   const [fingerGameActive, setFingerGameActiveState] = useState(false);
   const [hasJoinedFinger, setHasJoinedFinger] = useState(false);
   const [fingerPosition, setFingerPositionState] = useState<number | null>(null);
   
   // Pool game
   const [poolParticipants, setPoolParticipants] = useState<Player[]>([]);
-  const [poolValue, setPoolValueState] = useState(250000);
+  const [poolValue, setPoolValueState] = useState(0);
   const [hasJoinedPool, setHasJoinedPool] = useState(false);
   
-  // Activity - Royal Rumble focused
-  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([
-    {
-      id: '1',
-      type: 'finger_win',
-      playerName: 'CryptoKing',
-      playerAvatar: '👑',
-      amount: 15750,
-      position: 1,
-      timestamp: new Date(Date.now() - 300000),
-    },
-    {
-      id: '2',
-      type: 'finger_win',
-      playerName: 'LuckyAce',
-      playerAvatar: '🎰',
-      amount: 9450,
-      position: 2,
-      timestamp: new Date(Date.now() - 600000),
-    },
-    {
-      id: '3',
-      type: 'rank_up',
-      playerName: 'FastHands',
-      playerAvatar: '⚡',
-      position: 5,
-      timestamp: new Date(Date.now() - 900000),
-    },
-  ]);
-  
-  // Test mode
-  const [isTestMode, setTestMode] = useState(false);
-  
-  // User profile
-  const [userProfile, setUserProfile] = useState({
-    username: 'Player1',
-    avatar: '🎮',
-    rank: 42,
-    gamesPlayed: 15,
-    wins: 3,
-    totalEarnings: 25000,
-  });
+  // Activity feed - starts empty, populated from real data
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   
   // Finger actions
   const addFingerPlayer = useCallback((player: Player) => {
@@ -172,7 +104,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetFingerGame = useCallback(() => {
     setFingerPlayers([]);
     setFingerComments([]);
-    setFingerPoolValueState(35000);
+    setFingerPoolValueState(0);
     setFingerGameActiveState(false);
     setHasJoinedFinger(false);
     setFingerPositionState(null);
@@ -194,7 +126,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const resetPoolGame = useCallback(() => {
     setPoolParticipants([]);
-    setPoolValueState(250000);
+    setPoolValueState(0);
     setHasJoinedPool(false);
   }, []);
   
@@ -206,11 +138,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       timestamp: new Date(),
     };
     setRecentActivity(prev => [newActivity, ...prev].slice(0, 10));
-  }, []);
-
-  // Profile actions
-  const updateProfile = useCallback((updates: Partial<GameContextType['userProfile']>) => {
-    setUserProfile(prev => ({ ...prev, ...updates }));
   }, []);
 
   return (
@@ -237,10 +164,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       resetPoolGame,
       recentActivity,
       addActivity,
-      isTestMode,
-      setTestMode,
-      userProfile,
-      updateProfile,
     }}>
       {children}
     </GameContext.Provider>

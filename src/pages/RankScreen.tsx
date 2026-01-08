@@ -1,6 +1,5 @@
 import { BottomNav } from '@/components/BottomNav';
 import { AllTimeLeaderboard } from '@/components/AllTimeLeaderboard';
-import { useGame } from '@/contexts/GameContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { Trophy, Crown, Medal, Award, ArrowLeft, TrendingUp, RefreshCw } from 'lucide-react';
@@ -8,20 +7,17 @@ import { useNavigate } from 'react-router-dom';
 
 export const RankScreen = () => {
   const navigate = useNavigate();
-  const { userProfile, isTestMode } = useGame();
   const { profile } = useAuth();
-  const { leaderboard, loading, refresh } = useLeaderboard(isTestMode);
+  const { leaderboard, loading, refresh } = useLeaderboard();
 
-  // Use real profile data if available, fallback to mock for test mode
   const displayProfile = {
-    username: profile?.username || userProfile.username,
-    avatar: profile?.avatar || userProfile.avatar,
-    rank: profile?.weekly_rank || userProfile.rank,
-    wins: profile?.total_wins || userProfile.wins,
-    rankPoints: profile?.rank_points || 0,
+    username: profile?.username ?? 'Player',
+    avatar: profile?.avatar ?? '🎮',
+    rank: profile?.weekly_rank ?? null,
+    wins: profile?.total_wins ?? 0,
+    rankPoints: profile?.rank_points ?? 0,
   };
 
-  // Find user's position in leaderboard
   const userRank = profile?.id 
     ? leaderboard.findIndex(u => u.id === profile.id) + 1 || displayProfile.rank
     : displayProfile.rank;
@@ -33,14 +29,12 @@ export const RankScreen = () => {
     return <span className="text-sm font-bold text-muted-foreground w-5 text-center">#{rank}</span>;
   };
 
-  // Get top 3 for podium
   const top3 = leaderboard.slice(0, 3);
   const rest = leaderboard.slice(3, 10);
 
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="p-4 space-y-5">
-        {/* Header */}
         <div className="flex items-center justify-between pt-2">
           <div className="flex items-center gap-3">
             <button 
@@ -51,22 +45,14 @@ export const RankScreen = () => {
             </button>
             <div>
               <h1 className="text-xl font-black text-foreground">Leaderboard</h1>
-              <p className="text-sm text-muted-foreground">
-                Weekly Royal Rumble rankings
-                {isTestMode && <span className="text-primary ml-2">(Test Mode)</span>}
-              </p>
+              <p className="text-sm text-muted-foreground">Weekly Royal Rumble rankings</p>
             </div>
           </div>
-          <button
-            onClick={refresh}
-            disabled={loading}
-            className="p-2 hover:bg-muted rounded-lg transition-colors"
-          >
+          <button onClick={refresh} disabled={loading} className="p-2 hover:bg-muted rounded-lg transition-colors">
             <RefreshCw className={`w-5 h-5 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
-        {/* Your Position */}
         <div className="card-panel border-primary/30 bg-gradient-to-r from-primary/10 to-transparent">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center text-2xl border-2 border-primary/30">
@@ -87,10 +73,8 @@ export const RankScreen = () => {
           </div>
         </div>
 
-        {/* Top 3 Podium */}
         {top3.length >= 3 && (
           <div className="flex items-end justify-center gap-2 py-4">
-            {/* 2nd Place */}
             <div className="flex flex-col items-center flex-1">
               <div className="w-14 h-14 rounded-full bg-card-elevated flex items-center justify-center text-2xl border-2 border-silver mb-2">
                 {top3[1]?.avatar || '🥈'}
@@ -100,8 +84,6 @@ export const RankScreen = () => {
                 <p className="text-xs text-silver">{top3[1]?.total_wins} wins</p>
               </div>
             </div>
-
-            {/* 1st Place */}
             <div className="flex flex-col items-center flex-1">
               <Crown className="w-6 h-6 text-gold mb-1" />
               <div className="w-16 h-16 rounded-full bg-card-elevated flex items-center justify-center text-2xl border-2 border-gold animate-winner-glow mb-2">
@@ -112,8 +94,6 @@ export const RankScreen = () => {
                 <p className="text-sm font-bold text-gold">{top3[0]?.total_wins} wins</p>
               </div>
             </div>
-
-            {/* 3rd Place */}
             <div className="flex flex-col items-center flex-1">
               <div className="w-14 h-14 rounded-full bg-card-elevated flex items-center justify-center text-2xl border-2 border-bronze mb-2">
                 {top3[2]?.avatar || '🥉'}
@@ -126,14 +106,12 @@ export const RankScreen = () => {
           </div>
         )}
 
-        {/* Loading state */}
         {loading && (
           <div className="flex items-center justify-center py-8">
             <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
           </div>
         )}
 
-        {/* Full Leaderboard */}
         {!loading && rest.length > 0 && (
           <div className="card-panel">
             <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
@@ -148,9 +126,7 @@ export const RankScreen = () => {
                     player.id === profile?.id ? 'border-primary/50 bg-primary/5' : ''
                   }`}
                 >
-                  <div className="w-8 flex justify-center">
-                    {getRankIcon(index + 4)}
-                  </div>
+                  <div className="w-8 flex justify-center">{getRankIcon(index + 4)}</div>
                   <div className="w-10 h-10 rounded-full bg-card-elevated flex items-center justify-center text-xl">
                     {player.avatar}
                   </div>
@@ -165,10 +141,8 @@ export const RankScreen = () => {
           </div>
         )}
 
-        {/* All-Time Leaderboard */}
-        <AllTimeLeaderboard isTestMode={isTestMode} />
+        <AllTimeLeaderboard />
 
-        {/* How rankings work */}
         <div className="card-panel bg-muted/30">
           <div className="flex items-start gap-3">
             <TrendingUp className="w-5 h-5 text-primary mt-0.5" />
