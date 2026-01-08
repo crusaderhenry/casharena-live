@@ -80,7 +80,7 @@ const COHOST_BANTER = {
 };
 
 export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOptions) => {
-  const { selectedHost, secondaryHost, isCoHostMode } = usePlatformSettings();
+  const { selectedHost, secondaryHost, isCoHostMode, enableCoHostBanter } = usePlatformSettings();
   const { settings: audioSettings } = useAudio();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const queueRef = useRef<Array<{ text: string; voiceId?: string }>>([]);
@@ -89,6 +89,9 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
   const lastCommentIdRef = useRef<string | null>(null);
   const lastBanterTimeRef = useRef<number>(0);
   const hostTurnRef = useRef<boolean>(true); // Alternates between main host and co-host
+  
+  // Banter is enabled only if co-host mode AND banter setting is on
+  const banterEnabled = isCoHostMode && enableCoHostBanter;
 
   const host = getHostById(selectedHost);
   const coHost = secondaryHost ? getHostById(secondaryHost) : null;
@@ -204,9 +207,9 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     }
   }, [audioSettings.hostMuted, isLive, processQueue, isCoHostMode, coHost, host]);
 
-  // Add co-host banter reaction
+  // Add co-host banter reaction (respects platform setting)
   const addCoHostBanter = useCallback((banterType: keyof typeof COHOST_BANTER) => {
-    if (!isCoHostMode || !coHost || audioSettings.hostMuted) return;
+    if (!banterEnabled || !coHost || audioSettings.hostMuted) return;
     
     // Rate limit banter - at least 8 seconds between banter
     const now = Date.now();

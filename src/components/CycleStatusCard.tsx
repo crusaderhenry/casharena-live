@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { GameCycle } from '@/hooks/useActiveCycles';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { Crown, Users, Timer, Zap, Eye, Play, Radio, Clock, Sparkles, Flame } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -10,22 +11,22 @@ interface CycleStatusCardProps {
   isParticipant?: boolean;
 }
 
-// Helper to determine if game is "hot"
-const isHotGame = (participantCount: number, status: string): boolean => {
-  // Hot if live with 10+ players, or opening with 5+ players
-  if (status === 'live' || status === 'ending') {
-    return participantCount >= 10;
-  }
-  if (status === 'opening') {
-    return participantCount >= 5;
-  }
-  return participantCount >= 8;
-};
-
 export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCardProps) => {
   const navigate = useNavigate();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
+  const { hotGameThresholds } = usePlatformSettings();
+  
+  // Helper to determine if game is "hot" using platform settings
+  const isHotGame = (participantCount: number, status: string): boolean => {
+    if (status === 'live' || status === 'ending') {
+      return participantCount >= hotGameThresholds.live;
+    }
+    if (status === 'opening') {
+      return participantCount >= hotGameThresholds.opening;
+    }
+    return participantCount >= hotGameThresholds.live;
+  };
   
   // Local countdown state
   const [localCountdown, setLocalCountdown] = useState({
