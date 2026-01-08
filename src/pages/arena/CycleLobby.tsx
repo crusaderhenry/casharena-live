@@ -66,6 +66,7 @@ export const CycleLobby = () => {
   const [timeUntilOpening, setTimeUntilOpening] = useState(0);
   const [timeUntilLive, setTimeUntilLive] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
+  const [flashActive, setFlashActive] = useState(false);
   const [showMicCheck, setShowMicCheck] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
@@ -158,13 +159,16 @@ export const CycleLobby = () => {
           const updated = payload.new as CycleData;
           setCycle(prev => prev ? { ...prev, ...updated } : null);
 
-          // Instant transition when game goes live
+          // Transition with flash when game goes live
           if (updated.status === 'live') {
             play('gameStart');
             hapticSuccess();
+            setFlashActive(true);
             setTransitioning(true);
-            // Immediate navigation
-            navigate(`/arena/${cycleId}/live`, { replace: true });
+            // Navigate after flash effect
+            setTimeout(() => {
+              navigate(`/arena/${cycleId}/live`, { replace: true });
+            }, 400);
           }
         }
       )
@@ -189,12 +193,15 @@ export const CycleLobby = () => {
       } else if (cycle.status === 'opening') {
         setTimeUntilLive(prev => {
           const newVal = Math.max(0, prev - 1);
-          // Instant transition when timer hits 0
+          // Transition with flash when timer hits 0
           if (newVal === 0 && prev > 0) {
             play('gameStart');
             hapticSuccess();
+            setFlashActive(true);
             setTransitioning(true);
-            navigate(`/arena/${cycleId}/live`, { replace: true });
+            setTimeout(() => {
+              navigate(`/arena/${cycleId}/live`, { replace: true });
+            }, 400);
           }
           return newVal;
         });
@@ -282,6 +289,16 @@ export const CycleLobby = () => {
     <div className={`min-h-screen bg-background flex flex-col transition-all duration-300 ${
       transitioning ? 'opacity-0 scale-110 blur-sm' : 'opacity-100 scale-100 animate-fade-in'
     }`}>
+      {/* Screen Flash Effect */}
+      {flashActive && (
+        <div 
+          className="fixed inset-0 z-[100] bg-white pointer-events-none animate-[flash_0.4s_ease-out_forwards]"
+          style={{
+            animation: 'flash 0.4s ease-out forwards'
+          }}
+        />
+      )}
+
       {/* Mic Check Modal */}
       <MicCheckModal 
         open={showMicCheck} 
