@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback, memo } from 'react';
 import { Confetti } from '@/components/Confetti';
 import { X, Share2, Twitter, Facebook, MessageCircle } from 'lucide-react';
 import html2canvas from 'html2canvas';
@@ -25,20 +25,20 @@ const BRAGGING_CAPTIONS = [
   "Leveling up one badge at a time! 🎯",
 ];
 
-export const BadgeCelebration = ({ badge, onDismiss }: BadgeCelebrationProps) => {
+export const BadgeCelebration = memo(function BadgeCelebration({ badge, onDismiss }: BadgeCelebrationProps) {
   const { profile } = useAuth();
   const shareCardRef = useRef<HTMLDivElement>(null);
   
   const username = profile?.username || 'Player';
   const caption = BRAGGING_CAPTIONS[Math.floor(Math.random() * BRAGGING_CAPTIONS.length)];
   
-  // Auto-dismiss after 8 seconds (increased for share time)
+  // Auto-dismiss after 8 seconds
   useEffect(() => {
     const timer = setTimeout(onDismiss, 8000);
     return () => clearTimeout(timer);
   }, [onDismiss]);
 
-  const generateShareImage = async (): Promise<Blob | null> => {
+  const generateShareImage = useCallback(async (): Promise<Blob | null> => {
     if (!shareCardRef.current) return null;
     
     try {
@@ -54,9 +54,9 @@ export const BadgeCelebration = ({ badge, onDismiss }: BadgeCelebrationProps) =>
       console.error('Error generating share image:', error);
       return null;
     }
-  };
+  }, []);
 
-  const shareToTwitter = async () => {
+  const shareToTwitter = useCallback(() => {
     const text = `${caption}\n\n🏅 ${badge.name}\n👤 ${username}\n\nJoin me on FortunesHQ!`;
     const url = 'https://fortuneshq.com';
     window.open(
@@ -64,27 +64,27 @@ export const BadgeCelebration = ({ badge, onDismiss }: BadgeCelebrationProps) =>
       '_blank'
     );
     toast.success('Opening Twitter...');
-  };
+  }, [caption, badge.name, username]);
 
-  const shareToFacebook = async () => {
+  const shareToFacebook = useCallback(() => {
     const url = 'https://fortuneshq.com';
     window.open(
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(`${caption} - ${badge.name}`)}`,
       '_blank'
     );
     toast.success('Opening Facebook...');
-  };
+  }, [caption, badge.name]);
 
-  const shareToWhatsApp = async () => {
+  const shareToWhatsApp = useCallback(() => {
     const text = `${caption}\n\n🏅 ${badge.name}\n👤 ${username}\n\nJoin me on FortunesHQ! https://fortuneshq.com`;
     window.open(
       `https://wa.me/?text=${encodeURIComponent(text)}`,
       '_blank'
     );
     toast.success('Opening WhatsApp...');
-  };
+  }, [caption, badge.name, username]);
 
-  const handleNativeShare = async () => {
+  const handleNativeShare = useCallback(async () => {
     const shareData = {
       title: `${badge.name} - FortunesHQ`,
       text: `${caption}\n\n🏅 ${badge.name}\n👤 ${username}`,
@@ -95,14 +95,21 @@ export const BadgeCelebration = ({ badge, onDismiss }: BadgeCelebrationProps) =>
       // Try to generate and share image
       const imageBlob = await generateShareImage();
       
-      if (imageBlob && navigator.canShare && navigator.canShare({ files: [new File([imageBlob], 'badge.png', { type: 'image/png' })] })) {
+      if (imageBlob && navigator.canShare) {
         const file = new File([imageBlob], 'badge.png', { type: 'image/png' });
-        await navigator.share({
-          ...shareData,
-          files: [file],
-        });
-      } else if (navigator.share) {
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            ...shareData,
+            files: [file],
+          });
+          toast.success('Shared!');
+          return;
+        }
+      }
+      
+      if (navigator.share) {
         await navigator.share(shareData);
+        toast.success('Shared!');
       } else {
         // Fallback to copying to clipboard
         await navigator.clipboard.writeText(`${shareData.text}\n\n${shareData.url}`);
@@ -111,10 +118,16 @@ export const BadgeCelebration = ({ badge, onDismiss }: BadgeCelebrationProps) =>
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         console.error('Share failed:', error);
-        toast.error('Failed to share');
+        // Fallback to copy
+        try {
+          await navigator.clipboard.writeText(`${shareData.text}\n\n${shareData.url}`);
+          toast.success('Copied to clipboard!');
+        } catch {
+          toast.error('Failed to share');
+        }
       }
     }
-  };
+  }, [badge.name, caption, username, generateShareImage]);
 
   return (
     <>
@@ -232,4 +245,4 @@ export const BadgeCelebration = ({ badge, onDismiss }: BadgeCelebrationProps) =>
       </div>
     </>
   );
-};
+});

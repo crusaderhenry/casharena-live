@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { WalletCard } from '@/components/WalletCard';
 import { BottomNav } from '@/components/BottomNav';
 
@@ -154,11 +154,11 @@ export const Home = () => {
     return () => clearInterval(timer);
   }, [notifications.length]);
 
-  const formatMoney = (amount: number) => {
+  const formatMoney = useCallback((amount: number) => {
     if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
     if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
     return `₦${amount.toLocaleString()}`;
-  };
+  }, []);
 
   const handleViewAllGames = () => {
     play('click');
@@ -166,15 +166,15 @@ export const Home = () => {
     navigate('/arena');
   };
 
-  const displayActivity = recentWinners.map((w) => ({
+  const displayActivity = useMemo(() => recentWinners.map((w) => ({
     id: w.id,
     playerName: w.profile?.username || 'Unknown',
     playerAvatar: w.profile?.avatar || '🎮',
     amount: w.prize_amount || w.amount_won,
     position: w.position,
-  }));
+  })), [recentWinners]);
 
-  const totalPool = cycles.reduce((sum, c) => sum + c.pool_value + (c.sponsored_prize_amount || 0), 0);
+  const totalPool = useMemo(() => cycles.reduce((sum, c) => sum + c.pool_value + (c.sponsored_prize_amount || 0), 0), [cycles]);
 
   return (
     <div ref={containerRef} className="min-h-screen bg-background pb-24 scroll-smooth-ios">
