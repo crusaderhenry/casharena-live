@@ -259,7 +259,7 @@ export const VoiceRoomLive = ({ gameId, onMicToggle, onSpeakerToggle, onHostMute
   // Use simulated > mock > real participants
   const displaySource = hasSimulatedParticipants 
     ? simulatedParticipants 
-    : isTestMode 
+    : mockVoiceParticipants.length > 0 
       ? mockVoiceParticipants 
       : participants;
   const speakingParticipants = displaySource.filter(p => p.is_speaking);
