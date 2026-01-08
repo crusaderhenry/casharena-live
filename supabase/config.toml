@@ -13,7 +13,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.role-manager]
-verify_jwt = true
+verify_jwt = false
 
 [functions.paystack-deposit]
 verify_jwt = false

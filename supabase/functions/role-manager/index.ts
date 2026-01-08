@@ -6,21 +6,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper to verify JWT and get user
-async function verifyAuth(req: Request, supabase: any): Promise<{ user: any | null; error: string | null }> {
+// Helper to verify JWT and get user ID
+async function verifyAuth(req: Request, supabase: any): Promise<{ userId: string | null; error: string | null }> {
   const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
-    return { user: null, error: 'Missing authorization header' };
+  if (!authHeader?.startsWith('Bearer ')) {
+    return { userId: null, error: 'Missing authorization header' };
   }
 
   const token = authHeader.replace('Bearer ', '');
-  const { data: { user }, error } = await supabase.auth.getUser(token);
+  const { data, error } = await supabase.auth.getClaims(token);
   
-  if (error || !user) {
-    return { user: null, error: 'Invalid or expired token' };
+  if (error || !data?.claims?.sub) {
+    console.error('JWT verification failed:', error?.message);
+    return { userId: null, error: 'Invalid or expired token' };
   }
 
-  return { user, error: null };
+  return { userId: data.claims.sub, error: null };
 }
 
 // Helper to check if user has admin role
@@ -78,16 +79,16 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Verify authentication
-    const { user, error: authError } = await verifyAuth(req, supabaseAuth);
-    if (authError) {
-      return new Response(JSON.stringify({ error: authError }), {
+    const { userId, error: authError } = await verifyAuth(req, supabaseAuth);
+    if (authError || !userId) {
+      return new Response(JSON.stringify({ error: authError || 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // Verify admin role
-    const hasAdminRole = await isAdmin(supabase, user.id);
+    const hasAdminRole = await isAdmin(supabase, userId);
     if (!hasAdminRole) {
       return new Response(JSON.stringify({ error: 'Admin access required' }), {
         status: 403,
@@ -96,9 +97,9 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { action, targetUserId, userId, role } = body;
-    const effectiveUserId = targetUserId || userId;
-    console.log(`Role action: ${action}`, { effectiveUserId, role, adminId: user.id });
+    const { action, targetUserId, userId: bodyUserId, role } = body;
+    const effectiveUserId = targetUserId || bodyUserId;
+    console.log(`Role action: ${action}`, { effectiveUserId, role, adminId: userId });
 
     // Get target user profile for logging
     const { data: targetProfile } = await supabase
@@ -135,12 +136,12 @@ serve(async (req) => {
         if (error) throw error;
 
         // Log audit action
-        await logAuditAction(supabase, user.id, 'add_role', 'user_role', effectiveUserId, {
+        await logAuditAction(supabase, userId, 'add_role', 'user_role', effectiveUserId, {
           role,
           target_username: targetProfile?.username || 'Unknown',
         }, clientIp);
 
-        console.log(`Role ${role} added to user ${effectiveUserId} by admin ${user.id}`);
+        console.log(`Role ${role} added to user ${effectiveUserId} by admin ${userId}`);
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -152,7 +153,7 @@ serve(async (req) => {
         }
 
         // Prevent admin from removing their own admin role
-        if (effectiveUserId === user.id && role === 'admin') {
+        if (effectiveUserId === userId && role === 'admin') {
           return new Response(JSON.stringify({ error: 'Cannot remove your own admin role' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -168,12 +169,12 @@ serve(async (req) => {
         if (error) throw error;
 
         // Log audit action
-        await logAuditAction(supabase, user.id, 'remove_role', 'user_role', effectiveUserId, {
+        await logAuditAction(supabase, userId, 'remove_role', 'user_role', effectiveUserId, {
           role,
           target_username: targetProfile?.username || 'Unknown',
         }, clientIp);
 
-        console.log(`Role ${role} removed from user ${effectiveUserId} by admin ${user.id}`);
+        console.log(`Role ${role} removed from user ${effectiveUserId} by admin ${userId}`);
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -185,7 +186,7 @@ serve(async (req) => {
         }
 
         // Prevent admin from deleting themselves
-        if (effectiveUserId === user.id) {
+        if (effectiveUserId === userId) {
           return new Response(JSON.stringify({ error: 'Cannot delete your own account' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -198,12 +199,12 @@ serve(async (req) => {
         if (deleteError) throw deleteError;
 
         // Log audit action
-        await logAuditAction(supabase, user.id, 'delete_user', 'user', effectiveUserId, {
+        await logAuditAction(supabase, userId, 'delete_user', 'user', effectiveUserId, {
           target_username: targetProfile?.username || 'Unknown',
           had_balance: targetProfile?.wallet_balance || 0,
         }, clientIp);
 
-        console.log(`User ${effectiveUserId} deleted by admin ${user.id}`);
+        console.log(`User ${effectiveUserId} deleted by admin ${userId}`);
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
