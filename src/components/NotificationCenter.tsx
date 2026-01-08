@@ -71,9 +71,18 @@ const saveToStorage = (key: string, ids: Set<string>) => {
   } catch {}
 };
 
+type FilterTab = 'all' | 'wins' | 'transactions';
+
+const FILTER_TYPES: Record<FilterTab, Notification['type'][]> = {
+  all: ['win', 'game_start', 'game_end', 'reminder', 'deposit', 'withdrawal', 'join', 'bonus', 'refund'],
+  wins: ['win'],
+  transactions: ['deposit', 'withdrawal', 'bonus', 'refund', 'join'],
+};
+
 export const NotificationCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [readIds, setReadIds] = useState<Set<string>>(() => loadFromStorage(STORAGE_KEY_READ));
   const [clearedIds, setClearedIds] = useState<Set<string>>(() => loadFromStorage(STORAGE_KEY_CLEARED));
   const { play } = useSounds();
@@ -248,7 +257,7 @@ export const NotificationCenter = () => {
       supabase.removeChannel(channel);
     };
   }, [user, fetchUserNotifications]);
-
+  const filteredNotifications = notifications.filter(n => FILTER_TYPES[activeFilter].includes(n.type));
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const markAllRead = useCallback(() => {
@@ -299,7 +308,8 @@ export const NotificationCenter = () => {
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 top-12 w-80 max-h-96 bg-card border border-border rounded-2xl shadow-xl z-50 overflow-hidden animate-scale-in">
+          <div className="absolute right-0 top-12 w-80 max-h-[28rem] bg-card border border-border rounded-2xl shadow-xl z-50 overflow-hidden animate-scale-in">
+            {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h3 className="font-bold text-foreground">Notifications</h3>
               <div className="flex items-center gap-2">
@@ -323,18 +333,47 @@ export const NotificationCenter = () => {
               </div>
             </div>
 
+            {/* Filter Tabs */}
+            {user && notifications.length > 0 && (
+              <div className="flex gap-1 p-2 border-b border-border bg-muted/30">
+                {(['all', 'wins', 'transactions'] as FilterTab[]).map((tab) => {
+                  const count = notifications.filter(n => FILTER_TYPES[tab].includes(n.type)).length;
+                  const isActive = activeFilter === tab;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => { setActiveFilter(tab); play('click'); buttonClick(); }}
+                      className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        isActive 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }`}
+                    >
+                      {tab === 'all' ? 'All' : tab === 'wins' ? '🏆 Wins' : '💰 Wallet'}
+                      {count > 0 && (
+                        <span className={`ml-1 ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                          ({count})
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Notifications List */}
             <div className="overflow-y-auto max-h-72">
               {!user ? (
                 <div className="p-4 text-center text-muted-foreground">
                   <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">Sign in to see your notifications</p>
                 </div>
-              ) : notifications.length === 0 ? (
+              ) : filteredNotifications.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
-                  No notifications yet
+                  {notifications.length === 0 ? 'No notifications yet' : `No ${activeFilter === 'wins' ? 'wins' : activeFilter === 'transactions' ? 'transactions' : 'notifications'} yet`}
                 </div>
               ) : (
-                notifications.map(notification => (
+                filteredNotifications.map(notification => (
                   <div
                     key={notification.id}
                     onClick={() => markAsRead(notification.id)}
