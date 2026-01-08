@@ -78,19 +78,19 @@ export const ArenaListing = () => {
   ];
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-background pb-24 overflow-auto">
+    <div ref={containerRef} className="min-h-screen bg-background pb-24 overflow-auto scroll-smooth-ios">
       <PullToRefreshIndicator 
         pullProgress={pullProgress} 
         isRefreshing={isRefreshing} 
         pullDistance={pullDistance} 
       />
       
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+      {/* Sticky Header with Filters */}
+      <div className="sticky-header border-b border-border/30">
         <div className="p-4 flex items-center gap-4">
           <button
             onClick={() => { play('click'); buttonClick(); navigate('/home'); }}
-            className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center"
+            className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center touch-feedback"
           >
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
@@ -111,7 +111,7 @@ export const ArenaListing = () => {
             <button
               key={f.key}
               onClick={() => { play('click'); setFilter(f.key); }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-100 active:scale-95 touch-action-manipulation [-webkit-tap-highlight-color:transparent] ${
                 filter === f.key
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'

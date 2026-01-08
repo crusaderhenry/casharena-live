@@ -290,6 +290,10 @@
     padding-bottom: env(safe-area-inset-bottom, 0.5rem);
   }
 
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -297,6 +301,40 @@
 
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* iOS Touch Feedback */
+  .touch-feedback {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: transform 100ms ease-out, opacity 100ms ease-out;
+  }
+
+  .touch-feedback:active {
+    transform: scale(0.97);
+    opacity: 0.9;
+  }
+
+  /* Sticky Header Container */
+  .sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: hsl(var(--background) / 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
+  /* Smooth iOS Scrolling */
+  .scroll-smooth-ios {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* Prevent iOS rubber band effect on fixed elements */
+  .overscroll-none {
+    overscroll-behavior: none;
   }
 }
 

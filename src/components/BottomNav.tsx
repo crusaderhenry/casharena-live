@@ -33,7 +33,7 @@ export const BottomNav = () => {
             <button
               key={path}
               onClick={() => handleNav(path)}
-              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 ${
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-100 active:scale-95 active:opacity-80 touch-action-manipulation [-webkit-tap-highlight-color:transparent] ${
                 isActive 
                   ? 'text-primary' 
                   : 'text-muted-foreground hover:text-foreground'
