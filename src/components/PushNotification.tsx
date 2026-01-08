@@ -122,60 +122,8 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     };
   }, [play, prizeWin, gameStart, hapticNotification]);
 
-  // Subscribe to real-time cycle events
+  // Subscribe to winners if user is logged in (for win announcements only)
   useEffect(() => {
-    const cyclesChannel = supabase
-      .channel('notification-cycles')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'game_cycles',
-        },
-        async (payload) => {
-          const cycle = payload.new as {
-            id: string;
-            template_id: string;
-            status: string;
-            pool_value: number;
-          };
-          const oldCycle = payload.old as { status: string };
-
-          // Fetch template name
-          const { data: template } = await supabase
-            .from('game_templates')
-            .select('name')
-            .eq('id', cycle.template_id)
-            .single();
-
-          const gameName = template?.name || 'Royal Rumble';
-
-          // Show in-app notification only if enabled
-          if (preferences.inAppGameStatus) {
-            // Game just went live
-            if (cycle.status === 'live' && oldCycle.status !== 'live') {
-              showNotification({
-                type: 'game_starting',
-                title: '🎮 Game is LIVE!',
-                message: `${gameName} is now live! Pool: ₦${cycle.pool_value.toLocaleString()}`,
-              });
-            }
-
-            // Game ended (settled)
-            if (cycle.status === 'settled' && oldCycle.status === 'live') {
-              showNotification({
-                type: 'game_ended',
-                title: '🏁 Game Ended',
-                message: `${gameName} has ended. Check results!`,
-              });
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    // Subscribe to winners if user is logged in
     let winnersChannel: ReturnType<typeof supabase.channel> | null = null;
     
     if (user) {
@@ -201,12 +149,11 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     }
 
     return () => {
-      supabase.removeChannel(cyclesChannel);
       if (winnersChannel) {
         supabase.removeChannel(winnersChannel);
       }
     };
-  }, [user, showNotification, announceWin, preferences.inAppGameStatus]);
+  }, [user, announceWin]);
 
   return (
     <NotificationContext.Provider value={{ showNotification, scheduleGameReminder, announceWin }}>

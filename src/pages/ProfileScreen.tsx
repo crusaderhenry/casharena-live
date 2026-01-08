@@ -44,7 +44,7 @@ export const ProfileScreen = () => {
   const { settings, toggleMusic, toggleSfx, toggleCommentary, toggleTick, setVolume } = useAudio();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
-  const { preferences, toggleInAppGameStatus } = useNotificationPreferences();
+  const { preferences } = useNotificationPreferences();
   const { resetOnboarding } = useOnboarding();
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState('');
@@ -532,23 +532,6 @@ export const ProfileScreen = () => {
           
           <div className="space-y-4">
             <PushNotificationToggle />
-            
-            {/* In-App Game Status Notifications */}
-            <div className="flex items-center justify-between pt-2 border-t border-border/50">
-              <div className="flex items-center gap-3">
-                <Zap className="w-5 h-5 text-muted-foreground" />
-                <div>
-                  <span className="text-foreground">Game Status Alerts</span>
-                  <p className="text-xs text-muted-foreground">Show popup when games go live</p>
-                </div>
-              </div>
-              <button
-                onClick={() => { play('click'); buttonClick(); toggleInAppGameStatus(); }}
-                className={`w-12 h-7 rounded-full transition-colors ${preferences.inAppGameStatus ? 'bg-primary' : 'bg-muted'}`}
-              >
-                <div className={`w-5 h-5 rounded-full bg-white shadow-md transition-transform mx-1 ${preferences.inAppGameStatus ? 'translate-x-5' : ''}`} />
-              </button>
-            </div>
           </div>
         </div>
 
