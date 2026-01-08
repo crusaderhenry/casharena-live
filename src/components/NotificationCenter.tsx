@@ -53,10 +53,29 @@ const getPositionText = (position: number) => {
   return `${position}th`;
 };
 
+const STORAGE_KEY_READ = 'notification_read_ids';
+const STORAGE_KEY_CLEARED = 'notification_cleared_ids';
+
+const loadFromStorage = (key: string): Set<string> => {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  } catch {
+    return new Set();
+  }
+};
+
+const saveToStorage = (key: string, ids: Set<string>) => {
+  try {
+    localStorage.setItem(key, JSON.stringify([...ids]));
+  } catch {}
+};
+
 export const NotificationCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [readIds, setReadIds] = useState<Set<string>>(() => loadFromStorage(STORAGE_KEY_READ));
+  const [clearedIds, setClearedIds] = useState<Set<string>>(() => loadFromStorage(STORAGE_KEY_CLEARED));
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
   const { user } = useAuth();
@@ -117,14 +136,17 @@ export const NotificationCenter = () => {
           return; // Skip unknown types
         }
 
-        notifications.push({
-          id: tx.id,
-          type,
-          title,
-          message,
-          timestamp: new Date(tx.created_at),
-          read: readIds.has(tx.id),
-        });
+        // Skip if cleared
+        if (!clearedIds.has(tx.id)) {
+          notifications.push({
+            id: tx.id,
+            type,
+            title,
+            message,
+            timestamp: new Date(tx.created_at),
+            read: readIds.has(tx.id),
+          });
+        }
       });
     }
 
@@ -147,14 +169,17 @@ export const NotificationCenter = () => {
       const profileMap = new Map(profiles?.map(p => [p.id, p.username]) || []);
 
       recentWinners.forEach((winner) => {
-        notifications.push({
-          id: `winner_${winner.id}`,
-          type: 'win',
-          title: `🏆 ${profileMap.get(winner.user_id) || 'Player'} Won!`,
-          message: `${getPositionText(winner.position)} place - ₦${winner.prize_amount.toLocaleString()}`,
-          timestamp: new Date(winner.created_at),
-          read: readIds.has(`winner_${winner.id}`),
-        });
+        const id = `winner_${winner.id}`;
+        if (!clearedIds.has(id)) {
+          notifications.push({
+            id,
+            type: 'win',
+            title: `🏆 ${profileMap.get(winner.user_id) || 'Player'} Won!`,
+            message: `${getPositionText(winner.position)} place - ₦${winner.prize_amount.toLocaleString()}`,
+            timestamp: new Date(winner.created_at),
+            read: readIds.has(id),
+          });
+        }
       });
     }
 
@@ -178,14 +203,17 @@ export const NotificationCenter = () => {
 
       liveCycles.forEach((cycle) => {
         if (cycle.live_start_at) {
-          notifications.push({
-            id: `live_${cycle.id}`,
-            type: 'game_start',
-            title: `⚡ ${templateMap.get(cycle.template_id) || 'Royal Rumble'} is LIVE!`,
-            message: `Pool: ₦${cycle.pool_value.toLocaleString()} - Join now!`,
-            timestamp: new Date(cycle.live_start_at),
-            read: readIds.has(`live_${cycle.id}`),
-          });
+          const id = `live_${cycle.id}`;
+          if (!clearedIds.has(id)) {
+            notifications.push({
+              id,
+              type: 'game_start',
+              title: `⚡ ${templateMap.get(cycle.template_id) || 'Royal Rumble'} is LIVE!`,
+              message: `Pool: ₦${cycle.pool_value.toLocaleString()} - Join now!`,
+              timestamp: new Date(cycle.live_start_at),
+              read: readIds.has(id),
+            });
+          }
         }
       });
     }
@@ -193,7 +221,7 @@ export const NotificationCenter = () => {
     // Sort by timestamp and dedupe
     notifications.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
     setNotifications(notifications);
-  }, [user, readIds]);
+  }, [user, readIds, clearedIds]);
 
   // Initial fetch and periodic refresh
   useEffect(() => {
@@ -264,21 +292,29 @@ export const NotificationCenter = () => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const markAllRead = useCallback(() => {
-    setReadIds(new Set(notifications.map(n => n.id)));
+    const allIds = new Set(notifications.map(n => n.id));
+    setReadIds(allIds);
+    saveToStorage(STORAGE_KEY_READ, allIds);
     play('click');
     buttonClick();
   }, [notifications, play, buttonClick]);
 
   const markAsRead = useCallback((id: string) => {
-    setReadIds(prev => new Set([...prev, id]));
+    setReadIds(prev => {
+      const newSet = new Set([...prev, id]);
+      saveToStorage(STORAGE_KEY_READ, newSet);
+      return newSet;
+    });
   }, []);
 
   const clearAllNotifications = useCallback(() => {
+    const allIds = new Set([...clearedIds, ...notifications.map(n => n.id)]);
+    setClearedIds(allIds);
+    saveToStorage(STORAGE_KEY_CLEARED, allIds);
     setNotifications([]);
-    setReadIds(new Set());
     play('click');
     buttonClick();
-  }, [play, buttonClick]);
+  }, [notifications, clearedIds, play, buttonClick]);
 
   const toggleOpen = () => {
     setIsOpen(!isOpen);
