@@ -623,6 +623,33 @@ export type Database = {
         }
         Relationships: []
       }
+      otp_codes: {
+        Row: {
+          code: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          verified: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          verified?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
       payment_provider_logs: {
         Row: {
           created_at: string
@@ -1027,6 +1054,7 @@ export type Database = {
     }
     Functions: {
       calculate_prize_pool: { Args: { game_id: string }; Returns: number }
+      cleanup_expired_otp_codes: { Args: never; Returns: undefined }
       get_active_cycles: {
         Args: never
         Returns: {

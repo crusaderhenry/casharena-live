@@ -70,15 +70,18 @@ export const AuthPage = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true,
-        },
+      // Call the send-otp edge function
+      const { data, error: invokeError } = await supabase.functions.invoke('send-otp', {
+        body: { email },
       });
 
-      if (error) {
-        setError(error.message);
+      if (invokeError) {
+        setError(invokeError.message || 'Failed to send verification code');
+        return;
+      }
+
+      if (data?.error) {
+        setError(data.error);
         return;
       }
 
@@ -106,36 +109,45 @@ export const AuthPage = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: 'email',
+      // Call the verify-otp edge function
+      const { data, error: invokeError } = await supabase.functions.invoke('verify-otp', {
+        body: { email, code: otp },
       });
 
-      if (error) {
-        setError(error.message);
+      if (invokeError) {
+        setError(invokeError.message || 'Verification failed');
         return;
       }
 
-      if (data.user) {
+      if (data?.error) {
+        setError(data.error);
+        return;
+      }
+
+      if (data?.token && data?.type) {
+        // Verify the magic link token to establish a session
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: data.token,
+          type: data.type,
+        });
+
+        if (verifyError) {
+          console.error('Session verification error:', verifyError);
+          setError('Failed to establish session. Please try again.');
+          return;
+        }
+
         // Check if user needs to set username
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('username')
-          .eq('id', data.user.id)
-          .single();
-
-        const needsUsername = !profile?.username || 
-          profile.username.startsWith('Player') || 
-          profile.username.includes('@');
-
-        if (needsUsername) {
+        if (!data.hasUsername) {
           setStep('username');
         } else {
           navigate('/home');
         }
+      } else {
+        setError('Invalid response from server');
       }
     } catch (err) {
+      console.error('Verify OTP error:', err);
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);
@@ -196,18 +208,21 @@ export const AuthPage = () => {
     if (resendCooldown > 0) return;
     
     setError(null);
+    setSuccess(null);
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true,
-        },
+      const { data, error: invokeError } = await supabase.functions.invoke('send-otp', {
+        body: { email },
       });
 
-      if (error) {
-        setError(error.message);
+      if (invokeError) {
+        setError(invokeError.message || 'Failed to resend code');
+        return;
+      }
+
+      if (data?.error) {
+        setError(data.error);
         return;
       }
 
