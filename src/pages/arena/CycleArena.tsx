@@ -8,9 +8,12 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useCycleHostTTS } from '@/hooks/useCycleHostTTS';
 import { useLiveArenaSimulation } from '@/hooks/useLiveArenaSimulation';
 import { useMockVoiceRoom } from '@/hooks/useMockVoiceRoom';
+import { useMobileFullscreen } from '@/hooks/useMobileFullscreen';
+import { useAudio } from '@/contexts/AudioContext';
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceRoomLive } from '@/components/VoiceRoomLive';
 import { CompactHostBanner } from '@/components/CompactHostBanner';
+import { GameEndFreeze } from '@/components/GameEndFreeze';
 import { LiveTimer } from '@/components/Countdown';
 import { 
   AlertDialog,
@@ -25,7 +28,8 @@ import {
 import { 
   ArrowLeft, Send, Users, Timer, Crown, Eye, Trophy, 
   Zap, MessageCircle, Clock, Play, Radio, Sparkles,
-  Target, Flame, Award, AlertTriangle, Hourglass
+  Target, Flame, Award, AlertTriangle, Hourglass,
+  Maximize, Minimize
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -56,11 +60,15 @@ export const CycleArena = () => {
   const { user, profile } = useAuth();
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
+  const { playBackgroundMusic, stopBackgroundMusic } = useAudio();
   const { joinCycle, joining, checkParticipation } = useCycleJoin();
   const { comments: realComments, sendComment: sendRealComment, sending, getOrderedCommenters: getRealOrderedCommenters } = useCycleComments(cycleId || null);
   
-  // Demo mode for simulation - enabled via ?demo=true
+  // Demo mode for simulation
   const isDemoMode = searchParams.get('demo') === 'true';
+  
+  // Mobile fullscreen hook
+  const { isFullscreen, isMobile, toggleFullscreen } = useMobileFullscreen(true);
   
   // Live arena simulation hook for demo mode
   const {
@@ -90,9 +98,12 @@ export const CycleArena = () => {
   const [hostIsSpeaking, setHostIsSpeaking] = useState(false);
   const [showLeaveWarning, setShowLeaveWarning] = useState(false);
   const [isEntering, setIsEntering] = useState(true);
+  const [showGameEndFreeze, setShowGameEndFreeze] = useState(false);
+  const [gameWinner, setGameWinner] = useState<{ name: string; avatar: string; prize: number } | null>(null);
   const commentsContainerRef = useRef<HTMLDivElement>(null);
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
+  const inputRef = useRef<HTMLInputElement>(null);
   
   // Use simulated or real data based on demo mode
   const comments = isDemoMode ? simulatedComments : realComments;
@@ -106,13 +117,23 @@ export const CycleArena = () => {
 
   const isLive = cycle?.status === 'live' || cycle?.status === 'ending';
   
-  // Fetch mock voice participants from database (for real games, not demo)
+  // Start arena music when live
+  useEffect(() => {
+    if (isLive) {
+      playBackgroundMusic('arena');
+    }
+    return () => {
+      stopBackgroundMusic();
+    };
+  }, [isLive, playBackgroundMusic, stopBackgroundMusic]);
+  
+  // Fetch mock voice participants from database
   const { voiceParticipants: mockVoiceParticipants } = useMockVoiceRoom(
     cycleId || null,
     isLive && !isDemoMode
   );
   
-  // Use simulated voice participants in demo mode, mock DB participants otherwise
+  // Use simulated voice participants in demo mode
   const voiceParticipantsToPass = isDemoMode ? simVoiceParticipants : mockVoiceParticipants;
   
   // TTS Hook for host commentary
@@ -159,7 +180,6 @@ export const CycleArena = () => {
     const liveStartAt = new Date(data.live_start_at).getTime();
     const liveEndAt = new Date(data.live_end_at).getTime();
     
-    // Calculate various timers
     setTimeUntilOpening(Math.max(0, Math.floor((entryOpenAt - now) / 1000)));
     setTimeUntilLive(Math.max(0, Math.floor((liveStartAt - now) / 1000)));
     setGameTimeRemaining(Math.max(0, Math.floor((liveEndAt - now) / 1000)));
@@ -172,7 +192,7 @@ export const CycleArena = () => {
     fetchCycle();
   }, [fetchCycle]);
 
-  // Check user participation - in demo mode, always a participant
+  // Check user participation
   useEffect(() => {
     if (isDemoMode) {
       setParticipation({ isParticipant: true, isSpectator: false });
@@ -201,10 +221,23 @@ export const CycleArena = () => {
           setCycle(prev => prev ? { ...prev, ...updated } : null);
           setLocalCountdown(updated.countdown);
 
-          // Handle game ended
-          if (updated.status === 'ended' || updated.status === 'settled') {
-            toast.success('Game ended!');
-            navigate(`/arena/${cycleId}/results`);
+          // Handle game ending - show freeze overlay
+          if (updated.status === 'ending' || updated.status === 'ended') {
+            const orderedCommenters = getOrderedCommenters();
+            const winner = orderedCommenters[0];
+            const effectivePrizePool = updated.pool_value + (updated.sponsored_prize_amount || 0);
+            const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (updated.prize_distribution[0] / 100));
+            
+            if (winner) {
+              play('prizeWin');
+              setGameWinner({
+                name: winner.username,
+                avatar: winner.avatar,
+                prize: prizeAmount,
+              });
+              announceGameOver(winner.username, prizeAmount);
+              setShowGameEndFreeze(true);
+            }
           }
         }
       )
@@ -213,15 +246,36 @@ export const CycleArena = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [cycleId, navigate]);
+  }, [cycleId, getOrderedCommenters, play, announceGameOver]);
 
-  // Local countdown ticker (visual only, server is authoritative)
+  // Local countdown ticker
   useEffect(() => {
     if (!cycle) return;
 
     const interval = setInterval(() => {
       if (cycle.status === 'live') {
-        setLocalCountdown(prev => Math.max(0, prev - 1));
+        setLocalCountdown(prev => {
+          const newVal = Math.max(0, prev - 1);
+          // Trigger freeze when countdown hits 0
+          if (newVal === 0 && prev > 0) {
+            const orderedCommenters = getOrderedCommenters();
+            const winner = orderedCommenters[0];
+            const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
+            const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (cycle.prize_distribution[0] / 100));
+            
+            if (winner && !showGameEndFreeze) {
+              play('prizeWin');
+              setGameWinner({
+                name: winner.username,
+                avatar: winner.avatar,
+                prize: prizeAmount,
+              });
+              announceGameOver(winner.username, prizeAmount);
+              setShowGameEndFreeze(true);
+            }
+          }
+          return newVal;
+        });
         setGameTimeRemaining(prev => Math.max(0, prev - 1));
       } else if (cycle.status === 'waiting') {
         setTimeUntilOpening(prev => Math.max(0, prev - 1));
@@ -232,7 +286,7 @@ export const CycleArena = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [cycle?.status]);
+  }, [cycle?.status, getOrderedCommenters, play, announceGameOver, showGameEndFreeze]);
 
   // Timer warning announcements
   useEffect(() => {
@@ -241,13 +295,11 @@ export const CycleArena = () => {
     const orderedCommenters = getOrderedCommenters();
     const leader = orderedCommenters[0]?.username || null;
     
-    // Announce at key thresholds
     if ([30, 10, 5].includes(localCountdown) && !announcedTimersRef.current.has(localCountdown)) {
       announcedTimersRef.current.add(localCountdown);
       announceTimerWarning(localCountdown, leader);
     }
     
-    // Reset announced timers when countdown resets
     if (localCountdown > 30) {
       announcedTimersRef.current.clear();
     }
@@ -268,7 +320,7 @@ export const CycleArena = () => {
     previousLeaderRef.current = currentLeader;
   }, [comments, isLive, localCountdown, getOrderedCommenters, announceLeaderChange, play]);
 
-  // Announce new comments via TTS
+  // Announce new comments
   useEffect(() => {
     if (!isLive || comments.length === 0) return;
     
@@ -302,16 +354,22 @@ export const CycleArena = () => {
     play('click');
     
     if (isDemoMode) {
-      // In demo mode, add comment to simulation
       addUserComment(commentText);
       setCommentText('');
     } else {
-      // In real mode, send to database
       const success = await sendRealComment(commentText);
       if (success) {
         setCommentText('');
       }
     }
+    
+    // Keep focus on input
+    inputRef.current?.focus();
+  };
+
+  const handleFreezeComplete = () => {
+    setShowGameEndFreeze(false);
+    navigate(`/arena/${cycleId}/results`, { replace: true });
   };
 
   const formatMoney = (amount: number) => {
@@ -344,8 +402,8 @@ export const CycleArena = () => {
     return null;
   }
 
-  // Redirect ended games to results
-  if (cycle.status === 'ended' || cycle.status === 'settled') {
+  // Redirect ended games to results (unless showing freeze)
+  if ((cycle.status === 'ended' || cycle.status === 'settled') && !showGameEndFreeze) {
     navigate(`/arena/${cycleId}/results`, { replace: true });
     return null;
   }
@@ -353,14 +411,24 @@ export const CycleArena = () => {
   const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
   const canComment = participation.isParticipant && !participation.isSpectator && isLive;
   const orderedCommenters = getOrderedCommenters();
-  // Use simulated countdown in demo mode
   const displayCountdown = isDemoMode ? simCountdown : localCountdown;
   const isCountdownCritical = displayCountdown <= 10 && isLive;
-  // Use simulated participant count in demo mode
   const displayParticipantCount = isDemoMode ? simParticipantCount : cycle.participant_count;
 
   return (
     <div className={`min-h-screen bg-background flex flex-col transition-all duration-500 ease-out ${isEntering ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+      {/* Game End Freeze Overlay */}
+      {gameWinner && (
+        <GameEndFreeze
+          isActive={showGameEndFreeze}
+          winnerName={gameWinner.name}
+          winnerAvatar={gameWinner.avatar}
+          prizeAmount={gameWinner.prize}
+          onComplete={handleFreezeComplete}
+          freezeDuration={5}
+        />
+      )}
+
       {/* Live Header */}
       <div className="sticky top-0 z-20 bg-gradient-to-b from-background via-background to-transparent">
         {/* Top Bar */}
@@ -369,7 +437,6 @@ export const CycleArena = () => {
             onClick={() => { 
               play('click'); 
               buttonClick(); 
-              // Show warning if in live game as participant (not spectator)
               if (isLive && participation.isParticipant && !participation.isSpectator) {
                 setShowLeaveWarning(true);
               } else {
@@ -394,29 +461,42 @@ export const CycleArena = () => {
             </span>
           </div>
           
-          <div className="w-10" />
+          {/* Fullscreen toggle for mobile */}
+          {isMobile && (
+            <button
+              onClick={toggleFullscreen}
+              className="w-10 h-10 rounded-xl bg-muted/80 flex items-center justify-center"
+            >
+              {isFullscreen ? (
+                <Minimize className="w-5 h-5 text-foreground" />
+              ) : (
+                <Maximize className="w-5 h-5 text-foreground" />
+              )}
+            </button>
+          )}
+          
+          {!isMobile && <div className="w-10" />}
         </div>
 
-        {/* Game Title & Prize */}
+        {/* Game Title & Prize - Compact */}
         <div className="px-4 pb-2 text-center">
-          <h1 className="text-xl font-black text-foreground flex items-center justify-center gap-2">
-            <Crown className="w-6 h-6 text-gold" />
+          <h1 className="text-lg font-black text-foreground flex items-center justify-center gap-2">
+            <Crown className="w-5 h-5 text-gold" />
             {cycle.template_name}
           </h1>
-          <p className="text-3xl font-black text-gold mt-1">
+          <p className="text-2xl font-black text-gold">
             {formatMoney(effectivePrizePool)}
           </p>
-          <p className="text-xs text-muted-foreground">Prize Pool • Top {cycle.winner_count} Winners</p>
         </div>
 
-        {/* Compact Host Banner - Only shows icon, name, and mute button */}
+        {/* Compact Host Banner */}
         {isLive && (
           <div className="px-4 pb-2">
             <CompactHostBanner isLive={isLive} isSpeaking={hostIsSpeaking} />
           </div>
         )}
 
-        {/* Lobby Status Bar - Shows different info based on status */}
+        {/* Stats Bar */}
         <div className="px-4 pb-3 grid grid-cols-3 gap-2">
           <div className="text-center py-2 rounded-xl bg-muted/50 backdrop-blur-sm">
             <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
@@ -425,43 +505,6 @@ export const CycleArena = () => {
             <p className="text-lg font-bold text-foreground">{displayParticipantCount}</p>
           </div>
           
-          {/* Waiting: Show time until entry opens */}
-          {cycle.status === 'waiting' && (
-            <>
-              <div className="text-center py-2 rounded-xl bg-blue-500/10 border border-blue-500/30 backdrop-blur-sm">
-                <p className="text-[10px] text-blue-400 uppercase flex items-center justify-center gap-1">
-                  <Clock className="w-3 h-3 animate-pulse" /> Entry Opens
-                </p>
-                <p className="text-lg font-bold text-blue-400">{formatTime(timeUntilOpening)}</p>
-              </div>
-              <div className="text-center py-2 rounded-xl bg-muted/50 backdrop-blur-sm">
-                <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
-                  <Play className="w-3 h-3" /> Goes Live
-                </p>
-                <p className="text-lg font-bold text-foreground">{formatTime(timeUntilLive)}</p>
-              </div>
-            </>
-          )}
-          
-          {/* Opening: Show time until game goes live */}
-          {cycle.status === 'opening' && (
-            <>
-              <div className="text-center py-2 rounded-xl bg-green-500/10 border border-green-500/30 backdrop-blur-sm">
-                <p className="text-[10px] text-green-400 uppercase flex items-center justify-center gap-1">
-                  <Play className="w-3 h-3 animate-pulse" /> Entry Open
-                </p>
-                <p className="text-lg font-bold text-green-400">JOIN NOW</p>
-              </div>
-              <div className="text-center py-2 rounded-xl bg-primary/10 border border-primary/30 backdrop-blur-sm">
-                <p className="text-[10px] text-primary uppercase flex items-center justify-center gap-1">
-                  <Radio className="w-3 h-3" /> Goes Live In
-                </p>
-                <p className="text-lg font-bold text-primary">{formatTime(timeUntilLive)}</p>
-              </div>
-            </>
-          )}
-          
-          {/* Live: Show comments and game end time */}
           {isLive && (
             <>
               <div className="text-center py-2 rounded-xl bg-muted/50 backdrop-blur-sm">
@@ -488,23 +531,23 @@ export const CycleArena = () => {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - Scrollable */}
       <div className="flex-1 flex flex-col overflow-hidden px-4">
-        {/* Comment Timer - MOST PROMINENT */}
+        {/* Comment Timer - PROMINENT */}
         {isLive && (
-          <div className={`mb-4 p-5 rounded-2xl text-center ${
+          <div className={`mb-3 p-4 rounded-2xl text-center ${
             isCountdownCritical 
-              ? 'bg-gradient-to-r from-red-500/30 via-red-500/40 to-red-500/30 border-2 border-red-500/60 animate-pulse shadow-lg shadow-red-500/20' 
+              ? 'bg-gradient-to-r from-red-500/30 via-red-500/40 to-red-500/30 border-2 border-red-500/60 shadow-lg shadow-red-500/20' 
               : 'bg-gradient-to-r from-primary/15 via-primary/25 to-primary/15 border border-primary/40'
           }`}>
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex items-center justify-center gap-3">
               {isCountdownCritical ? (
-                <AlertTriangle className="w-8 h-8 text-red-400 animate-bounce" />
+                <AlertTriangle className="w-6 h-6 text-red-400 animate-bounce" />
               ) : (
-                <Timer className="w-7 h-7 text-primary" />
+                <Timer className="w-5 h-5 text-primary" />
               )}
               <div>
-                <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${isCountdownCritical ? 'text-red-400' : 'text-muted-foreground'}`}>
+                <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isCountdownCritical ? 'text-red-400' : 'text-muted-foreground'}`}>
                   ⏱️ Comment to Stay Alive
                 </p>
                 <LiveTimer 
@@ -514,34 +557,28 @@ export const CycleArena = () => {
                 />
               </div>
               {isCountdownCritical ? (
-                <Flame className="w-8 h-8 text-red-400 animate-bounce" />
+                <Flame className="w-6 h-6 text-red-400 animate-bounce" />
               ) : (
-                <Target className="w-7 h-7 text-primary" />
+                <Target className="w-5 h-5 text-primary" />
               )}
             </div>
-            {isCountdownCritical && (
-              <p className="text-sm text-red-400 mt-3 font-bold animate-pulse">
-                ⚠️ DANGER! Timer running low! Send a comment NOW!
-              </p>
-            )}
           </div>
         )}
 
-        {/* Top Contenders - Compact podium style with 1st in middle */}
+        {/* Top Contenders - Compact podium */}
         {isLive && orderedCommenters.length > 0 && (
-          <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-gold/5 via-gold/10 to-gold/5 border border-gold/20">
+          <div className="mb-3 p-2.5 rounded-xl bg-gradient-to-r from-gold/5 via-gold/10 to-gold/5 border border-gold/20">
             <div className="flex items-center justify-center gap-1">
-              {/* Reorder: 2nd, 1st, 3rd for podium effect */}
               {(() => {
                 const top3 = orderedCommenters.slice(0, Math.min(3, cycle.winner_count));
                 const reordered = top3.length >= 2 
                   ? [top3[1], top3[0], top3[2]].filter(Boolean)
                   : top3;
                 
-                return reordered.map((c, displayIdx) => {
+                return reordered.map((c) => {
                   const actualPosition = c === top3[0] ? 0 : c === top3[1] ? 1 : 2;
                   const prizePercent = cycle.prize_distribution[actualPosition] || 0;
-                  const prizeAmount = Math.floor(effectivePrizePool * (0.9) * (prizePercent / 100));
+                  const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (prizePercent / 100));
                   const isFirst = actualPosition === 0;
                   
                   return (
@@ -573,7 +610,7 @@ export const CycleArena = () => {
 
         {/* Voice Room */}
         {isLive && cycleId && (
-          <div className="mb-4">
+          <div className="mb-3">
             <VoiceRoomLive 
               gameId={cycleId} 
               simulatedParticipants={voiceParticipantsToPass.length > 0 ? voiceParticipantsToPass : undefined}
@@ -581,8 +618,8 @@ export const CycleArena = () => {
           </div>
         )}
 
-        {/* Comments Feed */}
-        <div className="flex-1 flex flex-col min-h-0">
+        {/* Comments Feed - Scrolls behind input */}
+        <div className="flex-1 flex flex-col min-h-0 relative">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-bold text-foreground flex items-center gap-2">
               <MessageCircle className="w-4 h-4" />
@@ -593,54 +630,59 @@ export const CycleArena = () => {
             )}
           </div>
           
-          <div 
-            ref={commentsContainerRef}
-            className="flex-1 overflow-y-auto space-y-2 rounded-xl bg-muted/20 p-3"
-            style={{ maxHeight: '200px' }}
-          >
-            {comments.length === 0 ? (
-              <div className="text-center py-8">
-                <MessageCircle className="w-10 h-10 text-muted-foreground/50 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  {isLive ? 'Be the first to comment!' : 'Comments appear when live'}
-                </p>
-              </div>
-            ) : (
-              comments.map((comment, idx) => {
-                const isTopCommenter = orderedCommenters.findIndex(c => c.user_id === comment.user_id) < cycle.winner_count;
-                
-                return (
-                  <div 
-                    key={comment.id} 
-                    className={`flex gap-2 p-2 rounded-lg transition-all ${
-                      comment.user_id === user?.id 
-                        ? 'bg-primary/15 border border-primary/30' 
-                        : isTopCommenter 
-                          ? 'bg-gold/10 border border-gold/20'
-                          : 'bg-muted/50'
-                    } ${idx === 0 ? 'animate-pulse' : ''}`}
-                  >
-                    <div className="text-xl flex-shrink-0">{comment.avatar}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-foreground">{comment.username}</span>
-                        {isTopCommenter && <Award className="w-3 h-3 text-gold" />}
-                        <span className="text-[9px] text-muted-foreground ml-auto">
-                          {new Date(comment.server_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        </span>
+          {/* Comments container with gradient fade at bottom */}
+          <div className="relative flex-1 min-h-0">
+            <div 
+              ref={commentsContainerRef}
+              className="absolute inset-0 overflow-y-auto space-y-2 rounded-xl bg-muted/20 p-3 pb-16"
+            >
+              {comments.length === 0 ? (
+                <div className="text-center py-8">
+                  <MessageCircle className="w-10 h-10 text-muted-foreground/50 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    {isLive ? 'Be the first to comment!' : 'Comments appear when live'}
+                  </p>
+                </div>
+              ) : (
+                comments.map((comment, idx) => {
+                  const isTopCommenter = orderedCommenters.findIndex(c => c.user_id === comment.user_id) < cycle.winner_count;
+                  
+                  return (
+                    <div 
+                      key={comment.id} 
+                      className={`flex gap-2 p-2 rounded-lg transition-all ${
+                        comment.user_id === user?.id 
+                          ? 'bg-primary/15 border border-primary/30' 
+                          : isTopCommenter 
+                            ? 'bg-gold/10 border border-gold/20'
+                            : 'bg-muted/50'
+                      } ${idx === 0 ? 'animate-fade-in' : ''}`}
+                    >
+                      <div className="text-xl flex-shrink-0">{comment.avatar}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-foreground">{comment.username}</span>
+                          {isTopCommenter && <Award className="w-3 h-3 text-gold" />}
+                          <span className="text-[9px] text-muted-foreground ml-auto">
+                            {new Date(comment.server_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-foreground break-words">{comment.content}</p>
                       </div>
-                      <p className="text-sm text-foreground break-words">{comment.content}</p>
                     </div>
-                  </div>
-                );
-              })
-            )}
+                  );
+                })
+              )}
+            </div>
+            
+            {/* Gradient fade overlay at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent pointer-events-none rounded-b-xl" />
           </div>
         </div>
       </div>
 
-      {/* Action Area - Fixed Bottom */}
-      <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-4 px-4 pb-4 space-y-3">
+      {/* Action Area - Fixed Bottom with comments scrolling behind */}
+      <div className="sticky bottom-0 z-10 bg-background pt-2 px-4 pb-4 space-y-3">
         {/* Not joined yet */}
         {!participation.isParticipant && (
           <div className="flex gap-3">
@@ -677,15 +719,6 @@ export const CycleArena = () => {
                 <p className="text-sm text-red-400">Entry closed • Game in progress</p>
               </div>
             )}
-            
-            {cycle.status === 'waiting' && (
-              <div className="flex-1 py-4 px-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center">
-                <p className="text-sm text-blue-400 font-medium flex items-center justify-center gap-2">
-                  <Clock className="w-4 h-4 animate-pulse" />
-                  Entry opens in {formatTime(timeUntilOpening)}
-                </p>
-              </div>
-            )}
           </div>
         )}
 
@@ -693,6 +726,7 @@ export const CycleArena = () => {
         {canComment && (
           <div className="flex gap-3">
             <input
+              ref={inputRef}
               type="text"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
@@ -711,7 +745,7 @@ export const CycleArena = () => {
               disabled={sending || !commentText.trim()}
               className={`w-14 h-14 rounded-xl flex items-center justify-center disabled:opacity-50 transition-all ${
                 isCountdownCritical 
-                  ? 'bg-red-500 text-white animate-pulse' 
+                  ? 'bg-red-500 text-white' 
                   : 'bg-primary text-primary-foreground'
               }`}
             >
