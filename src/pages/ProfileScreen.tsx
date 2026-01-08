@@ -2,6 +2,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { ProfileBadges } from '@/components/ProfileBadges';
 import { KycVerificationModal } from '@/components/wallet/KycVerificationModal';
 import { PushNotificationToggle } from '@/components/PushNotificationBanner';
+import { ProfileSkeleton } from '@/components/ProfileSkeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
@@ -34,7 +35,7 @@ interface KycStatus {
 
 export const ProfileScreen = () => {
   const navigate = useNavigate();
-  const { user, profile, signOut, refreshProfile } = useAuth();
+  const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
   const { isAdmin, isModerator } = useUserRole();
   const { settings, toggleMusic, toggleSfx, toggleCommentary, toggleTick, setVolume } = useAudio();
   const { play } = useSounds();
@@ -289,6 +290,16 @@ export const ProfileScreen = () => {
     { label: 'Top 3', value: displayProfile.wins, icon: Trophy, color: 'text-gold' },
     { label: 'Rank', value: displayProfile.rank ? `#${displayProfile.rank}` : '-', icon: Trophy, color: 'text-primary' },
   ];
+
+  // Show skeleton while loading
+  if (authLoading || !profile) {
+    return (
+      <>
+        <ProfileSkeleton />
+        <BottomNav />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">

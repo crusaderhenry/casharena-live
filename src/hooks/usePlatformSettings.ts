@@ -24,6 +24,11 @@ export interface PlatformSettings {
   enable_cohost_banter: boolean;
   leave_window_minutes: number;
   google_auth_enabled: boolean;
+  // Welcome settings
+  welcome_message: string;
+  welcome_bonus_amount: number;
+  welcome_bonus_limit: number;
+  welcome_bonus_enabled: boolean;
 }
 
 export const usePlatformSettings = () => {
@@ -132,6 +137,11 @@ export const usePlatformSettings = () => {
     enableCoHostBanter: settings?.enable_cohost_banter ?? true,
     leaveWindowMinutes: settings?.leave_window_minutes ?? 5,
     googleAuthEnabled: settings?.google_auth_enabled ?? false,
+    // Welcome settings
+    welcomeMessage: settings?.welcome_message ?? 'Welcome to FortunesHQ! 🎉 Get ready to play and win!',
+    welcomeBonusAmount: settings?.welcome_bonus_amount ?? 5000,
+    welcomeBonusLimit: settings?.welcome_bonus_limit ?? 1000,
+    welcomeBonusEnabled: settings?.welcome_bonus_enabled ?? true,
     updateSettings,
     toggleTestMode,
     refetch: fetchSettings,
