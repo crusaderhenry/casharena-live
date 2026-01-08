@@ -46,8 +46,12 @@ export const useLobbyAudio = ({ timeUntilLive, isInLobby, ambientMusicStyle = 'c
         
         // Different sound intensity based on time remaining
         if (timeUntilLive <= 5) {
+          // Critical - fast heartbeat + urgent tick
+          play('heartbeatFast');
           play('urgent');
         } else if (timeUntilLive <= 10) {
+          // Urgent - heartbeat + countdown
+          play('heartbeat');
           play('countdown');
         } else {
           play('tick');

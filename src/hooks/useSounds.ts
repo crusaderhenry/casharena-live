@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
 
-type SoundType = 'click' | 'success' | 'win' | 'error' | 'timer' | 'countdown' | 'notification' | 'coin' | 'send' | 'tick' | 'urgent' | 'gameOver' | 'leaderChange' | 'prizeWin' | 'gameStart' | 'drumroll' | 'crowdCheer' | 'victoryFanfare' | 'tenseCrescendo';
+type SoundType = 'click' | 'success' | 'win' | 'error' | 'timer' | 'countdown' | 'notification' | 'coin' | 'send' | 'tick' | 'urgent' | 'gameOver' | 'leaderChange' | 'prizeWin' | 'gameStart' | 'drumroll' | 'crowdCheer' | 'victoryFanfare' | 'tenseCrescendo' | 'heartbeat' | 'heartbeatFast';
 
 // Create audio context lazily
 const createAudioContext = () => {
@@ -173,6 +173,18 @@ export const useSounds = () => {
           playTone(880, 0.4, 'sine', 0.2);
           playTone(1046.50, 0.4, 'sine', 0.18);
         }, 2000);
+        break;
+      case 'heartbeat':
+        // Low thump heartbeat - slower rhythm (matches 1s pulse)
+        playTone(60, 0.15, 'sine', 0.25);
+        setTimeout(() => playTone(55, 0.12, 'sine', 0.2), 120);
+        break;
+      case 'heartbeatFast':
+        // Fast intense heartbeat - matches 0.3-0.5s pulse
+        playTone(70, 0.1, 'sine', 0.3);
+        setTimeout(() => playTone(60, 0.08, 'sine', 0.25), 80);
+        setTimeout(() => playTone(75, 0.1, 'sine', 0.3), 300);
+        setTimeout(() => playTone(65, 0.08, 'sine', 0.25), 380);
         break;
     }
   }, [playTone, settings.sfxEnabled]);
