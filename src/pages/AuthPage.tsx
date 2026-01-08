@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Zap, Mail, Lock, User, ArrowRight, Eye, EyeOff, Shield } from 'lucide-react';
+import { Zap, Mail, User, ArrowRight, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 const emailSchema = z.string().email('Invalid email address');
-const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
 const usernameSchema = z.string().min(3, 'Username must be at least 3 characters').max(20, 'Username too long');
 
 const REMEMBERED_EMAIL_KEY = 'fortunes_remembered_email';
@@ -20,20 +21,21 @@ const GoogleIcon = () => (
   </svg>
 );
 
+type AuthStep = 'email' | 'otp' | 'username';
+
 export const AuthPage = () => {
   const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(true);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const { googleAuthEnabled, loading: settingsLoading } = usePlatformSettings();
+  
+  const [step, setStep] = useState<AuthStep>('email');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [username, setUsername] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [devLoading, setDevLoading] = useState<'member' | 'admin' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [rememberEmail, setRememberEmail] = useState(true);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Load remembered email on mount
   useEffect(() => {
@@ -43,92 +45,15 @@ export const AuthPage = () => {
     }
   }, []);
 
-  const validateInputs = () => {
-    try {
-      emailSchema.parse(email);
-      passwordSchema.parse(password);
-      if (!isLogin) {
-        usernameSchema.parse(username);
-      }
-      return true;
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        setError(err.errors[0].message);
-      }
-      return false;
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
     }
-  };
+  }, [resendCooldown]);
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!validateInputs()) return;
-
-    setLoading(true);
-
-    try {
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            setError('Invalid email or password');
-          } else {
-            setError(error.message);
-          }
-          return;
-        }
-
-        // Remember email on successful login
-        if (rememberEmail) {
-          localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
-        } else {
-          localStorage.removeItem(REMEMBERED_EMAIL_KEY);
-        }
-
-        navigate('/home');
-      } else {
-        // Sign up
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/home`,
-            data: {
-              username: username || `Player${Math.floor(Math.random() * 10000)}`,
-              avatar: ['🎮', '🎯', '⚡', '🔥', '💎', '🚀'][Math.floor(Math.random() * 6)],
-            },
-          },
-        });
-
-        if (error) {
-          if (error.message.includes('already registered')) {
-            setError('This email is already registered. Please log in.');
-          } else {
-            setError(error.message);
-          }
-          return;
-        }
-
-        // Remember email on successful signup
-        if (rememberEmail) {
-          localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
-        }
-
-        navigate('/home');
-      }
-    } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleForgotPassword = async (e: React.FormEvent) => {
+  const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
@@ -145,8 +70,11 @@ export const AuthPage = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth?reset=true`,
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+        },
       });
 
       if (error) {
@@ -154,9 +82,139 @@ export const AuthPage = () => {
         return;
       }
 
-      setSuccess('Password reset link sent! Check your email.');
+      // Remember email
+      localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+      setSuccess('Check your email for the verification code!');
+      setResendCooldown(60);
+      setStep('otp');
     } catch (err) {
       setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (otp.length !== 6) {
+      setError('Please enter the 6-digit code');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: otp,
+        type: 'email',
+      });
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      if (data.user) {
+        // Check if user needs to set username
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', data.user.id)
+          .single();
+
+        const needsUsername = !profile?.username || 
+          profile.username.startsWith('Player') || 
+          profile.username.includes('@');
+
+        if (needsUsername) {
+          setStep('username');
+        } else {
+          navigate('/home');
+        }
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetUsername = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    try {
+      usernameSchema.parse(username);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setError(err.errors[0].message);
+      }
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        setError('Session expired. Please try again.');
+        setStep('email');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          username,
+          avatar: ['🎮', '🎯', '⚡', '🔥', '💎', '🚀'][Math.floor(Math.random() * 6)],
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        if (error.message.includes('duplicate') || error.message.includes('unique')) {
+          setError('Username already taken. Choose another.');
+        } else {
+          setError(error.message);
+        }
+        return;
+      }
+
+      localStorage.setItem(`username_set_${user.id}`, 'true');
+      navigate('/home');
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (resendCooldown > 0) return;
+    
+    setError(null);
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+        },
+      });
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      setSuccess('New code sent!');
+      setResendCooldown(60);
+    } catch (err) {
+      setError('Failed to resend code');
     } finally {
       setLoading(false);
     }
@@ -184,72 +242,15 @@ export const AuthPage = () => {
     }
   };
 
-  // Quick dev login helper
-  const handleDevLogin = async (type: 'member' | 'admin') => {
+  const handleBack = () => {
     setError(null);
-    setDevLoading(type);
-    
-    const credentials = type === 'member' 
-      ? { email: 'member@test.com', password: 'Member@Test2024!', username: 'TestMember', avatar: '🧪' }
-      : { email: 'admin@test.com', password: 'Admin@Test2024!', username: 'TestAdmin', avatar: '🛡️' };
-    
-    try {
-      // Try to sign in first
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password,
-      });
-      
-      if (!signInError) {
-        navigate('/home');
-        return;
-      }
-      
-      // If login fails, try to create the account
-      if (signInError.message.includes('Invalid login credentials')) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: credentials.email,
-          password: credentials.password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/home`,
-            data: {
-              username: credentials.username,
-              avatar: credentials.avatar,
-            },
-          },
-        });
-        
-        if (signUpError) {
-          // If signup fails because user exists, try login again (email confirmation might be pending)
-          if (signUpError.message.includes('already registered')) {
-            setError(`${type === 'member' ? 'Member' : 'Admin'} account exists but login failed. Check email confirmation.`);
-          } else {
-            setError(signUpError.message);
-          }
-          return;
-        }
-        
-        // After signup, try to login again
-        const { error: retryError } = await supabase.auth.signInWithPassword({
-          email: credentials.email,
-          password: credentials.password,
-        });
-        
-        if (retryError) {
-          // Signup succeeded but login failed - might need email confirmation
-          setError('Account created! Enable auto-confirm in backend settings for instant login.');
-          return;
-        }
-        
-        navigate('/home');
-      } else {
-        setError(signInError.message);
-      }
-    } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
-      setDevLoading(null);
+    setSuccess(null);
+    setOtp('');
+    if (step === 'username') {
+      // Can't go back from username step - they're already logged in
+      return;
     }
+    setStep('email');
   };
 
   return (
@@ -268,256 +269,218 @@ export const AuthPage = () => {
       {/* Auth Form */}
       <div className="w-full max-w-sm">
         <div className="bg-card rounded-2xl border border-border p-6">
-          <h2 className="text-xl font-bold text-foreground mb-6">
-            {showForgotPassword ? 'Reset Password' : isLogin ? 'Welcome Back' : 'Create Account'}
-          </h2>
+          
+          {/* Step 1: Email Entry */}
+          {step === 'email' && (
+            <>
+              <h2 className="text-xl font-bold text-foreground mb-2">Enter your email</h2>
+              <p className="text-sm text-muted-foreground mb-6">We'll send you a verification code</p>
 
-          {showForgotPassword ? (
-            <form onSubmit={handleForgotPassword} className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="w-full pl-12 pr-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
-                    disabled={loading}
-                    required
-                  />
+              <form onSubmit={handleSendOTP} className="space-y-4">
+                <div>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="your@email.com"
+                      className="w-full pl-12 pr-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+                      disabled={loading}
+                      required
+                      autoFocus
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {error && (
-                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                  <p className="text-sm text-red-400">{error}</p>
-                </div>
-              )}
-
-              {success && (
-                <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
-                  <p className="text-sm text-green-400">{success}</p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                ) : (
-                  <>Send Reset Link</>
+                {error && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                    <p className="text-sm text-red-400">{error}</p>
+                  </div>
                 )}
-              </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForgotPassword(false);
-                  setError(null);
-                  setSuccess(null);
-                }}
-                className="w-full py-3 text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
-              >
-                ← Back to Sign In
-              </button>
-            </form>
-          ) : (
-          <form onSubmit={handleAuth} className="space-y-4">
-            {!isLogin && (
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Username</label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Choose a username"
-                    className="w-full pl-12 pr-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="w-full pl-12 pr-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
-                  disabled={loading}
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-12 pr-12 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
-                  disabled={loading}
-                  required
-                />
                 <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Continue
+                      <ArrowRight className="w-5 h-5" />
+                    </>
+                  )}
                 </button>
-              </div>
-            </div>
+              </form>
 
-            {/* Remember Email & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="rememberEmail"
-                  checked={rememberEmail}
-                  onChange={(e) => setRememberEmail(e.target.checked)}
-                  className="w-4 h-4 rounded border-border bg-muted text-primary focus:ring-primary"
-                />
-                <label htmlFor="rememberEmail" className="text-sm text-muted-foreground">
-                  Remember my email
-                </label>
-              </div>
-              {isLogin && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForgotPassword(true);
-                    setError(null);
-                    setSuccess(null);
-                  }}
-                  className="text-sm text-primary hover:underline"
-                >
-                  Forgot password?
-                </button>
-              )}
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                <p className="text-sm text-red-400">{error}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-              ) : (
+              {/* Google OAuth - only show if enabled */}
+              {!settingsLoading && googleAuthEnabled && (
                 <>
-                  {isLogin ? 'Sign In' : 'Create Account'}
-                  <ArrowRight className="w-5 h-5" />
+                  <div className="flex items-center gap-4 my-6">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-sm text-muted-foreground">or</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGoogleAuth}
+                    disabled={googleLoading || loading}
+                    className="w-full py-3 bg-white hover:bg-gray-50 text-gray-800 rounded-xl font-medium transition-colors flex items-center justify-center gap-3 border border-gray-300 disabled:opacity-50"
+                  >
+                    {googleLoading ? (
+                      <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <GoogleIcon />
+                        Continue with Google
+                      </>
+                    )}
+                  </button>
                 </>
               )}
-            </button>
-          </form>
-          )}
-
-          {!showForgotPassword && (
-            <>
-              {/* OAuth Divider */}
-              <div className="flex items-center gap-4 my-6">
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-sm text-muted-foreground">or continue with</span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
-
-              {/* Google OAuth Button */}
-              <button
-                type="button"
-                onClick={handleGoogleAuth}
-                disabled={googleLoading || loading}
-                className="w-full py-3 bg-white hover:bg-gray-50 text-gray-800 rounded-xl font-medium transition-colors flex items-center justify-center gap-3 border border-gray-300 disabled:opacity-50"
-              >
-                {googleLoading ? (
-                  <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <GoogleIcon />
-                    Continue with Google
-                  </>
-                )}
-              </button>
-
-              <div className="mt-6 text-center">
-                <p className="text-sm text-muted-foreground">
-                  {isLogin ? "Don't have an account?" : 'Already have an account?'}
-                  <button
-                    onClick={() => {
-                      setIsLogin(!isLogin);
-                      setError(null);
-                      setSuccess(null);
-                    }}
-                    className="ml-2 text-primary font-medium hover:underline"
-                  >
-                    {isLogin ? 'Sign Up' : 'Sign In'}
-                  </button>
-                </p>
-              </div>
             </>
           )}
 
-          {/* Quick Dev Logins */}
-          <div className="mt-4 pt-4 border-t border-border space-y-2">
-            <button
-              type="button"
-              onClick={() => handleDevLogin('member')}
-              disabled={devLoading !== null}
-              className="w-full py-3 bg-muted hover:bg-muted/80 text-muted-foreground rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
-            >
-              {devLoading === 'member' ? (
-                <div className="w-4 h-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-              ) : (
-                <>🧪 Member Login (Dev)</>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDevLogin('admin')}
-              disabled={devLoading !== null}
-              className="w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
-            >
-              {devLoading === 'admin' ? (
-                <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Shield className="w-4 h-4" />
-                  Admin Login (Dev)
-                </>
-              )}
-            </button>
-          </div>
+          {/* Step 2: OTP Verification */}
+          {step === 'otp' && (
+            <>
+              <button
+                onClick={handleBack}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Use different email
+              </button>
+
+              <h2 className="text-xl font-bold text-foreground mb-2">Check your email</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                We sent a 6-digit code to <span className="text-foreground font-medium">{email}</span>
+              </p>
+
+              <form onSubmit={handleVerifyOTP} className="space-y-4">
+                <div className="flex justify-center">
+                  <InputOTP
+                    value={otp}
+                    onChange={setOtp}
+                    maxLength={6}
+                    disabled={loading}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+
+                {error && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                    <p className="text-sm text-red-400">{error}</p>
+                  </div>
+                )}
+
+                {success && (
+                  <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
+                    <p className="text-sm text-green-400">{success}</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading || otp.length !== 6}
+                  className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Verify
+                      <ArrowRight className="w-5 h-5" />
+                    </>
+                  )}
+                </button>
+
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Didn't receive it?{' '}
+                    <button
+                      type="button"
+                      onClick={handleResendOTP}
+                      disabled={resendCooldown > 0 || loading}
+                      className="text-primary font-medium hover:underline disabled:opacity-50 disabled:no-underline"
+                    >
+                      {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend'}
+                    </button>
+                  </p>
+                </div>
+              </form>
+            </>
+          )}
+
+          {/* Step 3: Username Selection */}
+          {step === 'username' && (
+            <>
+              <div className="text-center mb-6">
+                <div className="text-4xl mb-2">🎉</div>
+                <h2 className="text-xl font-bold text-foreground">Welcome to FortunesHQ!</h2>
+                <p className="text-sm text-muted-foreground mt-1">Choose a username for the arena</p>
+              </div>
+
+              <form onSubmit={handleSetUsername} className="space-y-4">
+                <div>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Choose a username"
+                      className="w-full pl-12 pr-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+                      disabled={loading}
+                      required
+                      autoFocus
+                      minLength={3}
+                      maxLength={20}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">3-20 characters</p>
+                </div>
+
+                {error && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                    <p className="text-sm text-red-400">{error}</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading || username.length < 3}
+                  className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Enter the Arena
+                      <ArrowRight className="w-5 h-5" />
+                    </>
+                  )}
+                </button>
+              </form>
+            </>
+          )}
         </div>
 
-        {/* Promo text */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            💰 Real Money | 👥 Real Players | 🎙️ Live Show
-          </p>
-        </div>
+        {/* Security Note */}
+        <p className="text-center text-xs text-muted-foreground mt-6">
+          🔒 Passwordless login for your security
+        </p>
       </div>
     </div>
   );
