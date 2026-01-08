@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { WalletCard } from '@/components/WalletCard';
 import { BottomNav } from '@/components/BottomNav';
 
@@ -19,6 +19,9 @@ import { useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from '@/components/PullToRefresh';
+import { useActiveUsersCount } from '@/hooks/useActiveUsersCount';
 
 export const Home = () => {
   const { profile, user } = useAuth();
@@ -30,7 +33,19 @@ export const Home = () => {
   const [activeNotification, setActiveNotification] = useState(0);
   const [userParticipations, setUserParticipations] = useState<Set<string>>(new Set());
   const [showRankAuthPrompt, setShowRankAuthPrompt] = useState(false);
-  const [activeUsersCount, setActiveUsersCount] = useState(0);
+  const { count: activeUsersCount, refetch: refetchActiveUsers } = useActiveUsersCount();
+
+  // Pull to refresh
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      refetch(),
+      refetchActiveUsers(),
+    ]);
+  }, [refetch, refetchActiveUsers]);
+
+  const { containerRef, isRefreshing, pullDistance, pullProgress } = usePullToRefresh({
+    onRefresh: handleRefresh,
+  });
 
   const { newBadge, showCelebration, dismissCelebration } = useBadgeUnlock({
     total_wins: profile?.total_wins || 0,
@@ -100,20 +115,6 @@ export const Home = () => {
     fetchRecentWinners();
   }, []);
 
-  // Fetch active users count (real + mock)
-  useEffect(() => {
-    const fetchActiveUsers = async () => {
-      const [realResult, mockResult] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact', head: true }),
-        supabase.from('mock_users').select('id', { count: 'exact', head: true }).eq('is_active', true)
-      ]);
-      const realCount = realResult.count || 0;
-      const mockCount = mockResult.count || 0;
-      setActiveUsersCount(realCount + mockCount);
-    };
-    fetchActiveUsers();
-  }, []);
-
   // Real-time updates for cycles
   useEffect(() => {
     const channel = supabase
@@ -176,7 +177,7 @@ export const Home = () => {
   const totalPool = cycles.reduce((sum, c) => sum + c.pool_value + (c.sponsored_prize_amount || 0), 0);
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div ref={containerRef} className="min-h-screen bg-background pb-24 overflow-auto">
 
       {/* Username prompt for OAuth users */}
       {user?.id && needsUsername && (
@@ -190,6 +191,12 @@ export const Home = () => {
       {showCelebration && newBadge && (
         <BadgeCelebration badge={newBadge} onDismiss={dismissCelebration} />
       )}
+      
+      <PullToRefreshIndicator 
+        pullProgress={pullProgress} 
+        isRefreshing={isRefreshing} 
+        pullDistance={pullDistance} 
+      />
       
       <div className="p-4 space-y-5">
         {/* Header */}

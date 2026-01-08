@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { CycleStatusCard } from '@/components/CycleStatusCard';
 import { useActiveCycles } from '@/hooks/useActiveCycles';
@@ -9,6 +9,8 @@ import { ArrowLeft, Swords, Radio, Play, Clock, Filter, Search, Crown } from 'lu
 import { useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from '@/components/PullToRefresh';
 
 type FilterType = 'all' | 'live' | 'opening' | 'waiting';
 
@@ -17,9 +19,18 @@ export const ArenaListing = () => {
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
   const { user } = useAuth();
-  const { cycles, liveCycles, openingCycles, waitingCycles, loading } = useActiveCycles();
+  const { cycles, liveCycles, openingCycles, waitingCycles, loading, refetch } = useActiveCycles();
   const [filter, setFilter] = useState<FilterType>('all');
   const [userParticipations, setUserParticipations] = useState<Set<string>>(new Set());
+
+  // Pull to refresh
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
+
+  const { containerRef, isRefreshing, pullDistance, pullProgress } = usePullToRefresh({
+    onRefresh: handleRefresh,
+  });
 
   // Fetch user's participations
   useEffect(() => {
@@ -67,7 +78,13 @@ export const ArenaListing = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div ref={containerRef} className="min-h-screen bg-background pb-24 overflow-auto">
+      <PullToRefreshIndicator 
+        pullProgress={pullProgress} 
+        isRefreshing={isRefreshing} 
+        pullDistance={pullDistance} 
+      />
+      
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="p-4 flex items-center gap-4">

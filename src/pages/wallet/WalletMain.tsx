@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { WalletCard } from '@/components/WalletCard';
@@ -7,14 +7,34 @@ import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { DepositModal } from '@/components/wallet/DepositModal';
 import { WithdrawModal } from '@/components/wallet/WithdrawModal';
 import { TestModeBanner } from '@/components/wallet/TestModeBanner';
-import { ArrowLeft, ChevronRight, ArrowUpRight, ArrowDownLeft, Clock, Wallet, Zap, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ChevronRight, ArrowUpRight, ArrowDownLeft, Clock, Wallet, Zap, AlertTriangle, RefreshCw } from 'lucide-react';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from '@/components/PullToRefresh';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const WalletMain = () => {
   const navigate = useNavigate();
-  const { transactions, loading } = useWalletTransactions();
+  const { transactions, loading, refetch } = useWalletTransactions();
   const { isTestMode } = usePlatformSettings();
+  const { refreshProfile } = useAuth();
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+
+  // Pull to refresh
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([refetch(), refreshProfile()]);
+  }, [refetch, refreshProfile]);
+
+  const { containerRef, isRefreshing, pullDistance, pullProgress } = usePullToRefresh({
+    onRefresh: handleRefresh,
+  });
+
+  const handleManualRefresh = async () => {
+    setIsManualRefreshing(true);
+    await handleRefresh();
+    setIsManualRefreshing(false);
+  };
 
   const getTransactionIcon = (type: string) => {
     if (type.includes('win') || type === 'deposit') {
@@ -49,8 +69,14 @@ export const WalletMain = () => {
   };
 
   return (
-    <div className={`min-h-screen bg-background pb-24 ${isTestMode ? 'pt-10' : ''}`}>
+    <div ref={containerRef} className={`min-h-screen bg-background pb-24 overflow-auto ${isTestMode ? 'pt-10' : ''}`}>
       <TestModeBanner />
+      
+      <PullToRefreshIndicator 
+        pullProgress={pullProgress} 
+        isRefreshing={isRefreshing} 
+        pullDistance={pullDistance} 
+      />
       
       <div className="p-4 space-y-5">
         {/* Header */}
@@ -61,10 +87,17 @@ export const WalletMain = () => {
           >
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-black text-foreground">Wallet</h1>
             <p className="text-sm text-muted-foreground">Manage your funds</p>
           </div>
+          <button
+            onClick={handleManualRefresh}
+            disabled={isManualRefreshing}
+            className="w-10 h-10 rounded-xl bg-card flex items-center justify-center border border-border/50 hover:border-primary/40 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 text-muted-foreground ${isManualRefreshing ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         {/* Balance Card */}
