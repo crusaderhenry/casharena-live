@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Share2, MessageCircle, Download, Copy, Check, Loader2, Instagram, Facebook } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { useToast } from '@/hooks/use-toast';
+import { useOGImage } from '@/hooks/useOGImage';
 
 interface ShareCardProps {
   username: string;
@@ -9,14 +10,35 @@ interface ShareCardProps {
   position: number;
   amount: number;
   gameType: 'finger' | 'pool';
+  cycleId?: string;
+  userId?: string;
 }
 
-export const ShareCard = ({ username, avatar, position, amount, gameType }: ShareCardProps) => {
+export const ShareCard = ({ username, avatar, position, amount, gameType, cycleId, userId }: ShareCardProps) => {
   const { toast } = useToast();
   const cardRef = useRef<HTMLDivElement>(null);
   const storyCardRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { generateOGImage, generating } = useOGImage();
+  const [ogImageUrl, setOgImageUrl] = useState<string | null>(null);
+
+  // Pre-generate OG image for better sharing
+  useEffect(() => {
+    if (userId && amount > 0) {
+      generateOGImage({
+        type: 'winner',
+        game_id: cycleId,
+        user_id: userId,
+        position,
+        amount,
+        username,
+        avatar,
+      }).then(url => {
+        if (url) setOgImageUrl(url);
+      });
+    }
+  }, [userId, cycleId, position, amount, username, avatar, generateOGImage]);
 
   const formatMoney = useCallback((value: number) => {
     if (value >= 1_000_000) return `₦${(value / 1_000_000).toFixed(1)}M`;
@@ -53,7 +75,9 @@ export const ShareCard = ({ username, avatar, position, amount, gameType }: Shar
   }, [position]);
 
   const appUrl = window.location.origin;
-  const gameLink = `${appUrl}/arena`;
+  const gameLink = ogImageUrl 
+    ? `${appUrl}/arena${cycleId ? `/${cycleId}/results` : ''}?og_image=${encodeURIComponent(ogImageUrl)}`
+    : `${appUrl}/arena`;
   const shareMessage = `🎉 I just won ${formatMoneyFull(amount)} on FortunesHQ! ${getPositionText()} in ${gameType === 'finger' ? 'Royal Rumble' : 'Lucky Pool'}! 🚀\n\nJoin me and win big! 💰\n\n🎮 Play now: ${gameLink}`;
 
   // Capture the card as an image

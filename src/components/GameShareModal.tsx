@@ -1,10 +1,11 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Share2, MessageCircle, Download, Loader2, Instagram, Facebook, X, Crown, Users, Trophy, Sparkles } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { GameCycle } from '@/hooks/useActiveCycles';
 import { Logo } from '@/components/Logo';
+import { useOGImage } from '@/hooks/useOGImage';
 
 interface GameShareModalProps {
   open: boolean;
@@ -18,6 +19,20 @@ export const GameShareModal = ({ open, onOpenChange, cycle, variant = 'card' }: 
   const cardRef = useRef<HTMLDivElement>(null);
   const storyCardRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const { generateOGImage, generating } = useOGImage();
+  const [ogImageUrl, setOgImageUrl] = useState<string | null>(null);
+
+  // Pre-generate OG image when modal opens
+  useEffect(() => {
+    if (open && cycle?.id && !ogImageUrl) {
+      generateOGImage({
+        type: 'game',
+        game_id: cycle.id,
+      }).then(url => {
+        if (url) setOgImageUrl(url);
+      });
+    }
+  }, [open, cycle?.id, ogImageUrl, generateOGImage]);
 
   const formatMoney = useCallback((value: number) => {
     if (value >= 1_000_000) return `₦${(value / 1_000_000).toFixed(1)}M`;
@@ -27,7 +42,9 @@ export const GameShareModal = ({ open, onOpenChange, cycle, variant = 'card' }: 
 
   const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
   const appUrl = window.location.origin;
-  const gameLink = `${appUrl}/arena/${cycle.id}`;
+  const gameLink = ogImageUrl 
+    ? `${appUrl}/arena/${cycle.id}?og_image=${encodeURIComponent(ogImageUrl)}`
+    : `${appUrl}/arena/${cycle.id}`;
 
   const getStatusLabel = useCallback(() => {
     switch (cycle.status) {
