@@ -132,18 +132,18 @@ export const CycleArena = () => {
 
   // Store active game state for floating return button
   useEffect(() => {
-    if (isLive && participation.isParticipant && !participation.isSpectator && cycleId) {
+    if (isLive && participation.isParticipant && !participation.isSpectator && cycleId && cycle?.live_end_at) {
       setActiveGameState({
         cycleId,
         status: cycle?.status || 'live',
-        countdown: localCountdown,
+        liveEndAt: cycle.live_end_at,
         isParticipant: true,
       });
     }
     return () => {
       // Clear on unmount (when navigating away from arena)
     };
-  }, [isLive, participation, cycleId, cycle?.status, localCountdown]);
+  }, [isLive, participation, cycleId, cycle?.status, cycle?.live_end_at]);
 
   const { voiceParticipants: mockVoiceParticipants } = useMockVoiceRoom(
     cycleId || null,

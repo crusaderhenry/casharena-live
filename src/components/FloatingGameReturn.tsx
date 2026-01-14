@@ -1,85 +1,120 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Radio, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useServerTime } from '@/hooks/useServerTime';
 
 interface ActiveGameState {
   cycleId: string;
   status: string;
-  countdown: number;
+  liveEndAt: string;
   isParticipant: boolean;
 }
 
 const STORAGE_KEY = 'fhq_active_game';
 
+// Helper to calculate seconds until a timestamp
+const getSecondsUntil = (timestamp: string): number => {
+  const targetTime = new Date(timestamp).getTime();
+  const now = Date.now();
+  return Math.max(0, Math.floor((targetTime - now) / 1000));
+};
+
 export const FloatingGameReturn = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { secondsUntil } = useServerTime();
   const [activeGame, setActiveGame] = useState<ActiveGameState | null>(null);
   const [countdown, setCountdown] = useState(0);
+  const activeGameRef = useRef<ActiveGameState | null>(null);
 
-  // Don't show on arena pages
-  const isOnArenaPage = location.pathname.includes('/arena/') && location.pathname.includes('/live');
-
-  // Load and subscribe to active game
+  // Keep ref in sync for use in subscription callback
   useEffect(() => {
-    if (!user || isOnArenaPage) {
-      setActiveGame(null);
-      return;
-    }
+    activeGameRef.current = activeGame;
+  }, [activeGame]);
 
-    // Load from localStorage
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setActiveGame(parsed);
-        setCountdown(parsed.countdown);
-      } catch (e) {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
+  // Don't show on any arena page (live, lobby, results, etc.)
+  const isOnArenaPage = location.pathname.includes('/arena/');
 
-    // Subscribe to live game updates
-    const checkActiveGame = async () => {
-      // Find any live cycles where user is a participant
-      const { data: participation } = await supabase
-        .from('cycle_participants')
-        .select('cycle_id, is_spectator, game_cycles!inner(id, status, countdown, live_end_at)')
-        .eq('user_id', user.id)
-        .eq('is_spectator', false);
+  // Clear active game helper
+  const clearActiveGame = useCallback(() => {
+    setActiveGame(null);
+    setCountdown(0);
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
 
-      if (participation && participation.length > 0) {
-        const liveGames = participation.filter((p: any) => 
-          p.game_cycles?.status === 'live' || p.game_cycles?.status === 'ending'
-        );
+  // Check and load active game
+  const checkActiveGame = useCallback(async () => {
+    if (!user) return;
 
-        if (liveGames.length > 0) {
-          const game = liveGames[0];
-          const gameData = {
+    // Find any live cycles where user is a participant (not spectator)
+    const { data: participation } = await supabase
+      .from('cycle_participants')
+      .select('cycle_id, is_spectator, game_cycles!inner(id, status, live_end_at)')
+      .eq('user_id', user.id)
+      .eq('is_spectator', false);
+
+    if (participation && participation.length > 0) {
+      // Only consider 'live' status - not 'ending', 'ended', 'settled', or 'cancelled'
+      const liveGames = participation.filter((p: any) => 
+        p.game_cycles?.status === 'live'
+      );
+
+      if (liveGames.length > 0) {
+        const game = liveGames[0];
+        const liveEndAt = game.game_cycles.live_end_at;
+        const secondsRemaining = getSecondsUntil(liveEndAt);
+        
+        // Only set if game still has time remaining
+        if (secondsRemaining > 0) {
+          const gameData: ActiveGameState = {
             cycleId: game.cycle_id,
             status: game.game_cycles.status,
-            countdown: game.game_cycles.countdown,
+            liveEndAt: liveEndAt,
             isParticipant: !game.is_spectator,
           };
           setActiveGame(gameData);
+          setCountdown(secondsRemaining);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(gameData));
           return;
         }
       }
+    }
 
-      // No active game
-      setActiveGame(null);
-      localStorage.removeItem(STORAGE_KEY);
-    };
+    // No active live game
+    clearActiveGame();
+  }, [user, clearActiveGame]);
 
+  // Initial load and subscription
+  useEffect(() => {
+    if (!user) {
+      clearActiveGame();
+      return;
+    }
+
+    // Load from localStorage first for immediate display
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as ActiveGameState;
+        // Validate the stored game is still live
+        const secondsRemaining = getSecondsUntil(parsed.liveEndAt);
+        if (secondsRemaining > 0 && parsed.status === 'live') {
+          setActiveGame(parsed);
+          setCountdown(secondsRemaining);
+        } else {
+          // Stored game has ended
+          clearActiveGame();
+        }
+      } catch (e) {
+        clearActiveGame();
+      }
+    }
+
+    // Then check server for latest state
     checkActiveGame();
 
-    // Subscribe to cycle updates
+    // Subscribe to game_cycles updates for ANY changes
     const channel = supabase
       .channel('floating-game-updates')
       .on(
@@ -87,13 +122,25 @@ export const FloatingGameReturn = () => {
         { event: 'UPDATE', schema: 'public', table: 'game_cycles' },
         (payload) => {
           const updated = payload.new as any;
-          if (activeGame && updated.id === activeGame.cycleId) {
-            if (updated.status === 'ended' || updated.status === 'settled' || updated.status === 'cancelled') {
-              setActiveGame(null);
-              localStorage.removeItem(STORAGE_KEY);
+          const currentGame = activeGameRef.current;
+          
+          if (currentGame && updated.id === currentGame.cycleId) {
+            // Game status changed - check if it's no longer live
+            if (updated.status !== 'live') {
+              clearActiveGame();
             } else {
-              setActiveGame(prev => prev ? { ...prev, status: updated.status, countdown: updated.countdown } : null);
-              setCountdown(updated.countdown);
+              // Still live - update countdown based on live_end_at
+              const secondsRemaining = getSecondsUntil(updated.live_end_at);
+              if (secondsRemaining <= 0) {
+                clearActiveGame();
+              } else {
+                setActiveGame(prev => prev ? { 
+                  ...prev, 
+                  status: updated.status,
+                  liveEndAt: updated.live_end_at 
+                } : null);
+                setCountdown(secondsRemaining);
+              }
             }
           }
         }
@@ -103,20 +150,27 @@ export const FloatingGameReturn = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, isOnArenaPage, activeGame?.cycleId]);
+  }, [user, checkActiveGame, clearActiveGame]);
 
-  // Update countdown every second
+  // Update countdown every second based on live_end_at
   useEffect(() => {
-    if (!activeGame) return;
+    if (!activeGame?.liveEndAt) return;
     
     const interval = setInterval(() => {
-      setCountdown(prev => Math.max(0, prev - 1));
+      const remaining = getSecondsUntil(activeGame.liveEndAt);
+      if (remaining <= 0) {
+        // Game has ended - clear immediately
+        clearActiveGame();
+      } else {
+        setCountdown(remaining);
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [activeGame]);
+  }, [activeGame?.liveEndAt, clearActiveGame]);
 
-  if (!activeGame || isOnArenaPage) return null;
+  // Don't render if no active game, on arena page, or countdown is 0
+  if (!activeGame || isOnArenaPage || countdown <= 0) return null;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -146,9 +200,9 @@ export const FloatingGameReturn = () => {
   );
 };
 
-// Helper to set active game from arena
+// Helper to set active game from arena (must include liveEndAt for countdown)
 export const setActiveGameState = (state: ActiveGameState | null) => {
-  if (state) {
+  if (state && state.status === 'live') {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } else {
     localStorage.removeItem(STORAGE_KEY);
