@@ -367,9 +367,10 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     addCoHostBanter('excitement');
   }, [audioSettings.hostMuted, speakText, addCoHostBanter]);
 
-  // Announce timer warnings with tension
-  const announceTimerWarning = useCallback((seconds: number, leaderName: string | null) => {
-    if (audioSettings.hostMuted) return;
+  // Announce timer warnings with tension - SKIP if timer is paused
+  const announceTimerWarning = useCallback((seconds: number, leaderName: string | null, isTimerPaused?: boolean) => {
+    // Skip timer warnings if host is muted OR timer is paused (no comments yet)
+    if (audioSettings.hostMuted || isTimerPaused) return;
 
     let phrase = '';
     if (seconds === 30) {
