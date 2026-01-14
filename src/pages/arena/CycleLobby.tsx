@@ -473,6 +473,19 @@ export const CycleLobby = () => {
               </div>
             </div>
 
+            {/* Insufficient Participants Warning */}
+            {isOpening && cycle.participant_count < cycle.min_participants && (
+              <div className="mt-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl flex items-center gap-3 animate-pulse">
+                <AlertTriangle className="w-5 h-5 text-orange-400 flex-shrink-0" />
+                <div className="text-left flex-1">
+                  <p className="text-sm font-semibold text-orange-400">Needs More Players!</p>
+                  <p className="text-xs text-muted-foreground">
+                    {cycle.min_participants - cycle.participant_count} more needed or game will be cancelled and refunded
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Timer Section - Enhanced with intensity-based pulsing */}
             {(() => {
               // Calculate pulse intensity based on time remaining

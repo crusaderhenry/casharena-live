@@ -465,6 +465,55 @@ async function settleCycle(supabase: any, cycleId: string) {
 
   console.log(`[settle] Found ${comments?.length || 0} total comments for cycle ${cycleId}`);
 
+  // CRITICAL: If no comments at all, refund all participants and end with no winner
+  if (!comments || comments.length === 0) {
+    console.log(`[settle] No comments in cycle ${cycleId} - no winner, refunding participants`);
+    
+    // Refund all participants
+    await refundCycleParticipants(supabase, cycleId);
+    
+    // Get all participants to notify
+    const { data: participants } = await supabase
+      .from('cycle_participants')
+      .select('user_id')
+      .eq('cycle_id', cycleId)
+      .eq('is_spectator', false);
+    
+    // Send push notification about no winner
+    if (participants && participants.length > 0) {
+      await sendPushNotification(supabase, {
+        user_ids: participants.map((p: any) => p.user_id),
+        payload: {
+          title: '🎮 Game Ended',
+          body: 'Game ended with no winner. Your entry fee has been refunded.',
+          tag: `no-winner-${cycleId}`,
+          data: { url: `/arena/${cycleId}/results` },
+        }
+      });
+    }
+    
+    // Mark cycle as settled with no winners
+    await supabase.from('game_cycles').update({
+      settled_at: new Date().toISOString(),
+      settlement_data: { 
+        winners: [], 
+        noWinner: true, 
+        reason: 'No comments during game',
+        refundedCount: participants?.length || 0 
+      },
+    }).eq('id', cycleId);
+    
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        noWinner: true, 
+        message: 'No comments - refunded all participants',
+        refundedCount: participants?.length || 0
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   // Get unique commenters in order (last comment wins position)
   // The person who commented last is in position 1 (winner)
   const seenUsers = new Set<string>();
