@@ -157,12 +157,15 @@ export const CycleArena = () => {
     announceComment, 
     announceLeaderChange, 
     announceTimerWarning,
-    announceGameOver 
+    announceGameOver,
+    announceGameIntro,
   } = useCycleHostTTS({ 
     cycleId, 
     isLive: !!isLive,
     onSpeakingChange: setHostIsSpeaking
   });
+  
+  const hasAnnouncedIntroRef = useRef(false);
 
   const fetchCycle = useCallback(async () => {
     if (!cycleId) return;
@@ -228,9 +231,11 @@ export const CycleArena = () => {
           setCycle(prev => prev ? { ...prev, ...updated } : null);
           setLocalCountdown(updated.countdown);
 
-          if (updated.status === 'ending' || updated.status === 'ended') {
+        if (updated.status === 'ending' || updated.status === 'ended') {
             const orderedCommenters = getOrderedCommenters();
-            const winner = orderedCommenters[0];
+            // Filter out mock users - only real users can win
+            const realCommenters = orderedCommenters.filter((c: any) => c.user_type !== 'mock');
+            const winner = realCommenters[0];
             const effectivePrizePool = updated.pool_value + (updated.sponsored_prize_amount || 0);
             const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (updated.prize_distribution[0] / 100));
             
@@ -243,6 +248,13 @@ export const CycleArena = () => {
               });
               announceGameOver(winner.username, prizeAmount);
               setShowGameEndFreeze(true);
+            } else {
+              // No real winner
+              announceGameOver(null, 0);
+              // Navigate to results after a short delay
+              setTimeout(() => {
+                navigate(`/arena/${cycleId}/results`, { replace: true });
+              }, 2000);
             }
           }
         }
@@ -262,7 +274,9 @@ export const CycleArena = () => {
       gameEndTriggeredRef.current = true;
       
       const orderedCommenters = getOrderedCommenters();
-      const winner = orderedCommenters[0];
+      // Filter out mock users - only real users can win
+      const realCommenters = orderedCommenters.filter((c: any) => c.user_type !== 'mock');
+      const winner = realCommenters[0];
       const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
       const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (cycle.prize_distribution[0] / 100));
       
@@ -275,6 +289,13 @@ export const CycleArena = () => {
         });
         announceGameOver(winner.username, prizeAmount);
         setShowGameEndFreeze(true);
+      } else {
+        // No real winner
+        announceGameOver(null, 0);
+        // Navigate to results after a short delay
+        setTimeout(() => {
+          navigate(`/arena/${cycleId}/results`, { replace: true });
+        }, 2000);
       }
     };
 
@@ -354,9 +375,30 @@ export const CycleArena = () => {
     
     const latestComment = comments[0];
     if (latestComment) {
-      announceComment(latestComment.username, latestComment.content, latestComment.id, isTimerPaused);
+      announceComment(latestComment.username || 'Player', latestComment.content, latestComment.id, isTimerPaused);
     }
   }, [comments, isLive, isTimerPaused, announceComment]);
+
+  // Announce game intro when entering live arena
+  useEffect(() => {
+    if (!cycle || !isLive || hasAnnouncedIntroRef.current) return;
+    hasAnnouncedIntroRef.current = true;
+    
+    const effectivePrize = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
+    const gameDurationMinutes = Math.ceil((cycle.comment_timer || 300) / 60);
+    
+    // Small delay to let user settle in
+    const timer = setTimeout(() => {
+      announceGameIntro(
+        effectivePrize,
+        gameDurationMinutes,
+        cycle.winner_count,
+        cycle.prize_distribution
+      );
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, [cycle, isLive, announceGameIntro]);
 
   const handleJoin = async (asSpectator: boolean = false) => {
     if (!cycleId) return;
