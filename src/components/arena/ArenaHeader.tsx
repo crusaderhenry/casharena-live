@@ -88,7 +88,7 @@ export const ArenaHeader = ({
           <Crown className="w-4 h-4 text-gold" />
           {gameName}
         </span>
-        <span className="text-gold font-black">{formatMoney(prizePool)}</span>
+        <span className="text-gold font-black text-xl">{formatMoney(prizePool)}</span>
         <span className="flex items-center gap-1 text-muted-foreground">
           <Users className="w-3.5 h-3.5" />
           {participantCount}

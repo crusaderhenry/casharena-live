@@ -173,6 +173,17 @@ export const CycleLobby = () => {
           const updated = payload.new as CycleData;
           setCycle(prev => prev ? { ...prev, ...updated } : null);
 
+          // Handle cancelled games in background
+          if (updated.status === 'cancelled') {
+            // If user was a spectator, notify them
+            if (participation.isSpectator) {
+              toast.info('Game cancelled - no players joined');
+            }
+            // Silently redirect back to arena listing
+            navigate('/arena', { replace: true });
+            return;
+          }
+
           // Transition with flash when game goes live
           if (updated.status === 'live') {
             play('gameStart');
@@ -191,7 +202,7 @@ export const CycleLobby = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [cycleId, navigate, play, hapticSuccess]);
+  }, [cycleId, navigate, play, hapticSuccess, participation.isSpectator]);
 
   // Local timer ticker with instant transition at 0
   // Uses dedicated status-check endpoint for faster polling near transitions
@@ -337,6 +348,12 @@ export const CycleLobby = () => {
   // If game has ended, redirect to results
   if (cycle.status === 'ended' || cycle.status === 'settled') {
     navigate(`/arena/${cycleId}/results`, { replace: true });
+    return null;
+  }
+
+  // If game was cancelled (no participants), silently go back to arena
+  if (cycle.status === 'cancelled') {
+    navigate('/arena', { replace: true });
     return null;
   }
 

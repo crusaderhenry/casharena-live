@@ -63,7 +63,7 @@ export const CompactVoiceRoom = ({ gameId, isHostSpeaking, simulatedParticipants
     <div className="bg-card/60 backdrop-blur-sm rounded-xl p-2.5 border border-border/50">
       <LiveKitAudioPlayer room={room} />
       
-      {/* Header with host info integrated */}
+      {/* Header with host info - only host mute stays with host name */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           {/* Host avatars */}
@@ -95,25 +95,81 @@ export const CompactVoiceRoom = ({ gameId, isHostSpeaking, simulatedParticipants
           </div>
         </div>
 
-        {/* Audio controls */}
-        <div className="flex items-center gap-1">
-          {/* Host mute */}
-          <button
-            onClick={toggleHostMute}
-            className={`p-1.5 rounded-lg transition-all ${
-              isHostMuted ? 'bg-orange-500/20 text-orange-400' : 'bg-muted/50 text-muted-foreground'
-            }`}
-            title={isHostMuted ? 'Unmute Host' : 'Mute Host'}
-          >
-            {isHostMuted ? <VolumeOff className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-          </button>
+        {/* Host mute control - stays with host name */}
+        <button
+          onClick={toggleHostMute}
+          className={`p-1.5 rounded-lg transition-all ${
+            isHostMuted ? 'bg-orange-500/20 text-orange-400' : 'bg-muted/50 text-muted-foreground'
+          }`}
+          title={isHostMuted ? 'Unmute Host' : 'Mute Host'}
+        >
+          {isHostMuted ? <VolumeOff className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+
+      {/* Participants row with voice room controls */}
+      <div className="flex items-center gap-2">
+
+        {/* Participants - horizontal scroll */}
+        <div className="flex-1 flex gap-1.5 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
+          {displayParticipants.map((participant) => {
+            const isMe = participant.user_id === user?.id;
+            const speaking = participant.is_speaking && isSpeakerEnabled;
+            
+            return (
+              <div 
+                key={participant.user_id}
+                className="flex flex-col items-center flex-shrink-0"
+              >
+                <div className="relative">
+                  {speaking && (
+                    <div className="absolute inset-0 rounded-full bg-primary/40 animate-ping" />
+                  )}
+                  <div
+                    className={`relative w-8 h-8 rounded-full flex items-center justify-center text-base transition-all ${
+                      speaking
+                        ? 'bg-primary/30 ring-2 ring-primary'
+                        : 'bg-muted/50'
+                    } ${isMe ? 'ring-1 ring-accent/50' : ''}`}
+                  >
+                    {participant.avatar}
+                  </div>
+                  {speaking && (
+                    <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 flex items-end gap-[1px]">
+                      <span className="w-[2px] h-[4px] bg-primary rounded-full animate-[wave_0.5s_ease-in-out_infinite]" />
+                      <span className="w-[2px] h-[6px] bg-primary rounded-full animate-[wave_0.5s_ease-in-out_infinite_0.1s]" />
+                      <span className="w-[2px] h-[4px] bg-primary rounded-full animate-[wave_0.5s_ease-in-out_infinite_0.2s]" />
+                    </div>
+                  )}
+                </div>
+                <span className={`text-[8px] truncate max-w-[32px] ${
+                  speaking ? 'text-primary font-bold' : isMe ? 'text-primary' : 'text-muted-foreground'
+                }`}>
+                  {isMe ? 'You' : participant.username.split(' ')[0].slice(0, 5)}
+                </span>
+              </div>
+            );
+          })}
           
+          {displaySource.length > 8 && (
+            <div className="flex flex-col items-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                +{displaySource.length - 8}
+              </div>
+              <span className="text-[8px] text-muted-foreground">more</span>
+            </div>
+          )}
+        </div>
+
+        {/* Voice room controls - inline with participants */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           {/* Voice room mute */}
           <button
             onClick={toggleSpeaker}
             className={`p-1.5 rounded-lg transition-all ${
               !isSpeakerEnabled ? 'bg-destructive/20 text-destructive' : 'bg-muted/50 text-muted-foreground'
             }`}
+            title={isSpeakerEnabled ? 'Mute Voice Room' : 'Unmute Voice Room'}
           >
             {isSpeakerEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
           </button>
@@ -129,61 +185,11 @@ export const CompactVoiceRoom = ({ gameId, isHostSpeaking, simulatedParticipants
                   ? 'bg-primary/20 text-primary'
                   : 'bg-destructive/20 text-destructive'
             }`}
+            title={isMicEnabled ? 'Mute Mic' : 'Unmute Mic'}
           >
             {isMicEnabled ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
           </button>
         </div>
-      </div>
-
-      {/* Participants - horizontal scroll */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
-        {displayParticipants.map((participant) => {
-          const isMe = participant.user_id === user?.id;
-          const speaking = participant.is_speaking && isSpeakerEnabled;
-          
-          return (
-            <div 
-              key={participant.user_id}
-              className="flex flex-col items-center flex-shrink-0"
-            >
-              <div className="relative">
-                {speaking && (
-                  <div className="absolute inset-0 rounded-full bg-primary/40 animate-ping" />
-                )}
-                <div
-                  className={`relative w-8 h-8 rounded-full flex items-center justify-center text-base transition-all ${
-                    speaking
-                      ? 'bg-primary/30 ring-2 ring-primary'
-                      : 'bg-muted/50'
-                  } ${isMe ? 'ring-1 ring-accent/50' : ''}`}
-                >
-                  {participant.avatar}
-                </div>
-                {speaking && (
-                  <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 flex items-end gap-[1px]">
-                    <span className="w-[2px] h-[4px] bg-primary rounded-full animate-[wave_0.5s_ease-in-out_infinite]" />
-                    <span className="w-[2px] h-[6px] bg-primary rounded-full animate-[wave_0.5s_ease-in-out_infinite_0.1s]" />
-                    <span className="w-[2px] h-[4px] bg-primary rounded-full animate-[wave_0.5s_ease-in-out_infinite_0.2s]" />
-                  </div>
-                )}
-              </div>
-              <span className={`text-[8px] truncate max-w-[32px] ${
-                speaking ? 'text-primary font-bold' : isMe ? 'text-primary' : 'text-muted-foreground'
-              }`}>
-                {isMe ? 'You' : participant.username.split(' ')[0].slice(0, 5)}
-              </span>
-            </div>
-          );
-        })}
-        
-        {displaySource.length > 8 && (
-          <div className="flex flex-col items-center flex-shrink-0">
-            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-              +{displaySource.length - 8}
-            </div>
-            <span className="text-[8px] text-muted-foreground">more</span>
-          </div>
-        )}
       </div>
     </div>
   );
