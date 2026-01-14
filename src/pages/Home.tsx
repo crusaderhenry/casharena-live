@@ -1,7 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { WalletCard } from '@/components/WalletCard';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BottomNav } from '@/components/BottomNav';
-
 import { CycleStatusCard } from '@/components/CycleStatusCard';
 import { WinnerStories } from '@/components/WinnerStories';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
@@ -9,9 +7,8 @@ import { UsernamePromptModal } from '@/components/UsernamePromptModal';
 import { AuthPromptModal } from '@/components/AuthPromptModal';
 import { useBadgeUnlock } from '@/hooks/useBadgeUnlock';
 import { OnboardingTutorial, useOnboarding } from '@/components/OnboardingTutorial';
-
 import { useOAuthUsername } from '@/hooks/useOAuthUsername';
-import { Trophy, ChevronRight, Bell, TrendingUp, Calendar, Crown, Radio, Play, Swords, Clock, Zap, Users } from 'lucide-react';
+import { ChevronRight, Bell, Calendar, Crown, Radio, Play, Swords, Clock, Zap, Users } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { Logo } from '@/components/Logo';
 import { useAuth } from '@/contexts/AuthContext';
@@ -158,12 +155,6 @@ export const Home = () => {
     return () => clearInterval(timer);
   }, [notifications.length]);
 
-  const formatMoney = useCallback((amount: number) => {
-    if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
-    if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
-    return `₦${amount.toLocaleString()}`;
-  }, []);
-
   const handleViewAllGames = () => {
     play('click');
     buttonClick();
@@ -177,8 +168,6 @@ export const Home = () => {
     amount: w.prize_amount || w.amount_won,
     position: w.position,
   })), [recentWinners]);
-
-  const totalPool = useMemo(() => cycles.reduce((sum, c) => sum + c.pool_value + (c.sponsored_prize_amount || 0), 0), [cycles]);
 
   return (
     <div ref={containerRef} className="min-h-screen bg-background pb-24 scroll-smooth-ios">
@@ -210,68 +199,48 @@ export const Home = () => {
         pullDistance={pullDistance} 
       />
       
-      {/* Sticky Header Container */}
+      {/* Sticky Header */}
       <div className="sticky-header border-b border-border/30">
-        <div className="p-4 space-y-4">
-          {/* Header */}
-          <div className="flex items-center justify-between pt-2">
-            <div>
-              <Logo size="lg" />
-              <div className="flex items-center gap-3 mt-1">
-                {liveCycles.length > 0 && (
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                    {liveCycles.length} Live
-                  </span>
-                )}
-                {(openingCycles.length + waitingCycles.length) > 0 && (
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Calendar className="w-3 h-3" />
-                    {openingCycles.length + waitingCycles.length} Upcoming
-                  </span>
-                )}
-                {activeUsersCount > 0 && (
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Users className="w-3 h-3" />
-                    {activeUsersCount.toLocaleString()} Users
-                  </span>
-                )}
-              </div>
-            </div>
-            
-            {/* Notification Center */}
+        <div className="px-4 py-3 flex items-center justify-between">
+          <Logo size="sm" />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { play('click'); buttonClick(); navigate('/wallet'); }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border border-border"
+            >
+              <span className="text-sm font-bold text-foreground">
+                ₦{(profile?.wallet_balance || 0).toLocaleString()}
+              </span>
+            </button>
             <NotificationCenter />
           </div>
+        </div>
 
-          {/* Notification Ticker */}
-          {notifications.length > 0 && (
-            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 px-4 py-3">
-              <div className="relative flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                  <Bell className="w-4 h-4 text-primary" />
-                </div>
-                <p className="text-sm font-medium text-foreground truncate flex-1">
+        {/* Notification Ticker */}
+        {notifications.length > 0 && (
+          <div className="px-4 pb-3">
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-primary flex-shrink-0" />
+                <p className="text-xs font-medium text-foreground truncate flex-1">
                   {notifications[activeNotification]}
                 </p>
                 {notifications.length > 1 && (
                   <div className="flex gap-1">
                     {notifications.map((_, i) => (
-                      <span key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === activeNotification ? 'bg-primary w-3' : 'bg-muted'}`} />
+                      <span key={i} className={`w-1 h-1 rounded-full transition-all ${i === activeNotification ? 'bg-primary w-2' : 'bg-muted'}`} />
                     ))}
                   </div>
                 )}
               </div>
             </div>
-          )}
-
-          {/* Wallet */}
-          <WalletCard compact />
-        </div>
+          </div>
+        )}
       </div>
 
-      <div className="p-4 space-y-5">
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 gap-3">
+      <div className="p-4 space-y-4">
+        {/* Minimal Stats Row */}
+        <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => { 
               play('click'); 
@@ -282,30 +251,28 @@ export const Home = () => {
                 navigate('/rank'); 
               }
             }}
-            className="relative overflow-hidden rounded-2xl border border-border bg-card p-4 text-left hover:border-primary/40 transition-all group"
+            className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card hover:border-primary/40 transition-all"
           >
-            <div className="absolute top-0 right-0 w-20 h-20 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-colors" />
-            <div className="relative flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                <Crown className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Your Rank</p>
-                <p className="text-2xl font-black text-foreground">{user ? `#${userRank}` : '—'}</p>
-              </div>
+            <Crown className="w-4 h-4 text-primary" />
+            <div className="text-left">
+              <p className="text-[10px] text-muted-foreground uppercase">Rank</p>
+              <p className="text-sm font-bold text-foreground">{user ? `#${userRank}` : '—'}</p>
             </div>
           </button>
           
-          <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-4">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-gold/10 rounded-full blur-2xl" />
-            <div className="relative flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gold/20 to-gold/10 flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-gold" />
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Pools</p>
-                <p className="text-2xl font-black text-gold">{formatMoney(totalPool)}</p>
-              </div>
+          <div className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card">
+            <Calendar className="w-4 h-4 text-blue-400" />
+            <div className="text-left">
+              <p className="text-[10px] text-muted-foreground uppercase">Upcoming</p>
+              <p className="text-sm font-bold text-foreground">{openingCycles.length + waitingCycles.length}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card">
+            <Users className="w-4 h-4 text-green-400" />
+            <div className="text-left">
+              <p className="text-[10px] text-muted-foreground uppercase">Active</p>
+              <p className="text-sm font-bold text-foreground">{activeUsersCount.toLocaleString()}</p>
             </div>
           </div>
         </div>
