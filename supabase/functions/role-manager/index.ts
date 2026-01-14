@@ -14,14 +14,16 @@ async function verifyAuth(req: Request, supabase: any): Promise<{ userId: string
   }
 
   const token = authHeader.replace('Bearer ', '');
-  const { data, error } = await supabase.auth.getClaims(token);
   
-  if (error || !data?.claims?.sub) {
+  // Use getUser instead of getClaims for proper token validation
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  
+  if (error || !user) {
     console.error('JWT verification failed:', error?.message);
     return { userId: null, error: 'Invalid or expired token' };
   }
 
-  return { userId: data.claims.sub, error: null };
+  return { userId: user.id, error: null };
 }
 
 // Helper to check if user has admin role

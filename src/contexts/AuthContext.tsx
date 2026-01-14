@@ -107,6 +107,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user?.id, fetchProfile]);
 
+  // Update last_active_at for user activity tracking (for email campaigns)
+  const updateLastActive = useCallback(async (userId: string) => {
+    try {
+      await supabase
+        .from('profiles')
+        .update({ last_active_at: new Date().toISOString() })
+        .eq('id', userId);
+    } catch (err) {
+      // Silent fail - activity tracking is not critical
+      console.error('Failed to update last_active_at:', err);
+    }
+  }, []);
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -131,32 +144,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // THEN check for existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      // If a stale/invalid session exists in storage, validate it first
-      if (session?.user) {
-        const { error: userError } = await supabase.auth.getUser();
-        if (userError) {
-          console.warn('[Auth] Invalid session detected, signing out:', userError.message);
-          // Clear all local state and storage
-          await supabase.auth.signOut({ scope: 'local' });
-          toast.error('Session expired', {
-            description: 'Please log in again to continue.',
-            duration: 5000,
-          });
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
+        // If a stale/invalid session exists in storage, validate it first
+        if (session?.user) {
+          const { error: userError } = await supabase.auth.getUser();
+          if (userError) {
+            console.warn('[Auth] Invalid session detected, signing out:', userError.message);
+            // Clear all local state and storage
+            await supabase.auth.signOut({ scope: 'local' });
+            toast.error('Session expired', {
+              description: 'Please log in again to continue.',
+              duration: 5000,
+            });
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+            return;
+          }
 
-        // Session is valid, set state
-        setSession(session);
-        setUser(session.user);
-        fetchProfile(session.user.id).then((profileData) => {
-          setProfile(profileData);
-          checkWelcomeBonusToast(session.user.id, profileData);
-        });
-      } else {
+          // Session is valid, set state
+          setSession(session);
+          setUser(session.user);
+          fetchProfile(session.user.id).then((profileData) => {
+            setProfile(profileData);
+            checkWelcomeBonusToast(session.user.id, profileData);
+          });
+          // Update last active timestamp
+          updateLastActive(session.user.id);
+        } else {
         setSession(null);
         setUser(null);
       }
@@ -165,7 +180,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchProfile]);
+  }, [fetchProfile, checkWelcomeBonusToast, updateLastActive]);
 
   const signOut = async () => {
     await supabase.auth.signOut();

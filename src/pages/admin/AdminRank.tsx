@@ -1,12 +1,63 @@
 import { useAdmin } from '@/contexts/AdminContext';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
-import { Trophy, RotateCcw, Clock, Award } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Trophy, RotateCcw, Clock, Award, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface LeaderboardUser {
+  id: string;
+  username: string;
+  avatar: string;
+  rank_points: number;
+  weekly_rank: number | null;
+  games_played: number;
+  total_wins: number;
+}
 
 export const AdminRank = () => {
-  const { users, triggerWeeklyReset } = useAdmin();
+  const { triggerWeeklyReset } = useAdmin();
   const { weeklyRewards } = usePlatformSettings();
   const [weeklyCountdown, setWeeklyCountdown] = useState('');
+  const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch leaderboard from database function (includes mock users)
+  const fetchLeaderboard = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_leaderboard', { limit_count: 100 });
+      if (error) throw error;
+      setLeaderboard(data || []);
+    } catch (err) {
+      console.error('Failed to fetch leaderboard:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial fetch and real-time subscription
+  useEffect(() => {
+    fetchLeaderboard();
+
+    // Subscribe to profile changes for real-time updates
+    const channel = supabase
+      .channel('admin-rank-leaderboard')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => fetchLeaderboard()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'mock_users' },
+        () => fetchLeaderboard()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchLeaderboard]);
 
   // Calculate weekly reset countdown
   useEffect(() => {
@@ -28,8 +79,7 @@ export const AdminRank = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const sortedUsers = [...users].sort((a, b) => b.rankPoints - a.rankPoints);
-  const top10 = sortedUsers.slice(0, 10);
+  const top10 = leaderboard.slice(0, 10);
 
   return (
     <div className="p-6 space-y-6">
@@ -39,13 +89,22 @@ export const AdminRank = () => {
           <h1 className="text-2xl font-black text-foreground">Rank & Rewards</h1>
           <p className="text-sm text-muted-foreground">Weekly leaderboard management</p>
         </div>
-        <button
-          onClick={triggerWeeklyReset}
-          className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-xl font-medium hover:bg-red-500/30"
-        >
-          <RotateCcw className="w-4 h-4" />
-          Trigger Weekly Reset
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchLeaderboard}
+            disabled={loading}
+            className="p-2 hover:bg-muted rounded-lg transition-colors"
+          >
+            <RefreshCw className={`w-5 h-5 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={triggerWeeklyReset}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-xl font-medium hover:bg-red-500/30"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Trigger Weekly Reset
+          </button>
+        </div>
       </div>
 
       {/* Weekly Reset Timer */}
@@ -77,47 +136,53 @@ export const AdminRank = () => {
         </div>
         
         <div className="divide-y divide-border/50">
-          {top10.map((user, index) => (
-            <div 
-              key={user.id} 
-              className={`flex items-center gap-4 p-4 ${
-                index === 0 ? 'bg-gold/5' : 
-                index === 1 ? 'bg-silver/5' : 
-                index === 2 ? 'bg-bronze/5' : ''
-              }`}
-            >
-              {/* Position */}
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-black ${
-                index === 0 ? 'bg-gold/20 text-gold' :
-                index === 1 ? 'bg-silver/20 text-silver' :
-                index === 2 ? 'bg-bronze/20 text-bronze' :
-                'bg-muted text-muted-foreground'
-              }`}>
-                {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
-              </div>
+          {loading ? (
+            <div className="p-8 text-center text-muted-foreground">Loading leaderboard...</div>
+          ) : top10.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">No users yet</div>
+          ) : (
+            top10.map((user, index) => (
+              <div 
+                key={user.id} 
+                className={`flex items-center gap-4 p-4 ${
+                  index === 0 ? 'bg-gold/5' : 
+                  index === 1 ? 'bg-silver/5' : 
+                  index === 2 ? 'bg-bronze/5' : ''
+                }`}
+              >
+                {/* Position */}
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-black ${
+                  index === 0 ? 'bg-gold/20 text-gold' :
+                  index === 1 ? 'bg-silver/20 text-silver' :
+                  index === 2 ? 'bg-bronze/20 text-bronze' :
+                  'bg-muted text-muted-foreground'
+                }`}>
+                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
+                </div>
 
-              {/* User Info */}
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-xl">
-                {user.avatar}
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-foreground">{user.username}</p>
-                <p className="text-[10px] text-muted-foreground">{user.gamesPlayed} games played</p>
-              </div>
+                {/* User Info */}
+                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-xl">
+                  {user.avatar}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-foreground">{user.username}</p>
+                  <p className="text-[10px] text-muted-foreground">{user.games_played} games played</p>
+                </div>
 
-              {/* Stats */}
-              <div className="text-right">
-                <p className="text-lg font-black text-primary">{user.rankPoints.toLocaleString()}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Points</p>
-              </div>
+                {/* Stats */}
+                <div className="text-right">
+                  <p className="text-lg font-black text-primary">{user.rank_points.toLocaleString()}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase">Points</p>
+                </div>
 
-              {/* Wins */}
-              <div className="text-right">
-                <p className="text-lg font-bold text-gold">{user.wins}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Wins</p>
+                {/* Wins */}
+                <div className="text-right">
+                  <p className="text-lg font-bold text-gold">{user.total_wins}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase">Wins</p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
