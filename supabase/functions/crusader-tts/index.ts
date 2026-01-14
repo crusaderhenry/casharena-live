@@ -107,6 +107,15 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("[crusader-tts] ElevenLabs API error:", errorText);
+      
+      // Check for quota exceeded specifically
+      if (errorText.includes('quota_exceeded')) {
+        return new Response(
+          JSON.stringify({ error: 'quota_exceeded', message: 'TTS service temporarily unavailable' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       throw new Error(`ElevenLabs API error: ${response.status}`);
     }
 
