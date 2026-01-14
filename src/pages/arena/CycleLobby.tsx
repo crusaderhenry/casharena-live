@@ -100,6 +100,15 @@ export const CycleLobby = () => {
   const fetchCycle = useCallback(async () => {
     if (!cycleId) return;
     
+    // Nudge status check first to ensure backend status is current
+    try {
+      await supabase.functions.invoke('cycle-status-check', {
+        body: { cycle_id: cycleId }
+      });
+    } catch {
+      // Ignore errors, this is just a nudge
+    }
+    
     const { data, error } = await supabase
       .from('game_cycles')
       .select('*')
@@ -219,9 +228,11 @@ export const CycleLobby = () => {
       if (cycle.status === 'waiting' || cycle.status === 'opening') {
         setTimeUntilOpening(prev => {
           const newVal = Math.max(0, prev - 1);
-          // Trigger backend sync when entry opens
+          // Trigger backend sync AND refetch when entry opens
           if (newVal === 0 && prev > 0) {
-            checkCycleStatus();
+            checkCycleStatus().then(() => {
+              fetchCycle(); // Refetch to get updated status from backend
+            });
           }
           return newVal;
         });
@@ -255,7 +266,7 @@ export const CycleLobby = () => {
       clearInterval(interval);
       if (fastPollInterval) clearInterval(fastPollInterval);
     };
-  }, [cycle?.status, cycleId, navigate, play, hapticSuccess]);
+  }, [cycle?.status, cycleId, navigate, play, hapticSuccess, fetchCycle]);
 
   const handleJoin = async (asSpectator: boolean = false) => {
     if (!cycleId) return;
