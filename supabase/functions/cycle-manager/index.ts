@@ -46,6 +46,8 @@ interface GameCycle {
   mock_users_enabled: boolean;
   mock_users_min: number;
   mock_users_max: number;
+  entry_fee: number;
+  sponsored_prize_amount: number;
 }
 
 // Helper function to send push notifications
@@ -74,6 +76,32 @@ async function sendPushNotification(supabase: any, payload: {
     return result;
   } catch (error) {
     console.error('[push] Failed to send notification:', error);
+  }
+}
+
+// Helper function to notify spectators about game cancellation
+async function notifySpectators(supabase: any, cycleId: string, minRequired: number, actualCount: number) {
+  try {
+    const { data: spectators } = await supabase
+      .from('cycle_participants')
+      .select('user_id')
+      .eq('cycle_id', cycleId)
+      .eq('is_spectator', true);
+    
+    if (spectators && spectators.length > 0) {
+      const spectatorIds = spectators.map((s: any) => s.user_id);
+      await sendPushNotification(supabase, {
+        user_ids: spectatorIds,
+        payload: {
+          title: '⚠️ Game Cancelled',
+          body: `Game cancelled - needed at least ${minRequired} players to start (only ${actualCount} joined).`,
+          tag: `game-cancelled-spectator-${cycleId}`,
+        }
+      });
+      console.log(`[notify] Notified ${spectatorIds.length} spectators about cancellation`);
+    }
+  } catch (error) {
+    console.error('[notify] Failed to notify spectators:', error);
   }
 }
 
@@ -190,12 +218,56 @@ async function processStateTransition(supabase: any, cycle: GameCycle, now: Date
 
     case 'opening':
       if (nowTime >= liveStartAt) {
-        // Check min participants
-        if (cycle.participant_count < cycle.min_participants) {
+        // Get real (non-mock, non-spectator) participant count
+        const { data: participants } = await supabase
+          .from('cycle_participants')
+          .select('user_id')
+          .eq('cycle_id', cycle.id)
+          .eq('is_spectator', false);
+
+        // Fetch profiles to filter mock users
+        const participantIds = (participants || []).map((p: any) => p.user_id);
+        let realPlayersCount = 0;
+        
+        if (participantIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, user_type')
+            .in('id', participantIds);
+          
+          realPlayersCount = (profiles || []).filter((p: any) => p.user_type !== 'mock').length;
+        }
+        
+        // Minimum requirement: MAX(2, winner_count) for competitive gameplay
+        const minRequired = Math.max(2, cycle.winner_count);
+        
+        console.log(`[transition] Cycle ${cycle.id}: Real players: ${realPlayersCount}, Min required: ${minRequired}`);
+        
+        if (realPlayersCount < minRequired) {
           newStatus = 'cancelled';
-          console.log(`[transition] Cycle ${cycle.id}: opening -> cancelled (min participants not met: ${cycle.participant_count}/${cycle.min_participants})`);
-          // Refund participants
-          await refundCycleParticipants(supabase, cycle.id);
+          console.log(`[transition] Cycle ${cycle.id}: opening -> cancelled (need ${minRequired} real players, got ${realPlayersCount})`);
+          
+          // Determine if paid game - refund only paid entries
+          const isPaidGame = cycle.entry_fee > 0;
+          
+          if (isPaidGame) {
+            await refundCycleParticipants(supabase, cycle.id, 'insufficient_players');
+          }
+          
+          // Notify all spectators about cancellation
+          await notifySpectators(supabase, cycle.id, minRequired, realPlayersCount);
+          
+          // Notify participants (free games get notification only, paid games already notified via refund)
+          if (!isPaidGame && participantIds.length > 0) {
+            await sendPushNotification(supabase, {
+              user_ids: participantIds,
+              payload: {
+                title: '⚠️ Game Cancelled',
+                body: `Game cancelled - needed at least ${minRequired} players to start (only ${realPlayersCount} joined).`,
+                tag: `game-cancelled-${cycle.id}`,
+              }
+            });
+          }
         } else {
           newStatus = 'live';
           updates.countdown = cycle.comment_timer;

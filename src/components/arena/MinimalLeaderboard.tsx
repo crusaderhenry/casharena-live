@@ -54,8 +54,8 @@ export const MinimalLeaderboard = ({
           </p>
         </div>
       ) : (
-        /* Vertical list */
-        <div className="space-y-1.5">
+        /* Horizontal list */
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {topLeaders.map((leader, idx) => {
             const prizePercent = prizeDistribution[idx] || 0;
             const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (prizePercent / 100));
@@ -65,41 +65,39 @@ export const MinimalLeaderboard = ({
             return (
               <div
                 key={leader.user_id}
-                className={`flex items-center gap-2 p-2 rounded-xl transition-all ${
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all ${
                   isFirst 
                     ? `bg-gold/10 border border-gold/30 ${isLeaderChanging ? 'animate-scale-in ring-2 ring-gold/50' : ''}`
                     : 'bg-muted/30'
                 } ${isCurrentUser ? 'ring-1 ring-primary/40' : ''}`}
               >
                 {/* Position */}
-                <span className="text-lg w-6 text-center">{positionEmojis[idx]}</span>
+                <span className="text-lg">{positionEmojis[idx]}</span>
                 
                 {/* Avatar */}
-                <span className={`text-xl ${isFirst && isLeaderChanging ? 'animate-bounce' : ''}`}>
+                <span className={`text-lg ${isFirst && isLeaderChanging ? 'animate-bounce' : ''}`}>
                   {leader.avatar}
                 </span>
                 
-                {/* Name */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className={`text-sm font-semibold truncate ${isFirst ? 'text-gold' : 'text-foreground'}`}>
+                {/* Name & Prize */}
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-1">
+                    <span className={`text-xs font-semibold truncate max-w-16 ${isFirst ? 'text-gold' : 'text-foreground'}`}>
                       {leader.username}
                     </span>
                     {isCurrentUser && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-medium">
+                      <span className="text-[8px] px-1 py-0.5 rounded-full bg-primary/20 text-primary font-medium">
                         YOU
                       </span>
                     )}
                     {isFirst && (
-                      <Crown className="w-3.5 h-3.5 text-gold flex-shrink-0" />
+                      <Crown className="w-3 h-3 text-gold flex-shrink-0" />
                     )}
                   </div>
+                  <span className={`text-[10px] font-bold ${isFirst ? 'text-gold' : 'text-muted-foreground'}`}>
+                    {formatMoney(prizeAmount)}
+                  </span>
                 </div>
-                
-                {/* Prize */}
-                <span className={`text-sm font-bold ${isFirst ? 'text-gold' : 'text-foreground'}`}>
-                  {formatMoney(prizeAmount)}
-                </span>
               </div>
             );
           })}
