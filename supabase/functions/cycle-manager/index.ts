@@ -142,8 +142,11 @@ async function handleTick(supabase: any) {
   // 2. Check for infinity templates that need new cycles
   await checkInfinityTemplates(supabase, now);
 
+  // 3. Auto-delete cancelled/ended cycles older than 5 minutes
+  const deletedCount = await cleanupOldCycles(supabase, now);
+
   return new Response(
-    JSON.stringify({ success: true, processed: results.length, results }),
+    JSON.stringify({ success: true, processed: results.length, results, deleted: deletedCount }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 }
@@ -771,4 +774,43 @@ async function initInfinityTemplates(supabase: any) {
     JSON.stringify({ success: true, initialized: results.length, results }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
+}
+
+// Auto-cleanup cancelled/ended cycles older than 5 minutes
+async function cleanupOldCycles(supabase: any, now: Date): Promise<number> {
+  const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+  
+  // Find cancelled cycles older than 5 minutes
+  const { data: oldCycles, error } = await supabase
+    .from('game_cycles')
+    .select('id')
+    .eq('status', 'cancelled')
+    .lt('updated_at', fiveMinutesAgo.toISOString());
+  
+  if (error || !oldCycles || oldCycles.length === 0) {
+    return 0;
+  }
+  
+  console.log(`[cleanup] Found ${oldCycles.length} cancelled cycles older than 5 minutes`);
+  
+  const cycleIds = oldCycles.map((c: { id: string }) => c.id);
+  
+  // Delete related data first
+  await supabase.from('cycle_participants').delete().in('cycle_id', cycleIds);
+  await supabase.from('cycle_comments').delete().in('cycle_id', cycleIds);
+  await supabase.from('cycle_winners').delete().in('cycle_id', cycleIds);
+  
+  // Delete the cycles
+  const { error: deleteError } = await supabase
+    .from('game_cycles')
+    .delete()
+    .in('id', cycleIds);
+  
+  if (deleteError) {
+    console.error('[cleanup] Error deleting old cycles:', deleteError);
+    return 0;
+  }
+  
+  console.log(`[cleanup] Deleted ${oldCycles.length} old cancelled cycles`);
+  return oldCycles.length;
 }
