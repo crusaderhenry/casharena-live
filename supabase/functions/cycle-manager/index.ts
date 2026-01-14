@@ -373,6 +373,10 @@ async function createCycleFromTemplate(supabase: any, templateId: string) {
   const liveStartAt = entryCloseAt; // Live starts when entries close
   const liveEndAt = new Date(liveStartAt.getTime() + (template.max_live_duration * 60 * 1000));
 
+  // Calculate required min based on winner_count (safety validation)
+  const requiredMin = template.winner_count < 2 ? 2 : template.winner_count;
+  const actualMinParticipants = Math.max(template.min_participants || requiredMin, requiredMin);
+
   const cycleData = {
     template_id: templateId,
     status: 'waiting',
@@ -386,7 +390,7 @@ async function createCycleFromTemplate(supabase: any, templateId: string) {
     prize_distribution: template.prize_distribution,
     comment_timer: template.comment_timer,
     platform_cut_percentage: template.platform_cut_percentage,
-    min_participants: template.min_participants,
+    min_participants: actualMinParticipants,
     allow_spectators: template.allow_spectators,
     countdown: template.comment_timer,
     pool_value: template.entry_mode === 'sponsored' ? template.sponsored_prize_amount : 0,

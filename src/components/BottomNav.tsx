@@ -25,7 +25,7 @@ export const BottomNav = () => {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-border/30 z-50">
-      <div className="flex items-center justify-around px-2 py-2 pb-safe max-w-lg mx-auto">
+      <div className="flex items-center justify-evenly px-1 py-1.5 pb-safe">
         {navItems.map(({ icon: Icon, label, path }) => {
           const isActive = location.pathname === path || 
             (path === '/arena' && location.pathname.startsWith('/arena'));
@@ -33,19 +33,19 @@ export const BottomNav = () => {
             <button
               key={path}
               onClick={() => handleNav(path)}
-              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-100 active:scale-95 active:opacity-80 touch-action-manipulation [-webkit-tap-highlight-color:transparent] ${
+              className={`flex flex-col items-center gap-0.5 px-2 sm:px-4 py-1.5 rounded-xl transition-all duration-100 active:scale-95 active:opacity-80 touch-action-manipulation [-webkit-tap-highlight-color:transparent] flex-1 min-w-0 ${
                 isActive 
                   ? 'text-primary' 
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <div className={`relative p-1.5 rounded-xl transition-all ${isActive ? 'bg-primary/15' : ''}`}>
-                <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
+              <div className={`relative p-1 sm:p-1.5 rounded-xl transition-all ${isActive ? 'bg-primary/15' : ''}`}>
+                <Icon className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={isActive ? 2.5 : 2} />
                 {isActive && (
                   <div className="absolute inset-0 rounded-xl bg-primary/20 blur-md -z-10" />
                 )}
               </div>
-              <span className={`text-[10px] font-semibold tracking-wide ${isActive ? 'text-primary' : ''}`}>
+              <span className={`text-[9px] sm:text-[10px] font-semibold tracking-wide truncate ${isActive ? 'text-primary' : ''}`}>
                 {label}
               </span>
             </button>
