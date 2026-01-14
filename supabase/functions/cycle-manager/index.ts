@@ -494,6 +494,27 @@ async function settleCycle(supabase: any, cycleId: string) {
   // Get real winners only
   const realWinners = orderedCommenters.filter(id => realUsers.has(id));
 
+  // Handle NO WINNER scenario - refund all participants
+  if (realWinners.length === 0) {
+    console.log(`[settle] No real winners for cycle ${cycleId} - initiating refunds`);
+    await refundCycleParticipants(supabase, cycleId, 'no_winner');
+    
+    // Mark cycle as cancelled with reason
+    await supabase
+      .from('game_cycles')
+      .update({
+        status: 'cancelled',
+        settled_at: new Date().toISOString(),
+        settlement_data: { cancelled_reason: 'no_winner', refunded: true },
+      })
+      .eq('id', cycleId);
+
+    return new Response(
+      JSON.stringify({ success: true, cancelled: true, reason: 'no_winner' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   // Calculate prize pool
   const totalPool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
   const platformCut = Math.floor(totalPool * (cycle.platform_cut_percentage / 100));
@@ -626,7 +647,7 @@ async function settleCycle(supabase: any, cycleId: string) {
 }
 
 // Refund all participants in a cancelled cycle
-async function refundCycleParticipants(supabase: any, cycleId: string) {
+async function refundCycleParticipants(supabase: any, cycleId: string, reason: string = 'cancelled') {
   const { data: cycle } = await supabase
     .from('game_cycles')
     .select('entry_fee, template_id')
@@ -664,12 +685,29 @@ async function refundCycleParticipants(supabase: any, cycleId: string) {
         .update({ wallet_balance: profile.wallet_balance + cycle.entry_fee })
         .eq('id', p.user_id);
 
-      // Record refund transaction
+      // Record refund transaction with reason
+      const refundDescription = reason === 'no_winner' 
+        ? 'Royal Rumble - No Winner (Refund)'
+        : 'Royal Rumble Cancelled - Refund';
+        
       await supabase.from('wallet_transactions').insert({
         user_id: p.user_id,
         type: 'refund',
         amount: cycle.entry_fee,
-        description: 'Royal Rumble Cancelled - Refund',
+        description: refundDescription,
+      });
+      
+      // Send push notification for refund
+      await sendPushNotification(supabase, {
+        user_ids: [p.user_id],
+        payload: {
+          title: reason === 'no_winner' ? '🎮 Game Ended - No Winner' : '🎮 Game Cancelled',
+          body: reason === 'no_winner' 
+            ? `The game ended with no winner. Your ₦${cycle.entry_fee.toLocaleString()} entry fee has been refunded.`
+            : `The game was cancelled. Your ₦${cycle.entry_fee.toLocaleString()} entry fee has been refunded.`,
+          tag: `refund-${cycleId}-${p.user_id}`,
+          data: { url: '/wallet' },
+        }
       });
 
       // Send game cancelled email (only to real users)
