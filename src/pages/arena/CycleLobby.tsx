@@ -407,7 +407,7 @@ export const CycleLobby = () => {
               >
                 <ArrowLeft className="w-4 h-4 text-foreground" />
               </button>
-              <h1 className="text-base font-bold text-foreground">Lobby</h1>
+              <h1 className="text-base font-bold text-foreground">Game Lobby</h1>
             </div>
             
             <div className="flex items-center gap-2">
@@ -648,11 +648,11 @@ export const CycleLobby = () => {
           </div>
         ) : isOpening ? (
           <div className="space-y-2">
-            <div className={`flex gap-2 ${cycle.allow_spectators ? '' : ''}`}>
+            <div className="flex gap-2">
               <button
                 onClick={() => handleJoin(false)}
                 disabled={joining || !hasBalance}
-                className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-50 active:scale-[0.98] transition-transform"
+                className="flex-[2] py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-50 active:scale-[0.98] transition-transform"
               >
                 {joining ? (
                   <span className="flex items-center justify-center gap-2">
@@ -671,9 +671,10 @@ export const CycleLobby = () => {
                 <button
                   onClick={() => handleJoin(true)}
                   disabled={joining}
-                  className="py-3 px-5 rounded-xl bg-muted text-muted-foreground font-medium text-sm border border-border disabled:opacity-50 active:scale-[0.98] transition-transform"
+                  className="flex-1 py-3 px-4 rounded-xl bg-muted text-muted-foreground font-medium text-sm border border-border disabled:opacity-50 active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5"
                 >
                   <Eye className="w-4 h-4" />
+                  Watch
                 </button>
               )}
             </div>
