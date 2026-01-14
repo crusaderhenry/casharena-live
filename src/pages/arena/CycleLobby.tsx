@@ -100,15 +100,6 @@ export const CycleLobby = () => {
   const fetchCycle = useCallback(async () => {
     if (!cycleId) return;
     
-    // Nudge status check first to ensure backend status is current
-    try {
-      await supabase.functions.invoke('cycle-status-check', {
-        body: { cycle_id: cycleId }
-      });
-    } catch {
-      // Ignore errors, this is just a nudge
-    }
-    
     const { data, error } = await supabase
       .from('game_cycles')
       .select('*')
@@ -173,17 +164,6 @@ export const CycleLobby = () => {
           const updated = payload.new as CycleData;
           setCycle(prev => prev ? { ...prev, ...updated } : null);
 
-          // Handle cancelled games in background
-          if (updated.status === 'cancelled') {
-            // If user was a spectator, notify them
-            if (participation.isSpectator) {
-              toast.info('Game cancelled - no players joined');
-            }
-            // Silently redirect back to arena listing
-            navigate('/arena', { replace: true });
-            return;
-          }
-
           // Transition with flash when game goes live
           if (updated.status === 'live') {
             play('gameStart');
@@ -202,7 +182,7 @@ export const CycleLobby = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [cycleId, navigate, play, hapticSuccess, participation.isSpectator]);
+  }, [cycleId, navigate, play, hapticSuccess]);
 
   // Local timer ticker with instant transition at 0
   // Uses dedicated status-check endpoint for faster polling near transitions
@@ -239,11 +219,9 @@ export const CycleLobby = () => {
       if (cycle.status === 'waiting' || cycle.status === 'opening') {
         setTimeUntilOpening(prev => {
           const newVal = Math.max(0, prev - 1);
-          // Trigger backend sync AND refetch when entry opens
+          // Trigger backend sync when entry opens
           if (newVal === 0 && prev > 0) {
-            checkCycleStatus().then(() => {
-              fetchCycle(); // Refetch to get updated status from backend
-            });
+            checkCycleStatus();
           }
           return newVal;
         });
@@ -277,7 +255,7 @@ export const CycleLobby = () => {
       clearInterval(interval);
       if (fastPollInterval) clearInterval(fastPollInterval);
     };
-  }, [cycle?.status, cycleId, navigate, play, hapticSuccess, fetchCycle]);
+  }, [cycle?.status, cycleId, navigate, play, hapticSuccess]);
 
   const handleJoin = async (asSpectator: boolean = false) => {
     if (!cycleId) return;
@@ -348,12 +326,6 @@ export const CycleLobby = () => {
   // If game has ended, redirect to results
   if (cycle.status === 'ended' || cycle.status === 'settled') {
     navigate(`/arena/${cycleId}/results`, { replace: true });
-    return null;
-  }
-
-  // If game was cancelled (no participants), silently go back to arena
-  if (cycle.status === 'cancelled') {
-    navigate('/arena', { replace: true });
     return null;
   }
 
@@ -435,7 +407,7 @@ export const CycleLobby = () => {
               >
                 <ArrowLeft className="w-4 h-4 text-foreground" />
               </button>
-              <h1 className="text-base font-bold text-foreground">Game Lobby</h1>
+              <h1 className="text-base font-bold text-foreground">Lobby</h1>
             </div>
             
             <div className="flex items-center gap-2">
@@ -676,11 +648,11 @@ export const CycleLobby = () => {
           </div>
         ) : isOpening ? (
           <div className="space-y-2">
-            <div className="flex gap-2">
+            <div className={`flex gap-2 ${cycle.allow_spectators ? '' : ''}`}>
               <button
                 onClick={() => handleJoin(false)}
                 disabled={joining || !hasBalance}
-                className="flex-[2] py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-50 active:scale-[0.98] transition-transform"
+                className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-50 active:scale-[0.98] transition-transform"
               >
                 {joining ? (
                   <span className="flex items-center justify-center gap-2">
@@ -699,10 +671,9 @@ export const CycleLobby = () => {
                 <button
                   onClick={() => handleJoin(true)}
                   disabled={joining}
-                  className="flex-1 py-3 px-4 rounded-xl bg-muted text-muted-foreground font-medium text-sm border border-border disabled:opacity-50 active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5"
+                  className="py-3 px-5 rounded-xl bg-muted text-muted-foreground font-medium text-sm border border-border disabled:opacity-50 active:scale-[0.98] transition-transform"
                 >
                   <Eye className="w-4 h-4" />
-                  Watch
                 </button>
               )}
             </div>

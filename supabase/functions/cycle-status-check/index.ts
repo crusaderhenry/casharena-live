@@ -17,7 +17,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { cycle_id, force_transition } = await req.json();
+    const { cycle_id } = await req.json();
 
     if (!cycle_id) {
       return new Response(
@@ -47,7 +47,6 @@ serve(async (req) => {
 
     let newStatus = cycle.status;
     let statusUpdated = false;
-    let tickTriggered = false;
 
     // Check for status transitions
     if (cycle.status === 'waiting' && now >= entryOpenAt) {
@@ -78,31 +77,12 @@ serve(async (req) => {
       }
     }
 
-    // Force transition: if game time expired and still live, trigger cycle-manager tick
-    if (force_transition && cycle.status === 'live' && now >= liveEndAt) {
-      console.log('[cycle-status-check] Force transition triggered, calling cycle-manager');
-      try {
-        await fetch(`${supabaseUrl}/functions/v1/cycle-manager`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-          },
-          body: JSON.stringify({ action: 'tick' }),
-        });
-        tickTriggered = true;
-      } catch (tickError) {
-        console.error('[cycle-status-check] Failed to trigger tick:', tickError);
-      }
-    }
-
     return new Response(
       JSON.stringify({
         cycle_id: cycle.id,
         previous_status: cycle.status,
         current_status: newStatus,
         status_updated: statusUpdated,
-        tick_triggered: tickTriggered,
         server_time: now.toISOString(),
         seconds_until_opening: Math.max(0, Math.floor((entryOpenAt.getTime() - now.getTime()) / 1000)),
         seconds_until_live: Math.max(0, Math.floor((liveStartAt.getTime() - now.getTime()) / 1000)),

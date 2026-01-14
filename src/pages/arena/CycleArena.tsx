@@ -13,16 +13,12 @@ import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAudio } from '@/contexts/AudioContext';
 import { useServerTime } from '@/hooks/useServerTime';
 import { supabase } from '@/integrations/supabase/client';
+import { VoiceRoomLive } from '@/components/VoiceRoomLive';
+import { CompactHostBanner } from '@/components/CompactHostBanner';
 import { GameEndFreeze } from '@/components/GameEndFreeze';
+import { LiveTimer } from '@/components/Countdown';
 import { Confetti } from '@/components/Confetti';
 import { WinningBanner } from '@/components/WinningBanner';
-import { ArenaHeader } from '@/components/arena/ArenaHeader';
-import { DualTimerDisplay } from '@/components/arena/DualTimerDisplay';
-import { MinimalLeaderboard } from '@/components/arena/MinimalLeaderboard';
-import { CompactVoiceRoom } from '@/components/arena/CompactVoiceRoom';
-import { IGStyleComments } from '@/components/arena/IGStyleComments';
-import { setActiveGameState } from '@/components/FloatingGameReturn';
-import { GameShareModal } from '@/components/GameShareModal';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -33,8 +29,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { GameShareModal } from '@/components/GameShareModal';
+import { MusicToggle } from '@/components/MusicToggle';
 import { 
-  Zap, Eye, AlertTriangle, Sparkles
+  ArrowLeft, Send, Users, Timer, Crown, Eye, Trophy, 
+  Zap, MessageCircle, Clock, Play, Radio, Sparkles,
+  Target, Flame, Award, AlertTriangle, Hourglass,
+  Maximize, Minimize, Share2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -70,15 +71,24 @@ export const CycleArena = () => {
   const { joinCycle, joining, checkParticipation } = useCycleJoin();
   const { comments: realComments, sendComment: sendRealComment, sending, getOrderedCommenters: getRealOrderedCommenters } = useCycleComments(cycleId || null);
   
+  // Demo mode for simulation
   const isDemoMode = searchParams.get('demo') === 'true';
-  const { winnerScreenDuration, hotGameThresholdLive } = usePlatformSettings() as any;
-  const { secondsUntil } = useServerTime();
+  
+  // Platform settings for winner screen duration
+  const { winnerScreenDuration } = usePlatformSettings();
+  
+  // Server time sync for accurate timing across devices
+  const { secondsUntil, getServerTime } = useServerTime();
+  
+  // Mobile fullscreen hook - auto fullscreen disabled
   const { isFullscreen, isMobile, toggleFullscreen } = useMobileFullscreen(false);
   
+  // Live arena simulation hook for demo mode
   const {
     simulatedComments,
     voiceParticipants: simVoiceParticipants,
     countdown: simCountdown,
+    winnerSelected,
     winner: simWinner,
     addUserComment,
     getOrderedCommenters: getSimOrderedCommenters,
@@ -96,6 +106,8 @@ export const CycleArena = () => {
   const [commentText, setCommentText] = useState('');
   const [localCountdown, setLocalCountdown] = useState(0);
   const [gameTimeRemaining, setGameTimeRemaining] = useState(0);
+  const [timeUntilOpening, setTimeUntilOpening] = useState(0);
+  const [timeUntilLive, setTimeUntilLive] = useState(0);
   const [hostIsSpeaking, setHostIsSpeaking] = useState(false);
   const [showLeaveWarning, setShowLeaveWarning] = useState(false);
   const [isEntering, setIsEntering] = useState(true);
@@ -104,14 +116,17 @@ export const CycleArena = () => {
   const [gameWinner, setGameWinner] = useState<{ name: string; avatar: string; prize: number } | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [leaderChanged, setLeaderChanged] = useState(false);
+  const commentsContainerRef = useRef<HTMLDivElement>(null);
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
+  const inputRef = useRef<HTMLInputElement>(null);
   const gameEndTriggeredRef = useRef(false);
-  const gameEndNudgedRef = useRef(false);
   
+  // Use simulated or real data based on demo mode
   const comments = isDemoMode ? simulatedComments : realComments;
   const getOrderedCommenters = isDemoMode ? getSimOrderedCommenters : getRealOrderedCommenters;
   
+  // Arena entrance animation
   useEffect(() => {
     const timer = setTimeout(() => setIsEntering(false), 100);
     return () => clearTimeout(timer);
@@ -119,7 +134,6 @@ export const CycleArena = () => {
 
   const isLive = cycle?.status === 'live' || cycle?.status === 'ending';
   const arenaAmbientStyle = cycle?.ambient_music_style || 'intense';
-  const isTimerPaused = comments.length === 0 && isLive;
   
   // Start arena music when live
   useEffect(() => {
@@ -131,42 +145,29 @@ export const CycleArena = () => {
     };
   }, [isLive, arenaAmbientStyle, playBackgroundMusic, stopBackgroundMusic]);
 
-  // Store active game state for floating return button
-  useEffect(() => {
-    if (isLive && participation.isParticipant && !participation.isSpectator && cycleId && cycle?.live_end_at) {
-      setActiveGameState({
-        cycleId,
-        status: cycle?.status || 'live',
-        liveEndAt: cycle.live_end_at,
-        isParticipant: true,
-      });
-    }
-    return () => {
-      // Clear on unmount (when navigating away from arena)
-    };
-  }, [isLive, participation, cycleId, cycle?.status, cycle?.live_end_at]);
-
+  
+  // Fetch mock voice participants from database
   const { voiceParticipants: mockVoiceParticipants } = useMockVoiceRoom(
     cycleId || null,
     isLive && !isDemoMode
   );
   
+  // Use simulated voice participants in demo mode
   const voiceParticipantsToPass = isDemoMode ? simVoiceParticipants : mockVoiceParticipants;
   
+  // TTS Hook for host commentary
   const { 
     announceComment, 
     announceLeaderChange, 
     announceTimerWarning,
-    announceGameOver,
-    announceGameIntro,
+    announceGameOver 
   } = useCycleHostTTS({ 
     cycleId, 
     isLive: !!isLive,
     onSpeakingChange: setHostIsSpeaking
   });
-  
-  const hasAnnouncedIntroRef = useRef(false);
 
+  // Fetch cycle data
   const fetchCycle = useCallback(async () => {
     if (!cycleId) return;
     
@@ -183,6 +184,7 @@ export const CycleArena = () => {
       return;
     }
 
+    // Get template name
     const { data: template } = await supabase
       .from('game_templates')
       .select('name')
@@ -195,15 +197,24 @@ export const CycleArena = () => {
       ambient_music_style: (data.ambient_music_style as CycleData['ambient_music_style']) || 'intense',
     });
     setLocalCountdown(data.countdown);
+    
+    // Use server-synced time for accurate timing across all devices
+    setTimeUntilOpening(secondsUntil(data.entry_open_at));
+    setTimeUntilLive(secondsUntil(data.live_start_at));
     setGameTimeRemaining(secondsUntil(data.live_end_at));
+    
+    // Reset game end trigger on fresh data
     gameEndTriggeredRef.current = false;
+    
     setLoading(false);
   }, [cycleId, navigate, secondsUntil]);
 
+  // Initial fetch
   useEffect(() => {
     fetchCycle();
   }, [fetchCycle]);
 
+  // Check user participation
   useEffect(() => {
     if (isDemoMode) {
       setParticipation({ isParticipant: true, isSpectator: false });
@@ -218,6 +229,7 @@ export const CycleArena = () => {
     check();
   }, [cycleId, checkParticipation, isDemoMode]);
 
+  // Real-time subscription
   useEffect(() => {
     if (!cycleId) return;
 
@@ -231,11 +243,10 @@ export const CycleArena = () => {
           setCycle(prev => prev ? { ...prev, ...updated } : null);
           setLocalCountdown(updated.countdown);
 
-        if (updated.status === 'ending' || updated.status === 'ended') {
+          // Handle game ending - show freeze overlay
+          if (updated.status === 'ending' || updated.status === 'ended') {
             const orderedCommenters = getOrderedCommenters();
-            // Filter out mock users - only real users can win
-            const realCommenters = orderedCommenters.filter((c: any) => c.user_type !== 'mock');
-            const winner = realCommenters[0];
+            const winner = orderedCommenters[0];
             const effectivePrizePool = updated.pool_value + (updated.sponsored_prize_amount || 0);
             const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (updated.prize_distribution[0] / 100));
             
@@ -248,13 +259,6 @@ export const CycleArena = () => {
               });
               announceGameOver(winner.username, prizeAmount);
               setShowGameEndFreeze(true);
-            } else {
-              // No real winner
-              announceGameOver(null, 0);
-              // Navigate to results after a short delay
-              setTimeout(() => {
-                navigate(`/arena/${cycleId}/results`, { replace: true });
-              }, 2000);
             }
           }
         }
@@ -266,6 +270,7 @@ export const CycleArena = () => {
     };
   }, [cycleId, getOrderedCommenters, play, announceGameOver]);
 
+  // Local countdown ticker - use server time for accurate sync
   useEffect(() => {
     if (!cycle) return;
 
@@ -274,9 +279,7 @@ export const CycleArena = () => {
       gameEndTriggeredRef.current = true;
       
       const orderedCommenters = getOrderedCommenters();
-      // Filter out mock users - only real users can win
-      const realCommenters = orderedCommenters.filter((c: any) => c.user_type !== 'mock');
-      const winner = realCommenters[0];
+      const winner = orderedCommenters[0];
       const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
       const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (cycle.prize_distribution[0] / 100));
       
@@ -289,68 +292,57 @@ export const CycleArena = () => {
         });
         announceGameOver(winner.username, prizeAmount);
         setShowGameEndFreeze(true);
-      } else {
-        // No real winner
-        announceGameOver(null, 0);
-        // Navigate to results after a short delay
-        setTimeout(() => {
-          navigate(`/arena/${cycleId}/results`, { replace: true });
-        }, 2000);
       }
     };
 
     const interval = setInterval(() => {
       if (cycle.status === 'live') {
+        // Use server-synced time for game end to ensure all clients are in sync
         const serverSyncedGameTime = secondsUntil(cycle.live_end_at);
         setGameTimeRemaining(serverSyncedGameTime);
         
+        // CRITICAL: When game end time reaches 0, override countdown and end game
         if (serverSyncedGameTime <= 0) {
           setLocalCountdown(0);
-          
-          // Proactive backend nudge when game time expires
-          if (!gameEndNudgedRef.current) {
-            gameEndNudgedRef.current = true;
-            supabase.functions.invoke('cycle-status-check', {
-              body: { cycle_id: cycleId, force_transition: true }
-            }).catch(() => {});
-          }
-          
           triggerGameEnd();
           return;
         }
         
-        // Only decrement countdown if timer is NOT paused (has comments)
-        if (comments.length > 0) {
-          setLocalCountdown(prev => {
-            const newVal = Math.max(0, prev - 1);
-            if (newVal === 0 && prev > 0 && serverSyncedGameTime > 0) {
-              triggerGameEnd();
-            }
-            return newVal;
-          });
-        }
+        setLocalCountdown(prev => {
+          const newVal = Math.max(0, prev - 1);
+          // Trigger freeze when comment countdown hits 0 (only if game time hasn't ended)
+          if (newVal === 0 && prev > 0 && serverSyncedGameTime > 0) {
+            triggerGameEnd();
+          }
+          return newVal;
+        });
+      } else if (cycle.status === 'waiting') {
+        setTimeUntilOpening(secondsUntil(cycle.entry_open_at));
+        setTimeUntilLive(secondsUntil(cycle.live_start_at));
+      } else if (cycle.status === 'opening') {
+        setTimeUntilLive(secondsUntil(cycle.live_start_at));
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [cycle, cycleId, comments.length, getOrderedCommenters, play, announceGameOver, showGameEndFreeze, secondsUntil]);
+  }, [cycle, getOrderedCommenters, play, announceGameOver, showGameEndFreeze, secondsUntil]);
 
-  // Timer warning announcements - skip if timer is paused
+  // Timer warning announcements
   useEffect(() => {
-    if (!isLive || isTimerPaused) return;
+    if (!isLive) return;
     
     const orderedCommenters = getOrderedCommenters();
     const leader = orderedCommenters[0]?.username || null;
     
     if ([30, 10, 5].includes(localCountdown) && !announcedTimersRef.current.has(localCountdown)) {
       announcedTimersRef.current.add(localCountdown);
-      announceTimerWarning(localCountdown, leader, isTimerPaused);
+      announceTimerWarning(localCountdown, leader);
     }
     
     if (localCountdown > 30) {
       announcedTimersRef.current.clear();
     }
-  }, [localCountdown, isLive, isTimerPaused, getOrderedCommenters, announceTimerWarning]);
+  }, [localCountdown, isLive, getOrderedCommenters, announceTimerWarning]);
 
   // Leader change detection
   useEffect(() => {
@@ -362,6 +354,8 @@ export const CycleArena = () => {
     if (currentLeader && currentLeader !== previousLeaderRef.current && previousLeaderRef.current !== null) {
       announceLeaderChange(currentLeader, localCountdown);
       play('leaderChange');
+      
+      // Trigger leader change animation
       setLeaderChanged(true);
       setTimeout(() => setLeaderChanged(false), 600);
     }
@@ -375,30 +369,16 @@ export const CycleArena = () => {
     
     const latestComment = comments[0];
     if (latestComment) {
-      announceComment(latestComment.username || 'Player', latestComment.content, latestComment.id, isTimerPaused);
+      announceComment(latestComment.username, latestComment.content, latestComment.id);
     }
-  }, [comments, isLive, isTimerPaused, announceComment]);
+  }, [comments, isLive, announceComment]);
 
-  // Announce game intro when entering live arena
+  // Scroll to bottom on new comment
   useEffect(() => {
-    if (!cycle || !isLive || hasAnnouncedIntroRef.current) return;
-    hasAnnouncedIntroRef.current = true;
-    
-    const effectivePrize = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
-    const gameDurationMinutes = Math.ceil((cycle.comment_timer || 300) / 60);
-    
-    // Small delay to let user settle in
-    const timer = setTimeout(() => {
-      announceGameIntro(
-        effectivePrize,
-        gameDurationMinutes,
-        cycle.winner_count,
-        cycle.prize_distribution
-      );
-    }, 1500);
-    
-    return () => clearTimeout(timer);
-  }, [cycle, isLive, announceGameIntro]);
+    if (commentsContainerRef.current) {
+      commentsContainerRef.current.scrollTop = 0;
+    }
+  }, [comments.length]);
 
   const handleJoin = async (asSpectator: boolean = false) => {
     if (!cycleId) return;
@@ -419,22 +399,27 @@ export const CycleArena = () => {
     if (isDemoMode) {
       addUserComment(commentText);
       setCommentText('');
+      // Show confetti when user takes the lead
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 3000);
     } else {
       const success = await sendRealComment(commentText);
       if (success) {
         setCommentText('');
+        // Show confetti when user takes the lead
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 3000);
       }
     }
+    
+    // Keep focus on input
+    inputRef.current?.focus();
   };
 
   const handleFreezeComplete = useCallback(async () => {
     setShowGameEndFreeze(false);
-    setActiveGameState(null); // Clear floating button
     
+    // Check if current user is a winner - if so, go to celebration page
     if (user) {
       const { data: winData } = await supabase
         .from('cycle_winners')
@@ -452,26 +437,17 @@ export const CycleArena = () => {
     navigate(`/arena/${cycleId}/results`, { replace: true });
   }, [navigate, cycleId, user]);
 
-  const handleBack = useCallback(() => {
-    play('click'); 
-    buttonClick(); 
-    if (isLive && participation.isParticipant && !participation.isSpectator) {
-      setShowLeaveWarning(true);
-    } else {
-      navigate('/arena'); 
-    }
-  }, [play, buttonClick, isLive, participation, navigate]);
-
-  const handleShare = useCallback(() => {
-    play('click'); 
-    buttonClick(); 
-    setShowShareModal(true);
-  }, [play, buttonClick]);
-
   const formatMoney = (amount: number) => {
     if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
     if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
     return `₦${amount.toLocaleString()}`;
+  };
+
+  const formatTime = (seconds: number) => {
+    if (seconds <= 0) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (loading || !cycle) {
@@ -485,6 +461,8 @@ export const CycleArena = () => {
     );
   }
 
+  // Redirect non-live games to lobby - BUT accept 'opening' if live_start_at has passed
+  // This handles the race condition where frontend navigates before backend updates status
   const liveStartPassed = cycle.live_start_at && new Date(cycle.live_start_at).getTime() <= Date.now();
   
   if (cycle.status === 'waiting') {
@@ -492,11 +470,13 @@ export const CycleArena = () => {
     return null;
   }
   
+  // Only redirect to lobby if opening AND live time hasn't passed yet
   if (cycle.status === 'opening' && !liveStartPassed) {
     navigate(`/arena/${cycleId}`, { replace: true });
     return null;
   }
 
+  // Redirect ended games to results (unless showing freeze)
   if ((cycle.status === 'ended' || cycle.status === 'settled') && !showGameEndFreeze) {
     navigate(`/arena/${cycleId}/results`, { replace: true });
     return null;
@@ -506,27 +486,28 @@ export const CycleArena = () => {
   const canComment = participation.isParticipant && !participation.isSpectator && isLive;
   const orderedCommenters = getOrderedCommenters();
   const displayCountdown = isDemoMode ? simCountdown : localCountdown;
-  const isCountdownCritical = displayCountdown <= 10 && isLive && comments.length > 0;
+  const isCountdownCritical = displayCountdown <= 10 && isLive;
   const displayParticipantCount = isDemoMode ? simParticipantCount : cycle.participant_count;
-  const isHotGame = displayParticipantCount >= (hotGameThresholdLive || 10);
   
+  // Check if current user is winning (has the latest comment / is leader)
   const currentUserIsWinning = orderedCommenters.length > 0 && 
     orderedCommenters[0]?.id === user?.id && 
     participation.isParticipant && 
     !participation.isSpectator &&
     isLive;
 
-  const leaderIds = orderedCommenters.map(c => c.user_id);
-
   return (
     <div className={`min-h-screen bg-background flex flex-col transition-all duration-500 ease-out ${isEntering ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+      {/* Confetti on winning comment */}
       {showConfetti && <Confetti duration={3000} />}
       
+      {/* YOU ARE WINNING Banner */}
       <WinningBanner 
         isVisible={currentUserIsWinning} 
         prizeAmount={effectivePrizePool * (cycle.prize_distribution[0] / 100)} 
       />
       
+      {/* Game End Freeze Overlay */}
       {gameWinner && (
         <GameEndFreeze
           isActive={showGameEndFreeze}
@@ -538,89 +519,336 @@ export const CycleArena = () => {
         />
       )}
 
-      {/* New streamlined header */}
-      <ArenaHeader
-        isLive={!!isLive}
-        status={cycle.status}
-        gameName={cycle.template_name || 'Royal Rumble'}
-        prizePool={effectivePrizePool}
-        participantCount={displayParticipantCount}
-        isMobile={isMobile}
-        isFullscreen={isFullscreen}
-        isHotGame={isHotGame}
-        onBack={handleBack}
-        onShare={handleShare}
-        onToggleFullscreen={toggleFullscreen}
-      />
+      {/* Live Header */}
+      <div className="sticky top-0 z-20 pt-safe bg-gradient-to-b from-background via-background to-transparent">
+        {/* Top Bar */}
+        <div className="p-3 flex items-center justify-between">
+          <button
+            onClick={() => { 
+              play('click'); 
+              buttonClick(); 
+              if (isLive && participation.isParticipant && !participation.isSpectator) {
+                setShowLeaveWarning(true);
+              } else {
+                navigate('/arena'); 
+              }
+            }}
+            className="w-10 h-10 rounded-xl bg-muted/80 flex items-center justify-center"
+          >
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          
+          <div className="flex items-center gap-2">
+            <span className={`flex items-center gap-1.5 text-sm font-bold px-3 py-1.5 rounded-full ${
+              isLive ? 'bg-red-500/20 text-red-400 animate-pulse' : 
+              cycle.status === 'opening' ? 'bg-green-500/20 text-green-400' :
+              'bg-blue-500/20 text-blue-400'
+            }`}>
+              {isLive ? <Radio className="w-4 h-4" /> : 
+               cycle.status === 'opening' ? <Play className="w-4 h-4" /> :
+               <Clock className="w-4 h-4" />}
+              {isLive ? 'LIVE' : cycle.status.toUpperCase()}
+            </span>
+          </div>
+          
+          {/* Music Toggle */}
+          <MusicToggle className="w-10 h-10" />
+          
+          {/* Share button */}
+          <button
+            onClick={() => { play('click'); buttonClick(); setShowShareModal(true); }}
+            className="w-10 h-10 rounded-xl bg-muted/80 flex items-center justify-center"
+          >
+            <Share2 className="w-5 h-5 text-foreground" />
+          </button>
+          
+          {/* Fullscreen toggle for mobile */}
+          {isMobile && (
+            <button
+              onClick={toggleFullscreen}
+              className="w-10 h-10 rounded-xl bg-muted/80 flex items-center justify-center"
+            >
+              {isFullscreen ? (
+                <Minimize className="w-5 h-5 text-foreground" />
+              ) : (
+                <Maximize className="w-5 h-5 text-foreground" />
+              )}
+            </button>
+          )}
+        </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden px-3">
-        {/* Dual Timer Display */}
+        {/* Game Title & Prize - Compact */}
+        <div className="px-4 pb-2 text-center">
+          <h1 className="text-lg font-black text-foreground flex items-center justify-center gap-2">
+            <Crown className="w-5 h-5 text-gold" />
+            {cycle.template_name}
+          </h1>
+          <p className="text-2xl font-black text-gold">
+            {formatMoney(effectivePrizePool)}
+          </p>
+        </div>
+
+        {/* Compact Host Banner */}
         {isLive && (
-          <DualTimerDisplay
-            commentTimer={displayCountdown}
-            gameTimeRemaining={gameTimeRemaining}
-            isTimerPaused={isTimerPaused}
-            hasComments={comments.length > 0}
-          />
+          <div className="px-4 pb-2">
+            <CompactHostBanner isLive={isLive} isSpeaking={hostIsSpeaking} />
+          </div>
         )}
 
-        {/* Minimal Leaderboard */}
+        {/* Stats Bar */}
+        <div className="px-4 pb-3 grid grid-cols-3 gap-2">
+          <div className="text-center py-2 rounded-xl bg-muted/50 backdrop-blur-sm">
+            <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
+              <Users className="w-3 h-3" /> Players
+            </p>
+            <p className="text-lg font-bold text-foreground">{displayParticipantCount}</p>
+          </div>
+          
+          {isLive && (
+            <>
+              <div className="text-center py-2 rounded-xl bg-muted/50 backdrop-blur-sm">
+                <p className="text-[10px] text-muted-foreground uppercase flex items-center justify-center gap-1">
+                  <MessageCircle className="w-3 h-3" /> Comments
+                </p>
+                <p className="text-lg font-bold text-foreground">{comments.length}</p>
+              </div>
+              <div className={`text-center py-2 rounded-xl transition-all ${
+                gameTimeRemaining <= 60 
+                  ? 'bg-gradient-to-r from-orange-500/30 to-red-500/30 border-2 border-orange-500/50 animate-pulse' 
+                  : 'bg-muted/50'
+              } backdrop-blur-sm`}>
+                <p className={`text-[10px] uppercase flex items-center justify-center gap-1 ${
+                  gameTimeRemaining <= 60 ? 'text-orange-400 font-bold' : 'text-muted-foreground'
+                }`}>
+                  <Hourglass className={`w-3 h-3 ${gameTimeRemaining <= 60 ? 'text-orange-400 animate-bounce' : ''}`} /> 
+                  {gameTimeRemaining <= 60 ? 'ENDING SOON!' : 'Game Ends'}
+                </p>
+                <p className={`text-lg font-bold ${
+                  gameTimeRemaining <= 60 
+                    ? gameTimeRemaining <= 10 
+                      ? 'text-red-500 animate-pulse text-xl' 
+                      : 'text-orange-400' 
+                    : 'text-foreground'
+                }`}>
+                  {formatTime(gameTimeRemaining)}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content - Scrollable */}
+      <div className="flex-1 flex flex-col overflow-hidden px-4">
+        {/* Comment Reset Timer - Clean Minimal */}
         {isLive && (
-          <MinimalLeaderboard
-            leaders={orderedCommenters.map(c => ({ id: c.id || c.user_id, user_id: c.user_id, username: c.username || 'Player', avatar: c.avatar || '🎮' }))}
-            currentUserId={user?.id}
-            prizeDistribution={cycle.prize_distribution}
-            effectivePrizePool={effectivePrizePool}
-            winnerCount={cycle.winner_count}
-            isLeaderChanging={leaderChanged}
-          />
+          <div className={`mb-4 rounded-2xl overflow-hidden transition-all duration-300 ${
+            isCountdownCritical ? 'ring-2 ring-destructive/50' : ''
+          }`}>
+            <div className={`px-5 py-4 ${
+              isCountdownCritical 
+                ? 'bg-destructive/10' 
+                : 'bg-muted/40'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    isCountdownCritical 
+                      ? 'bg-destructive/20 text-destructive' 
+                      : 'bg-primary/10 text-primary'
+                  }`}>
+                    <Timer className={`w-5 h-5 ${isCountdownCritical ? 'animate-pulse' : ''}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {comments.length === 0 ? 'Waiting for first comment' : 'Comment to reset'}
+                    </p>
+                    <p className={`text-2xl font-bold tabular-nums tracking-tight ${
+                      comments.length === 0 ? 'text-primary animate-pulse' :
+                      isCountdownCritical ? 'text-destructive' : 'text-foreground'
+                    }`}>
+                      {comments.length === 0 ? 'PAUSED' : formatTime(displayCountdown)}
+                    </p>
+                  </div>
+                </div>
+                
+                {isCountdownCritical && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/20 rounded-full">
+                    <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+                    <span className="text-xs font-semibold text-destructive uppercase tracking-wide">
+                      Hurry!
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
-        {/* Compact Voice Room */}
+        {/* Leaders Section - Podium Layout (2nd, 1st, 3rd) */}
+        {isLive && orderedCommenters.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Leaders</h3>
+              <span className="text-[10px] text-muted-foreground">
+                Top {Math.min(orderedCommenters.length, cycle.winner_count)} win
+              </span>
+            </div>
+            
+            {/* Podium order: 2nd, 1st, 3rd - with 1st elevated */}
+            <div className="flex gap-2 items-end">
+              {(() => {
+                const topCommenters = orderedCommenters.slice(0, Math.min(3, cycle.winner_count));
+                // Reorder to podium layout: [2nd, 1st, 3rd] for display
+                const podiumOrder = topCommenters.length >= 2 
+                  ? [topCommenters[1], topCommenters[0], topCommenters[2]].filter(Boolean)
+                  : topCommenters;
+                
+                return podiumOrder.map((c, displayIdx) => {
+                  // Get actual position (1st, 2nd, 3rd)
+                  const actualPosition = topCommenters.indexOf(c);
+                  const prizePercent = cycle.prize_distribution[actualPosition] || 0;
+                  const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (prizePercent / 100));
+                  const isCurrentUser = c.id === user?.id;
+                  const isLeader = actualPosition === 0;
+                  
+                  // 1st place (center) is elevated
+                  const isCenter = displayIdx === 1 && topCommenters.length >= 2;
+                  
+                  return (
+                    <div 
+                      key={c.user_id} 
+                      className={`flex-1 flex flex-col items-center p-3 rounded-xl transition-all duration-300 ${
+                        isLeader 
+                          ? `bg-gold/10 border border-gold/30 ${leaderChanged ? 'animate-scale-in' : ''}` 
+                          : 'bg-muted/30 border border-border/50'
+                      } ${isCurrentUser ? 'ring-2 ring-primary/40' : ''} ${
+                        isCenter ? 'pb-5 -mt-2' : ''
+                      }`}
+                    >
+                      {/* Position Badge */}
+                      <span className={`mb-1 ${isCenter ? 'text-2xl' : 'text-lg'}`}>
+                        {actualPosition === 0 ? '🥇' : actualPosition === 1 ? '🥈' : '🥉'}
+                      </span>
+                      
+                      {/* Avatar */}
+                      <span className={`mb-1 ${isCenter ? 'text-3xl' : 'text-2xl'} ${isLeader && leaderChanged ? 'animate-bounce' : ''}`}>
+                        {c.avatar}
+                      </span>
+                      
+                      {/* Name */}
+                      <p className={`text-xs font-semibold truncate max-w-full text-center ${
+                        isLeader ? 'text-gold' : 'text-foreground'
+                      }`}>
+                        {c.username}
+                      </p>
+                      
+                      {isCurrentUser && (
+                        <span className="text-[9px] text-primary font-medium">You</span>
+                      )}
+                      
+                      {/* Prize */}
+                      <p className={`text-xs font-bold mt-1 ${isLeader ? 'text-gold' : 'text-foreground'}`}>
+                        {formatMoney(prizeAmount)}
+                      </p>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* Voice Room */}
         {isLive && cycleId && (
-          <div className="mb-2">
-            <CompactVoiceRoom 
+          <div className="mb-3">
+            <VoiceRoomLive 
               gameId={cycleId} 
-              isHostSpeaking={hostIsSpeaking}
               simulatedParticipants={voiceParticipantsToPass.length > 0 ? voiceParticipantsToPass : undefined}
             />
           </div>
         )}
 
-        {/* IG-Style Comments */}
-        <IGStyleComments
-          comments={comments.map(c => ({ id: c.id, user_id: c.user_id, username: c.username || 'Player', avatar: c.avatar || '🎮', content: c.content, server_timestamp: c.server_timestamp }))}
-          currentUserId={user?.id}
-          leaderIds={leaderIds}
-          winnerCount={cycle.winner_count}
-          isLive={!!isLive}
-          canComment={canComment}
-          commentText={commentText}
-          onCommentChange={setCommentText}
-          onSendComment={handleSendComment}
-          sending={sending}
-          isCountdownCritical={isCountdownCritical}
-          isTimerPaused={isTimerPaused}
-        />
+        {/* Comments Feed - Scrolls behind input */}
+        <div className="flex-1 flex flex-col min-h-0 relative">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-bold text-foreground flex items-center gap-2">
+              <MessageCircle className="w-4 h-4" />
+              Live Comments
+            </span>
+            {comments.length > 0 && (
+              <span className="text-xs text-muted-foreground">{comments.length} messages</span>
+            )}
+          </div>
+          
+          {/* Comments container with gradient fade at bottom */}
+          <div className="relative flex-1 min-h-0">
+            <div 
+              ref={commentsContainerRef}
+              className="absolute inset-0 overflow-y-auto space-y-2 rounded-xl bg-muted/20 p-3 pb-16"
+            >
+              {comments.length === 0 ? (
+                <div className="text-center py-8">
+                  <MessageCircle className="w-10 h-10 text-muted-foreground/50 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    {isLive ? 'Be the first to comment!' : 'Comments appear when live'}
+                  </p>
+                </div>
+              ) : (
+                comments.map((comment, idx) => {
+                  const isTopCommenter = orderedCommenters.findIndex(c => c.user_id === comment.user_id) < cycle.winner_count;
+                  
+                  return (
+                    <div 
+                      key={comment.id} 
+                      className={`flex gap-2 p-2 rounded-lg transition-all ${
+                        comment.user_id === user?.id 
+                          ? 'bg-primary/15 border border-primary/30' 
+                          : isTopCommenter 
+                            ? 'bg-gold/10 border border-gold/20'
+                            : 'bg-muted/50'
+                      } ${idx === 0 ? 'animate-fade-in' : ''}`}
+                    >
+                      <div className="text-xl flex-shrink-0">{comment.avatar}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-foreground">{comment.username}</span>
+                          {isTopCommenter && <Award className="w-3 h-3 text-gold" />}
+                          <span className="text-[9px] text-muted-foreground ml-auto">
+                            {new Date(comment.server_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-foreground break-words">{comment.content}</p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            
+            {/* Gradient fade overlay at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent pointer-events-none rounded-b-xl" />
+          </div>
+        </div>
       </div>
 
-      {/* Action Area - for non-participants */}
-      <div className="sticky bottom-0 z-10 bg-background px-3 pb-4 space-y-2">
+      {/* Action Area - Fixed Bottom with comments scrolling behind */}
+      <div className="sticky bottom-0 z-10 bg-background pt-2 px-4 pb-4 space-y-3">
+        {/* Not joined yet */}
         {!participation.isParticipant && (
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             {cycle.status === 'opening' && (
               <button
                 onClick={() => handleJoin(false)}
                 disabled={joining}
-                className="flex-1 btn-primary py-3 text-base font-bold flex items-center justify-center gap-2"
+                className="flex-1 btn-primary py-4 text-lg font-bold flex items-center justify-center gap-2"
               >
                 {joining ? (
-                  <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  <div className="w-6 h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                 ) : (
                   <>
-                    <Zap className="w-5 h-5" />
-                    Enter • {cycle.entry_fee > 0 ? formatMoney(cycle.entry_fee) : 'FREE'}
+                    <Zap className="w-6 h-6" />
+                    Enter Game • {cycle.entry_fee > 0 ? formatMoney(cycle.entry_fee) : 'FREE'}
                   </>
                 )}
               </button>
@@ -630,61 +858,101 @@ export const CycleArena = () => {
               <button
                 onClick={() => handleJoin(true)}
                 disabled={joining}
-                className="flex-1 py-3 px-4 rounded-xl bg-muted text-foreground font-medium flex items-center justify-center gap-2"
+                className="flex-1 py-4 px-4 rounded-xl bg-muted text-foreground font-medium flex items-center justify-center gap-2"
               >
-                <Eye className="w-4 h-4" />
-                Watch
+                <Eye className="w-5 h-5" />
+                Watch Live
               </button>
             )}
             
             {isLive && !cycle.allow_spectators && (
-              <div className="flex-1 py-3 px-4 rounded-xl bg-destructive/10 border border-destructive/20 text-center">
-                <p className="text-sm text-destructive">Entry closed</p>
+              <div className="flex-1 py-4 px-4 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
+                <p className="text-sm text-red-400">Entry closed • Game in progress</p>
               </div>
             )}
           </div>
         )}
 
+        {/* Joined - Comment input */}
+        {canComment && (
+          <div className="flex gap-3">
+            <input
+              ref={inputRef}
+              type="text"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
+              placeholder={isCountdownCritical ? "🔥 QUICK! Type to survive!" : "Type to stay alive..."}
+              className={`flex-1 px-4 py-4 rounded-xl bg-muted border-2 focus:outline-none text-foreground text-lg ${
+                isCountdownCritical 
+                  ? 'border-red-500 focus:border-red-400 placeholder:text-red-400/70' 
+                  : 'border-border focus:border-primary'
+              }`}
+              maxLength={200}
+              autoFocus
+            />
+            <button
+              onClick={handleSendComment}
+              disabled={sending || !commentText.trim()}
+              className={`w-14 h-14 rounded-xl flex items-center justify-center disabled:opacity-50 transition-all ${
+                isCountdownCritical 
+                  ? 'bg-red-500 text-white' 
+                  : 'bg-primary text-primary-foreground'
+              }`}
+            >
+              {sending ? (
+                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Send className="w-6 h-6" />
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Spectator notice */}
         {participation.isSpectator && (
-          <div className="flex items-center justify-center gap-2 py-2 text-muted-foreground bg-muted/50 rounded-xl">
-            <Eye className="w-4 h-4" />
+          <div className="flex items-center justify-center gap-2 py-3 text-muted-foreground bg-muted/50 rounded-xl">
+            <Eye className="w-5 h-5" />
             <span className="text-sm">Watching as spectator</span>
           </div>
         )}
 
+        {/* Participant but game not live yet */}
         {participation.isParticipant && !participation.isSpectator && !isLive && (
-          <div className="flex items-center justify-center gap-2 py-3 bg-green-500/10 border border-green-500/20 rounded-xl">
-            <Sparkles className="w-4 h-4 text-green-400 animate-pulse" />
-            <span className="text-sm text-green-400 font-medium">You're in! Waiting for game...</span>
+          <div className="flex items-center justify-center gap-2 py-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+            <Sparkles className="w-5 h-5 text-green-400 animate-pulse" />
+            <span className="text-sm text-green-400 font-medium">You're in! Waiting for game to start...</span>
           </div>
         )}
       </div>
 
-      {/* Leave Game Warning */}
+      {/* Leave Game Warning Dialog */}
       <AlertDialog open={showLeaveWarning} onOpenChange={setShowLeaveWarning}>
         <AlertDialogContent position="top" className="max-w-[90vw] rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+            <AlertDialogTitle className="flex items-center gap-2 text-red-400">
               <AlertTriangle className="w-5 h-5" />
               Leave Live Game?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
-              You are in a <strong className="text-foreground">LIVE game</strong>. Leaving could cost you your position. Entry fee is non-refundable.
+              You are currently in a <strong className="text-foreground">LIVE game</strong>. If you leave now, 
+              you will stop receiving comments and could lose your position in the leaderboard.
+              Your entry fee is non-refundable.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel className="rounded-xl">Stay</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-xl">Stay in Game</AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => navigate('/arena')}
-              className="bg-destructive hover:bg-destructive/90 rounded-xl"
+              className="bg-red-500 hover:bg-red-600 rounded-xl"
             >
-              Leave
+              Leave Anyway
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Share Modal */}
+      {/* Game Share Modal */}
       {cycle && (
         <GameShareModal
           open={showShareModal}

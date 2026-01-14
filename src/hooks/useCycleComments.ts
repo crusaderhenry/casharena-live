@@ -10,7 +10,6 @@ export interface CycleComment {
   server_timestamp: string;
   username?: string;
   avatar?: string;
-  user_type?: string;
 }
 
 export const useCycleComments = (cycleId: string | null) => {
@@ -36,11 +35,11 @@ export const useCycleComments = (cycleId: string | null) => {
         return;
       }
 
-      // Fetch profiles for all commenters (including user_type for filtering)
+      // Fetch profiles for all commenters
       const userIds = [...new Set((data || []).map(c => c.user_id))];
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, username, avatar, user_type')
+        .select('id, username, avatar')
         .in('id', userIds);
 
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
@@ -49,7 +48,6 @@ export const useCycleComments = (cycleId: string | null) => {
         ...c,
         username: profileMap.get(c.user_id)?.username || 'Unknown',
         avatar: profileMap.get(c.user_id)?.avatar || '🎮',
-        user_type: profileMap.get(c.user_id)?.user_type || 'user',
       }));
 
       setComments(enrichedComments);
@@ -75,10 +73,10 @@ export const useCycleComments = (cycleId: string | null) => {
         async (payload) => {
           const newComment = payload.new as any;
           
-        // Fetch profile for the new commenter (including user_type)
+          // Fetch profile for the new commenter
           const { data: profile } = await supabase
             .from('profiles')
-            .select('username, avatar, user_type')
+            .select('username, avatar')
             .eq('id', newComment.user_id)
             .single();
 
@@ -86,7 +84,6 @@ export const useCycleComments = (cycleId: string | null) => {
             ...newComment,
             username: profile?.username || 'Unknown',
             avatar: profile?.avatar || '🎮',
-            user_type: profile?.user_type || 'user',
           };
 
           setComments(prev => [enrichedComment, ...prev].slice(0, 100));

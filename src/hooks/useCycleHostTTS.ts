@@ -86,21 +86,6 @@ const COMMENT_PHRASES = {
     (name: string) => `${name} has entered the battle! Let's see what you've got!`,
     (name: string) => `Good luck ${name}! May the fastest finger win!`,
   ],
-  gameIntro: [
-    (prize: string, duration: string, winnerCount: number, dist: string) =>
-      `Welcome to the Royal Rumble! ${prize} is up for grabs! ${winnerCount} winner${winnerCount > 1 ? 's' : ''} will share the prize! ${dist} You have ${duration} maximum, but the timer resets with every comment! Last person standing wins!`,
-    (prize: string, duration: string, winnerCount: number) =>
-      `The arena is LIVE! ${prize} on the line! ${winnerCount} champion${winnerCount > 1 ? 's' : ''} will walk away richer! The clock runs for ${duration}! Keep typing to reset the timer!`,
-    (prize: string, duration: string, winnerCount: number) =>
-      `Game time everybody! ${prize} prize pool! Top ${winnerCount} player${winnerCount > 1 ? 's take' : ' takes'} home the cash! You've got ${duration}! The last person to comment before time runs out WINS!`,
-    (prize: string, duration: string, winnerCount: number, dist: string) =>
-      `Welcome warriors! ${prize} is waiting for ${winnerCount} lucky winner${winnerCount > 1 ? 's' : ''}! ${dist} Game runs for ${duration}! Be the last one typing!`,
-  ],
-  noWinner: [
-    () => `Game over! Unfortunately, there were no real winners this round. Better luck next time!`,
-    () => `And that's a wrap! No winners emerged from this battle. The prize goes unclaimed!`,
-    () => `Game ended with no winner! Everyone gets their entry back. See you in the next round!`,
-  ],
 };
 
 // Co-host banter phrases for natural interactions - MORE ENERGY!
@@ -382,10 +367,9 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     addCoHostBanter('excitement');
   }, [audioSettings.hostMuted, speakText, addCoHostBanter]);
 
-  // Announce timer warnings with tension - SKIP if timer is paused
-  const announceTimerWarning = useCallback((seconds: number, leaderName: string | null, isTimerPaused?: boolean) => {
-    // Skip timer warnings if host is muted OR timer is paused (no comments yet)
-    if (audioSettings.hostMuted || isTimerPaused) return;
+  // Announce timer warnings with tension
+  const announceTimerWarning = useCallback((seconds: number, leaderName: string | null) => {
+    if (audioSettings.hostMuted) return;
 
     let phrase = '';
     if (seconds === 30) {
@@ -404,15 +388,8 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
   }, [audioSettings.hostMuted, speakText, addCoHostBanter]);
 
   // Announce game over with dramatic flair
-  const announceGameOver = useCallback((winnerName: string | null, prizeAmount: number) => {
+  const announceGameOver = useCallback((winnerName: string, prizeAmount: number) => {
     if (audioSettings.hostMuted) return;
-
-    // Handle no winner case
-    if (!winnerName) {
-      const phrase = getRandomPhrase(COMMENT_PHRASES.noWinner);
-      speakText(phrase);
-      return;
-    }
 
     const formattedPrize = prizeAmount >= 1000 
       ? `${Math.floor(prizeAmount / 1000)} thousand naira`
@@ -431,50 +408,6 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
         ];
         queueMessage(celebrationPhrases[Math.floor(Math.random() * celebrationPhrases.length)], true);
       }, 2000);
-    }
-  }, [audioSettings.hostMuted, speakText, isCoHostMode, coHost, queueMessage]);
-
-  // Announce game intro with prize, duration, winners, and distribution
-  const announceGameIntro = useCallback((
-    prizePool: number,
-    gameDurationMinutes: number,
-    winnerCount: number,
-    prizeDistribution: number[]
-  ) => {
-    if (audioSettings.hostMuted) return;
-    
-    const formattedPrize = prizePool >= 1000 
-      ? `${Math.floor(prizePool / 1000)} thousand naira`
-      : `${prizePool} naira`;
-    
-    const duration = gameDurationMinutes >= 60 
-      ? `${Math.floor(gameDurationMinutes / 60)} hour${gameDurationMinutes >= 120 ? 's' : ''}`
-      : `${gameDurationMinutes} minute${gameDurationMinutes > 1 ? 's' : ''}`;
-    
-    // Build prize distribution string for multi-winner
-    let distString = '';
-    if (winnerCount > 1 && prizeDistribution.length > 0) {
-      const positions = ['First', 'Second', 'Third'];
-      distString = prizeDistribution.slice(0, winnerCount)
-        .map((p, i) => `${positions[i] || `${i+1}th`} place gets ${p}%`)
-        .join(', ') + '.';
-    }
-    
-    const phraseIndex = Math.floor(Math.random() * COMMENT_PHRASES.gameIntro.length);
-    const phrase = COMMENT_PHRASES.gameIntro[phraseIndex](formattedPrize, duration, winnerCount, distString);
-    speakText(phrase);
-    
-    // Co-host excitement
-    if (isCoHostMode && coHost) {
-      setTimeout(() => {
-        const intros = [
-          `I'm so hyped for this one!`,
-          `This is going to be EPIC!`,
-          `May the fastest finger win!`,
-          `Let's see who wants it more!`,
-        ];
-        queueMessage(intros[Math.floor(Math.random() * intros.length)], true);
-      }, 3000);
     }
   }, [audioSettings.hostMuted, speakText, isCoHostMode, coHost, queueMessage]);
 
@@ -513,7 +446,6 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     announceGameOver,
     announceWelcome,
     announcePeriodicHype,
-    announceGameIntro,
     addCoHostBanter,
     stopSpeaking: useCallback(() => {
       if (audioRef.current) {

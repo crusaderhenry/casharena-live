@@ -15,7 +15,6 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { PushNotificationBanner } from "@/components/PushNotificationBanner";
 import { GlobalConfetti } from "@/components/GlobalConfetti";
 import { GlobalSoundPlayer } from "@/components/GlobalSoundPlayer";
-import { FloatingGameReturn } from "@/components/FloatingGameReturn";
 
 // Eagerly loaded - core pages
 import { AuthPage } from "@/pages/AuthPage";
@@ -269,7 +268,6 @@ const App = () => {
                     <TestModeBanner />
                     <PWAInstallPrompt />
                     <PushNotificationBanner />
-                    <FloatingGameReturn />
                     <AppRoutes />
                   </BrowserRouter>
                 </NotificationProvider>

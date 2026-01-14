@@ -46,8 +46,6 @@ interface GameCycle {
   mock_users_enabled: boolean;
   mock_users_min: number;
   mock_users_max: number;
-  entry_fee: number;
-  sponsored_prize_amount: number;
 }
 
 // Helper function to send push notifications
@@ -76,32 +74,6 @@ async function sendPushNotification(supabase: any, payload: {
     return result;
   } catch (error) {
     console.error('[push] Failed to send notification:', error);
-  }
-}
-
-// Helper function to notify spectators about game cancellation
-async function notifySpectators(supabase: any, cycleId: string, minRequired: number, actualCount: number) {
-  try {
-    const { data: spectators } = await supabase
-      .from('cycle_participants')
-      .select('user_id')
-      .eq('cycle_id', cycleId)
-      .eq('is_spectator', true);
-    
-    if (spectators && spectators.length > 0) {
-      const spectatorIds = spectators.map((s: any) => s.user_id);
-      await sendPushNotification(supabase, {
-        user_ids: spectatorIds,
-        payload: {
-          title: '⚠️ Game Cancelled',
-          body: `Game cancelled - needed at least ${minRequired} players to start (only ${actualCount} joined).`,
-          tag: `game-cancelled-spectator-${cycleId}`,
-        }
-      });
-      console.log(`[notify] Notified ${spectatorIds.length} spectators about cancellation`);
-    }
-  } catch (error) {
-    console.error('[notify] Failed to notify spectators:', error);
   }
 }
 
@@ -218,56 +190,12 @@ async function processStateTransition(supabase: any, cycle: GameCycle, now: Date
 
     case 'opening':
       if (nowTime >= liveStartAt) {
-        // Get real (non-mock, non-spectator) participant count
-        const { data: participants } = await supabase
-          .from('cycle_participants')
-          .select('user_id')
-          .eq('cycle_id', cycle.id)
-          .eq('is_spectator', false);
-
-        // Fetch profiles to filter mock users
-        const participantIds = (participants || []).map((p: any) => p.user_id);
-        let realPlayersCount = 0;
-        
-        if (participantIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, user_type')
-            .in('id', participantIds);
-          
-          realPlayersCount = (profiles || []).filter((p: any) => p.user_type !== 'mock').length;
-        }
-        
-        // Minimum requirement: MAX(2, winner_count) for competitive gameplay
-        const minRequired = Math.max(2, cycle.winner_count);
-        
-        console.log(`[transition] Cycle ${cycle.id}: Real players: ${realPlayersCount}, Min required: ${minRequired}`);
-        
-        if (realPlayersCount < minRequired) {
+        // Check min participants
+        if (cycle.participant_count < cycle.min_participants) {
           newStatus = 'cancelled';
-          console.log(`[transition] Cycle ${cycle.id}: opening -> cancelled (need ${minRequired} real players, got ${realPlayersCount})`);
-          
-          // Determine if paid game - refund only paid entries
-          const isPaidGame = cycle.entry_fee > 0;
-          
-          if (isPaidGame) {
-            await refundCycleParticipants(supabase, cycle.id, 'insufficient_players');
-          }
-          
-          // Notify all spectators about cancellation
-          await notifySpectators(supabase, cycle.id, minRequired, realPlayersCount);
-          
-          // Notify participants (free games get notification only, paid games already notified via refund)
-          if (!isPaidGame && participantIds.length > 0) {
-            await sendPushNotification(supabase, {
-              user_ids: participantIds,
-              payload: {
-                title: '⚠️ Game Cancelled',
-                body: `Game cancelled - needed at least ${minRequired} players to start (only ${realPlayersCount} joined).`,
-                tag: `game-cancelled-${cycle.id}`,
-              }
-            });
-          }
+          console.log(`[transition] Cycle ${cycle.id}: opening -> cancelled (min participants not met: ${cycle.participant_count}/${cycle.min_participants})`);
+          // Refund participants
+          await refundCycleParticipants(supabase, cycle.id);
         } else {
           newStatus = 'live';
           updates.countdown = cycle.comment_timer;
@@ -566,27 +494,6 @@ async function settleCycle(supabase: any, cycleId: string) {
   // Get real winners only
   const realWinners = orderedCommenters.filter(id => realUsers.has(id));
 
-  // Handle NO WINNER scenario - refund all participants
-  if (realWinners.length === 0) {
-    console.log(`[settle] No real winners for cycle ${cycleId} - initiating refunds`);
-    await refundCycleParticipants(supabase, cycleId, 'no_winner');
-    
-    // Mark cycle as cancelled with reason
-    await supabase
-      .from('game_cycles')
-      .update({
-        status: 'cancelled',
-        settled_at: new Date().toISOString(),
-        settlement_data: { cancelled_reason: 'no_winner', refunded: true },
-      })
-      .eq('id', cycleId);
-
-    return new Response(
-      JSON.stringify({ success: true, cancelled: true, reason: 'no_winner' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
   // Calculate prize pool
   const totalPool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
   const platformCut = Math.floor(totalPool * (cycle.platform_cut_percentage / 100));
@@ -719,7 +626,7 @@ async function settleCycle(supabase: any, cycleId: string) {
 }
 
 // Refund all participants in a cancelled cycle
-async function refundCycleParticipants(supabase: any, cycleId: string, reason: string = 'cancelled') {
+async function refundCycleParticipants(supabase: any, cycleId: string) {
   const { data: cycle } = await supabase
     .from('game_cycles')
     .select('entry_fee, template_id')
@@ -757,29 +664,12 @@ async function refundCycleParticipants(supabase: any, cycleId: string, reason: s
         .update({ wallet_balance: profile.wallet_balance + cycle.entry_fee })
         .eq('id', p.user_id);
 
-      // Record refund transaction with reason
-      const refundDescription = reason === 'no_winner' 
-        ? 'Royal Rumble - No Winner (Refund)'
-        : 'Royal Rumble Cancelled - Refund';
-        
+      // Record refund transaction
       await supabase.from('wallet_transactions').insert({
         user_id: p.user_id,
         type: 'refund',
         amount: cycle.entry_fee,
-        description: refundDescription,
-      });
-      
-      // Send push notification for refund
-      await sendPushNotification(supabase, {
-        user_ids: [p.user_id],
-        payload: {
-          title: reason === 'no_winner' ? '🎮 Game Ended - No Winner' : '🎮 Game Cancelled',
-          body: reason === 'no_winner' 
-            ? `The game ended with no winner. Your ₦${cycle.entry_fee.toLocaleString()} entry fee has been refunded.`
-            : `The game was cancelled. Your ₦${cycle.entry_fee.toLocaleString()} entry fee has been refunded.`,
-          tag: `refund-${cycleId}-${p.user_id}`,
-          data: { url: '/wallet' },
-        }
+        description: 'Royal Rumble Cancelled - Refund',
       });
 
       // Send game cancelled email (only to real users)
