@@ -454,10 +454,34 @@ export const CycleLobby = () => {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="bg-background/50 rounded-xl p-3">
-                <Users className="w-5 h-5 text-primary mx-auto mb-1" />
-                <p className="text-lg font-bold text-foreground">{cycle.participant_count}</p>
+              {/* Player Count with Required Badge */}
+              <div className={`relative bg-background/50 rounded-xl p-3 ${
+                cycle.participant_count < cycle.min_participants 
+                  ? 'ring-1 ring-orange-400/50' 
+                  : cycle.participant_count >= cycle.min_participants 
+                    ? 'ring-1 ring-green-400/50' 
+                    : ''
+              }`}>
+                <Users className={`w-5 h-5 mx-auto mb-1 ${
+                  cycle.participant_count < cycle.min_participants 
+                    ? 'text-orange-400' 
+                    : 'text-green-400'
+                }`} />
+                <p className="text-lg font-bold text-foreground">
+                  {cycle.participant_count}
+                  <span className="text-xs text-muted-foreground font-normal">/{cycle.min_participants}</span>
+                </p>
                 <p className="text-[10px] text-muted-foreground">Players</p>
+                {/* Status Badge */}
+                {cycle.participant_count >= cycle.min_participants ? (
+                  <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-green-500 text-[8px] font-bold text-white rounded-full shadow-sm">
+                    ✓
+                  </span>
+                ) : (
+                  <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-orange-500 text-[8px] font-bold text-white rounded-full shadow-sm animate-pulse">
+                    {cycle.min_participants - cycle.participant_count}+
+                  </span>
+                )}
               </div>
               <div className="bg-background/50 rounded-xl p-3">
                 <Trophy className="w-5 h-5 text-gold mx-auto mb-1" />
