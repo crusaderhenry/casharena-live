@@ -218,15 +218,30 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
         setStats(prev => ({ ...prev, totalUserBalances }));
       }
 
-      // Fetch game cycles with template info
-      const { data: cyclesData } = await supabase
+      // Fetch active game cycles with template info
+      const { data: activeCyclesData } = await supabase
         .from('game_cycles')
         .select(`
           *,
           game_templates!inner(name, game_type)
         `)
+        .in('status', ['waiting', 'opening', 'live', 'ending'])
         .order('created_at', { ascending: false })
         .limit(50);
+
+      // Fetch cancelled/settled games separately with higher limit
+      const { data: historyCyclesData } = await supabase
+        .from('game_cycles')
+        .select(`
+          *,
+          game_templates!inner(name, game_type)
+        `)
+        .in('status', ['cancelled', 'settled', 'ended'])
+        .order('created_at', { ascending: false })
+        .limit(500);
+
+      // Combine the data
+      const cyclesData = [...(activeCyclesData || []), ...(historyCyclesData || [])];
 
       if (cyclesData) {
         const mappedGames: AdminGame[] = cyclesData.map(c => ({

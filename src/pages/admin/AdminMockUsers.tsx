@@ -515,6 +515,17 @@ export const AdminMockUsers = () => {
             </p>
           </div>
         )}
+        
+        {/* Sync Status Indicator */}
+        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <div className={`w-2 h-2 rounded-full ${settings?.enabled ? 'bg-green-500' : 'bg-muted-foreground'}`} />
+            Backend sync: {settings?.enabled ? 'Active' : 'Paused'}
+          </span>
+          <span>
+            Last refreshed: {new Date().toLocaleTimeString()}
+          </span>
+        </div>
       </div>
 
       {/* Settings Grid */}

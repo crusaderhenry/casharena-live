@@ -218,12 +218,18 @@ export const AdminRumbleControl = () => {
   const handleSaveTemplate = async () => {
     if (!editingTemplateId) return;
     
+    // Find the template to enforce min_participants >= winner_count
+    const template = templates.find(t => t.id === editingTemplateId);
+    const minRequired = Math.max(template?.winner_count || 2, 2);
+    
     const { error } = await supabase
       .from('game_templates')
       .update({
         mock_users_enabled: templateFormData.mockUsersEnabled,
         mock_users_min: templateFormData.mockUsersMin,
         mock_users_max: templateFormData.mockUsersMax,
+        // Enforce min_participants rule
+        min_participants: Math.max(template?.min_participants || minRequired, minRequired),
       })
       .eq('id', editingTemplateId);
     
@@ -235,6 +241,7 @@ export const AdminRumbleControl = () => {
               mock_users_enabled: templateFormData.mockUsersEnabled,
               mock_users_min: templateFormData.mockUsersMin,
               mock_users_max: templateFormData.mockUsersMax,
+              min_participants: Math.max(t.min_participants, minRequired),
             } 
           : t
       ));
@@ -450,6 +457,26 @@ export const AdminRumbleControl = () => {
     await deleteGame(deleteGameId);
     setShowDeleteDialog(false);
     setDeleteGameId(null);
+  };
+
+  // Bulk delete all cancelled games
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  
+  const handleBulkDeleteCancelled = async () => {
+    if (!confirm(`Delete all ${cancelledGames.length} cancelled games? This cannot be undone.`)) return;
+    
+    setBulkDeleting(true);
+    try {
+      // Delete games one by one (each calls the deleteGame which cleans up related data)
+      for (const game of cancelledGames) {
+        await deleteGame(game.id);
+      }
+      refreshData();
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+    } finally {
+      setBulkDeleting(false);
+    }
   };
 
   // Handle edit game
@@ -1602,10 +1629,24 @@ export const AdminRumbleControl = () => {
       {/* Cancelled Games (Delete) */}
       {cancelledGames.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <XCircle className="w-5 h-5 text-destructive" />
-            Cancelled Games ({cancelledGames.length})
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-destructive" />
+              Cancelled Games ({cancelledGames.length})
+            </h2>
+            <button
+              onClick={handleBulkDeleteCancelled}
+              disabled={bulkDeleting}
+              className="flex items-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50"
+            >
+              {bulkDeleting ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+              Delete All {cancelledGames.length}
+            </button>
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {cancelledGames.map((game) => (
