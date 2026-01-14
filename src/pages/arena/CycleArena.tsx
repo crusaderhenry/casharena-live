@@ -107,6 +107,7 @@ export const CycleArena = () => {
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
   const gameEndTriggeredRef = useRef(false);
+  const gameEndNudgedRef = useRef(false);
   
   const comments = isDemoMode ? simulatedComments : realComments;
   const getOrderedCommenters = isDemoMode ? getSimOrderedCommenters : getRealOrderedCommenters;
@@ -284,6 +285,15 @@ export const CycleArena = () => {
         
         if (serverSyncedGameTime <= 0) {
           setLocalCountdown(0);
+          
+          // Proactive backend nudge when game time expires
+          if (!gameEndNudgedRef.current) {
+            gameEndNudgedRef.current = true;
+            supabase.functions.invoke('cycle-status-check', {
+              body: { cycle_id: cycleId, force_transition: true }
+            }).catch(() => {});
+          }
+          
           triggerGameEnd();
           return;
         }
@@ -302,7 +312,7 @@ export const CycleArena = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [cycle, comments.length, getOrderedCommenters, play, announceGameOver, showGameEndFreeze, secondsUntil]);
+  }, [cycle, cycleId, comments.length, getOrderedCommenters, play, announceGameOver, showGameEndFreeze, secondsUntil]);
 
   // Timer warning announcements - skip if timer is paused
   useEffect(() => {
@@ -514,7 +524,7 @@ export const CycleArena = () => {
         )}
 
         {/* Minimal Leaderboard */}
-        {isLive && orderedCommenters.length > 0 && (
+        {isLive && (
           <MinimalLeaderboard
             leaders={orderedCommenters.map(c => ({ id: c.id || c.user_id, user_id: c.user_id, username: c.username || 'Player', avatar: c.avatar || '🎮' }))}
             currentUserId={user?.id}
