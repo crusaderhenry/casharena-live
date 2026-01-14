@@ -25,10 +25,15 @@ import { Switch } from '@/components/ui/switch';
 import { MusicUploader } from '@/components/admin/MusicUploader';
 
 const PAYOUT_PRESETS = {
-  winner_takes_all: { label: 'Winner Takes All', distribution: [1] },
-  top3: { label: 'Top 3 (50/30/20)', distribution: [0.5, 0.3, 0.2] },
-  top5: { label: 'Top 5 (40/25/15/12/8)', distribution: [0.4, 0.25, 0.15, 0.12, 0.08] },
-  top10: { label: 'Top 10', distribution: [0.25, 0.18, 0.14, 0.10, 0.08, 0.07, 0.06, 0.05, 0.04, 0.03] },
+  winner_takes_all: { label: 'Winner Takes All', distribution: [1], minRequired: 2 },
+  top3: { label: 'Top 3 (50/30/20)', distribution: [0.5, 0.3, 0.2], minRequired: 3 },
+  top5: { label: 'Top 5 (40/25/15/12/8)', distribution: [0.4, 0.25, 0.15, 0.12, 0.08], minRequired: 5 },
+  top10: { label: 'Top 10', distribution: [0.25, 0.18, 0.14, 0.10, 0.08, 0.07, 0.06, 0.05, 0.04, 0.03], minRequired: 10 },
+};
+
+// Helper to get minimum participants for a payout type
+const getMinParticipantsForPayoutType = (payoutType: keyof typeof PAYOUT_PRESETS): number => {
+  return PAYOUT_PRESETS[payoutType]?.minRequired || 2;
 };
 
 const RECURRENCE_OPTIONS = [
@@ -744,7 +749,14 @@ export const AdminRumbleControl = () => {
                 <Label>Payout Structure</Label>
                 <Select
                   value={formData.payoutType}
-                  onValueChange={(value: GameFormData['payoutType']) => setFormData(prev => ({ ...prev, payoutType: value }))}
+                  onValueChange={(value: GameFormData['payoutType']) => {
+                    const minRequired = getMinParticipantsForPayoutType(value);
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      payoutType: value,
+                      minParticipants: Math.max(prev.minParticipants, minRequired)
+                    }));
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -810,9 +822,16 @@ export const AdminRumbleControl = () => {
                       id="minParticipants"
                       type="number"
                       value={formData.minParticipants}
-                      onChange={(e) => setFormData(prev => ({ ...prev, minParticipants: parseInt(e.target.value) || 3 }))}
-                      min={1}
+                      onChange={(e) => {
+                        const minRequired = getMinParticipantsForPayoutType(formData.payoutType);
+                        const newValue = Math.max(parseInt(e.target.value) || minRequired, minRequired);
+                        setFormData(prev => ({ ...prev, minParticipants: newValue }));
+                      }}
+                      min={getMinParticipantsForPayoutType(formData.payoutType)}
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Min for {PAYOUT_PRESETS[formData.payoutType].label}: {getMinParticipantsForPayoutType(formData.payoutType)}
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label>If Not Met</Label>
@@ -1261,7 +1280,14 @@ export const AdminRumbleControl = () => {
                 <Label>Payout Structure</Label>
                 <Select
                   value={formData.payoutType}
-                  onValueChange={(value: GameFormData['payoutType']) => setFormData(prev => ({ ...prev, payoutType: value }))}
+                  onValueChange={(value: GameFormData['payoutType']) => {
+                    const minRequired = getMinParticipantsForPayoutType(value);
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      payoutType: value,
+                      minParticipants: Math.max(prev.minParticipants, minRequired)
+                    }));
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -1324,9 +1350,16 @@ export const AdminRumbleControl = () => {
                       id="edit-minParticipants"
                       type="number"
                       value={formData.minParticipants}
-                      onChange={(e) => setFormData(prev => ({ ...prev, minParticipants: parseInt(e.target.value) || 3 }))}
-                      min={1}
+                      onChange={(e) => {
+                        const minRequired = getMinParticipantsForPayoutType(formData.payoutType);
+                        const newValue = Math.max(parseInt(e.target.value) || minRequired, minRequired);
+                        setFormData(prev => ({ ...prev, minParticipants: newValue }));
+                      }}
+                      min={getMinParticipantsForPayoutType(formData.payoutType)}
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Min for {PAYOUT_PRESETS[formData.payoutType].label}: {getMinParticipantsForPayoutType(formData.payoutType)}
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label>If Not Met</Label>
