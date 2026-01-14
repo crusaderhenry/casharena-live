@@ -1,4 +1,4 @@
-import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy, Clock, Flame, Volume2, MessageCircle, Gift, TrendingUp, Image, Palette } from 'lucide-react';
+import { Settings, Save, Zap, AlertTriangle, Users, Power, Mic, UserPlus, RotateCcw, Trophy, Clock, Flame, Volume2, MessageCircle, Gift, TrendingUp, Image, Palette, Wallet, Timer, Bell } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAdmin } from '@/contexts/AdminContext';
@@ -48,6 +48,18 @@ export const AdminSettings = () => {
     welcomeBonusLimit: 1000,
     welcomeBonusEnabled: true,
     welcomeBonusMessage: 'Get your welcome bonus! Limited spots available.',
+    // Weekly rewards
+    weeklyReward1st: 50000,
+    weeklyReward2nd: 30000,
+    weeklyReward3rd: 20000,
+    // Wallet limits
+    minDeposit: 100,
+    maxDeposit: 1000000,
+    minWithdrawal: 100,
+    depositQuickAmounts: '1000,2000,5000,10000',
+    // Timing settings
+    endingSoonThreshold: 300,
+    notificationPollInterval: 30000,
   });
 
   useEffect(() => {
@@ -78,6 +90,18 @@ export const AdminSettings = () => {
         welcomeBonusLimit: (dbSettings as any).welcome_bonus_limit ?? 1000,
         welcomeBonusEnabled: (dbSettings as any).welcome_bonus_enabled ?? true,
         welcomeBonusMessage: (dbSettings as any).welcome_bonus_message ?? 'Get your welcome bonus! Limited spots available.',
+        // Weekly rewards
+        weeklyReward1st: (dbSettings as any).weekly_reward_1st ?? 50000,
+        weeklyReward2nd: (dbSettings as any).weekly_reward_2nd ?? 30000,
+        weeklyReward3rd: (dbSettings as any).weekly_reward_3rd ?? 20000,
+        // Wallet limits
+        minDeposit: (dbSettings as any).min_deposit ?? 100,
+        maxDeposit: (dbSettings as any).max_deposit ?? 1000000,
+        minWithdrawal: (dbSettings as any).min_withdrawal ?? 100,
+        depositQuickAmounts: ((dbSettings as any).deposit_quick_amounts ?? [1000, 2000, 5000, 10000]).join(','),
+        // Timing
+        endingSoonThreshold: (dbSettings as any).ending_soon_threshold_seconds ?? 300,
+        notificationPollInterval: (dbSettings as any).notification_poll_interval_ms ?? 30000,
       }));
     }
   }, [dbSettings]);
@@ -101,6 +125,12 @@ export const AdminSettings = () => {
   }, []);
 
   const handleSave = async () => {
+    // Parse deposit quick amounts
+    const quickAmounts = localSettings.depositQuickAmounts
+      .split(',')
+      .map(s => parseInt(s.trim()))
+      .filter(n => !isNaN(n) && n > 0);
+
     const success = await updateDbSettings({
       platform_name: localSettings.platformName,
       platform_cut_percent: localSettings.platformCut,
@@ -125,6 +155,18 @@ export const AdminSettings = () => {
       welcome_bonus_limit: localSettings.welcomeBonusLimit,
       welcome_bonus_enabled: localSettings.welcomeBonusEnabled,
       welcome_bonus_message: localSettings.welcomeBonusMessage,
+      // Weekly rewards
+      weekly_reward_1st: localSettings.weeklyReward1st,
+      weekly_reward_2nd: localSettings.weeklyReward2nd,
+      weekly_reward_3rd: localSettings.weeklyReward3rd,
+      // Wallet limits
+      min_deposit: localSettings.minDeposit,
+      max_deposit: localSettings.maxDeposit,
+      min_withdrawal: localSettings.minWithdrawal,
+      deposit_quick_amounts: quickAmounts,
+      // Timing
+      ending_soon_threshold_seconds: localSettings.endingSoonThreshold,
+      notification_poll_interval_ms: localSettings.notificationPollInterval,
     } as any);
     
     if (success) {
@@ -596,6 +638,171 @@ export const AdminSettings = () => {
         <p className="text-[10px] text-muted-foreground mt-3">
           Points awarded after each game. Winners get position points, all participants get participation points.
         </p>
+      </div>
+
+      {/* Weekly Leaderboard Rewards */}
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h2 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-gold" />
+          Weekly Leaderboard Rewards
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Cash prizes awarded to top 3 players each week based on rank points
+        </p>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              🥇 1st Place (₦)
+            </label>
+            <input
+              type="number"
+              value={localSettings.weeklyReward1st}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, weeklyReward1st: parseInt(e.target.value) || 0 }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              🥈 2nd Place (₦)
+            </label>
+            <input
+              type="number"
+              value={localSettings.weeklyReward2nd}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, weeklyReward2nd: parseInt(e.target.value) || 0 }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              🥉 3rd Place (₦)
+            </label>
+            <input
+              type="number"
+              value={localSettings.weeklyReward3rd}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, weeklyReward3rd: parseInt(e.target.value) || 0 }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={0}
+            />
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-3">
+          These rewards are distributed when the weekly rank is reset. Ensure sufficient funds are available.
+        </p>
+      </div>
+
+      {/* Wallet Limits */}
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h2 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+          <Wallet className="w-5 h-5 text-green-400" />
+          Wallet Limits
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Configure deposit and withdrawal constraints
+        </p>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              Min Deposit (₦)
+            </label>
+            <input
+              type="number"
+              value={localSettings.minDeposit}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, minDeposit: parseInt(e.target.value) || 100 }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              Max Deposit (₦)
+            </label>
+            <input
+              type="number"
+              value={localSettings.maxDeposit}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, maxDeposit: parseInt(e.target.value) || 1000000 }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              Min Withdrawal (₦)
+            </label>
+            <input
+              type="number"
+              value={localSettings.minWithdrawal}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, minWithdrawal: parseInt(e.target.value) || 100 }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              Quick Deposit Amounts
+            </label>
+            <input
+              type="text"
+              value={localSettings.depositQuickAmounts}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, depositQuickAmounts: e.target.value }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              placeholder="1000,2000,5000,10000"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Comma-separated values</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Timing Settings */}
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h2 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+          <Timer className="w-5 h-5 text-blue-400" />
+          Timing Settings
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Configure time-based behaviors and thresholds
+        </p>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-orange-400" />
+              "Ending Soon" Threshold (sec)
+            </label>
+            <input
+              type="number"
+              value={localSettings.endingSoonThreshold}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, endingSoonThreshold: parseInt(e.target.value) || 300 }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={30}
+              max={600}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Games show "Ending Soon" badge when this much time remains (default: 300 = 5 min)
+            </p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+              <Bell className="w-4 h-4 text-primary" />
+              Notification Poll Interval (ms)
+            </label>
+            <input
+              type="number"
+              value={localSettings.notificationPollInterval}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, notificationPollInterval: parseInt(e.target.value) || 30000 }))}
+              className="w-full px-4 py-3 bg-muted rounded-xl border border-border focus:border-primary focus:outline-none text-foreground"
+              min={5000}
+              max={60000}
+              step={1000}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              How often the app checks for new notifications (default: 30000 = 30 sec)
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Host Selection */}
