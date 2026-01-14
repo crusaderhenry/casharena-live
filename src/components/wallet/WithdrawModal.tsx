@@ -23,7 +23,8 @@ interface WithdrawModalProps {
 
 export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalProps) => {
   const { user, profile, refreshProfile } = useAuth();
-  const { isTestMode } = usePlatformSettings();
+  const { isTestMode, walletLimits } = usePlatformSettings();
+  const MIN_WITHDRAWAL = walletLimits.minWithdrawal;
   const [amount, setAmount] = useState('');
   const [bankCode, setBankCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
@@ -168,8 +169,8 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
     const withdrawAmount = parseInt(amount);
     const walletBalance = profile?.wallet_balance || 0;
     
-    if (!withdrawAmount || withdrawAmount < 100) {
-      toast.error('Minimum withdrawal is ₦100');
+    if (!withdrawAmount || withdrawAmount < MIN_WITHDRAWAL) {
+      toast.error(`Minimum withdrawal is ₦${MIN_WITHDRAWAL.toLocaleString()}`);
       return;
     }
 
@@ -330,9 +331,9 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 max={walletBalance}
-                min={100}
+                min={MIN_WITHDRAWAL}
               />
-              <p className="text-xs text-muted-foreground mt-1">Minimum: ₦100</p>
+              <p className="text-xs text-muted-foreground mt-1">Minimum: ₦{MIN_WITHDRAWAL.toLocaleString()}</p>
             </div>
 
             <div>
@@ -404,7 +405,7 @@ export const WithdrawModal = ({ open, onOpenChange, onSuccess }: WithdrawModalPr
               disabled={
                 loading || 
                 !amount || 
-                parseInt(amount) < 100 || 
+                parseInt(amount) < MIN_WITHDRAWAL || 
                 parseInt(amount) > walletBalance ||
                 !verified ||
                 !accountName

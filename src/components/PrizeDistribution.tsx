@@ -1,4 +1,5 @@
 import { Trophy } from 'lucide-react';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 interface PrizeDistributionProps {
   payoutType: 'winner_takes_all' | 'top3' | 'top5' | 'top10' | string;
@@ -50,10 +51,13 @@ export const PrizeDistribution = ({
   showHeader = true,
   compact = false 
 }: PrizeDistributionProps) => {
+  const { platformCut, defaultPrizeDistributions } = usePlatformSettings();
+  const netMultiplier = (100 - platformCut) / 100;
+  
   // Use provided distribution or default based on payout type
   const distribution = payoutDistribution?.length > 0 
     ? payoutDistribution 
-    : getDefaultDistribution(payoutType);
+    : getDefaultDistribution(payoutType, defaultPrizeDistributions);
 
   const winnerCount = distribution.length;
 
@@ -82,9 +86,9 @@ export const PrizeDistribution = ({
           </div>
           <h4 className="text-xl font-black text-foreground mb-1">Winner Takes All</h4>
           {poolValue && (
-            <p className="text-2xl font-black text-gold">₦{Math.floor(poolValue * 0.9).toLocaleString()}</p>
+            <p className="text-2xl font-black text-gold">₦{Math.floor(poolValue * netMultiplier).toLocaleString()}</p>
           )}
-          <p className="text-xs text-muted-foreground mt-2">* 10% platform fee deducted</p>
+          <p className="text-xs text-muted-foreground mt-2">* {platformCut}% platform fee deducted</p>
         </div>
       </div>
     );
@@ -101,7 +105,7 @@ export const PrizeDistribution = ({
       <div className="space-y-2">
         {distribution.map((percentage, index) => {
           const percentDisplay = Math.round(percentage * 100);
-          const prizeAmount = poolValue ? Math.floor(poolValue * 0.9 * percentage) : null;
+          const prizeAmount = poolValue ? Math.floor(poolValue * netMultiplier * percentage) : null;
           
           return (
             <div 
@@ -126,24 +130,30 @@ export const PrizeDistribution = ({
           );
         })}
         <p className="text-xs text-muted-foreground text-center mt-3">
-          * 10% platform fee deducted from winnings
+          * {platformCut}% platform fee deducted from winnings
         </p>
       </div>
     </div>
   );
 };
 
-function getDefaultDistribution(payoutType: string): number[] {
+function getDefaultDistribution(payoutType: string, distributions?: { top3: number[]; top5: number[]; top10: number[] }): number[] {
+  const defaults = distributions || {
+    top3: [0.5, 0.3, 0.2],
+    top5: [0.4, 0.25, 0.15, 0.12, 0.08],
+    top10: [0.3, 0.2, 0.15, 0.1, 0.08, 0.06, 0.04, 0.03, 0.02, 0.02],
+  };
+  
   switch (payoutType) {
     case 'winner_takes_all':
       return [1.0];
     case 'top3':
-      return [0.5, 0.3, 0.2];
+      return defaults.top3;
     case 'top5':
-      return [0.4, 0.25, 0.15, 0.12, 0.08];
+      return defaults.top5;
     case 'top10':
-      return [0.3, 0.2, 0.15, 0.1, 0.08, 0.06, 0.04, 0.03, 0.02, 0.02];
+      return defaults.top10;
     default:
-      return [0.5, 0.3, 0.2];
+      return defaults.top3;
   }
 }
