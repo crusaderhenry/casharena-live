@@ -47,6 +47,48 @@ export type Database = {
         }
         Relationships: []
       }
+      badges: {
+        Row: {
+          bg_color: string
+          color: string
+          created_at: string | null
+          description: string
+          icon_name: string
+          id: string
+          is_active: boolean | null
+          name: string
+          requirement_type: string
+          requirement_value: number
+          sort_order: number | null
+        }
+        Insert: {
+          bg_color: string
+          color: string
+          created_at?: string | null
+          description: string
+          icon_name: string
+          id: string
+          is_active?: boolean | null
+          name: string
+          requirement_type: string
+          requirement_value: number
+          sort_order?: number | null
+        }
+        Update: {
+          bg_color?: string
+          color?: string
+          created_at?: string | null
+          description?: string
+          icon_name?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          requirement_type?: string
+          requirement_value?: number
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
       comments: {
         Row: {
           content: string
@@ -679,6 +721,36 @@ export type Database = {
         }
         Relationships: []
       }
+      hosts: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          emoji: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          voice_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          emoji?: string | null
+          id: string
+          is_active?: boolean | null
+          name: string
+          voice_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          emoji?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          voice_id?: string
+        }
+        Relationships: []
+      }
       mock_game_participation: {
         Row: {
           comment_count: number
@@ -856,16 +928,24 @@ export type Database = {
           default_entry_cutoff_minutes: number
           default_entry_fee: number
           default_max_duration: number
+          default_prize_distributions: Json | null
+          deposit_quick_amounts: number[] | null
           enable_cohost_banter: boolean
           enable_dramatic_sounds: boolean
+          ending_soon_threshold_seconds: number | null
           google_auth_enabled: boolean | null
           hot_game_threshold_live: number
           hot_game_threshold_opening: number
           id: string
           leave_window_minutes: number
           maintenance_mode: boolean
+          max_deposit: number | null
+          min_deposit: number | null
+          min_withdrawal: number | null
+          notification_poll_interval_ms: number | null
           platform_cut_percent: number
           platform_name: string
+          prize_callout_milestones: number[] | null
           rank_points_participation: number
           rank_points_win_1st: number
           rank_points_win_2nd: number
@@ -874,6 +954,9 @@ export type Database = {
           selected_host: string
           test_mode: boolean
           updated_at: string
+          weekly_reward_1st: number | null
+          weekly_reward_2nd: number | null
+          weekly_reward_3rd: number | null
           welcome_bonus_amount: number | null
           welcome_bonus_enabled: boolean | null
           welcome_bonus_limit: number | null
@@ -886,16 +969,24 @@ export type Database = {
           default_entry_cutoff_minutes?: number
           default_entry_fee?: number
           default_max_duration?: number
+          default_prize_distributions?: Json | null
+          deposit_quick_amounts?: number[] | null
           enable_cohost_banter?: boolean
           enable_dramatic_sounds?: boolean
+          ending_soon_threshold_seconds?: number | null
           google_auth_enabled?: boolean | null
           hot_game_threshold_live?: number
           hot_game_threshold_opening?: number
           id?: string
           leave_window_minutes?: number
           maintenance_mode?: boolean
+          max_deposit?: number | null
+          min_deposit?: number | null
+          min_withdrawal?: number | null
+          notification_poll_interval_ms?: number | null
           platform_cut_percent?: number
           platform_name?: string
+          prize_callout_milestones?: number[] | null
           rank_points_participation?: number
           rank_points_win_1st?: number
           rank_points_win_2nd?: number
@@ -904,6 +995,9 @@ export type Database = {
           selected_host?: string
           test_mode?: boolean
           updated_at?: string
+          weekly_reward_1st?: number | null
+          weekly_reward_2nd?: number | null
+          weekly_reward_3rd?: number | null
           welcome_bonus_amount?: number | null
           welcome_bonus_enabled?: boolean | null
           welcome_bonus_limit?: number | null
@@ -916,16 +1010,24 @@ export type Database = {
           default_entry_cutoff_minutes?: number
           default_entry_fee?: number
           default_max_duration?: number
+          default_prize_distributions?: Json | null
+          deposit_quick_amounts?: number[] | null
           enable_cohost_banter?: boolean
           enable_dramatic_sounds?: boolean
+          ending_soon_threshold_seconds?: number | null
           google_auth_enabled?: boolean | null
           hot_game_threshold_live?: number
           hot_game_threshold_opening?: number
           id?: string
           leave_window_minutes?: number
           maintenance_mode?: boolean
+          max_deposit?: number | null
+          min_deposit?: number | null
+          min_withdrawal?: number | null
+          notification_poll_interval_ms?: number | null
           platform_cut_percent?: number
           platform_name?: string
+          prize_callout_milestones?: number[] | null
           rank_points_participation?: number
           rank_points_win_1st?: number
           rank_points_win_2nd?: number
@@ -934,6 +1036,9 @@ export type Database = {
           selected_host?: string
           test_mode?: boolean
           updated_at?: string
+          weekly_reward_1st?: number | null
+          weekly_reward_2nd?: number | null
+          weekly_reward_3rd?: number | null
           welcome_bonus_amount?: number | null
           welcome_bonus_enabled?: boolean | null
           welcome_bonus_limit?: number | null

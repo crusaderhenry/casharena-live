@@ -3,6 +3,7 @@ import { Bell, X, Trophy, Zap, Clock, Flag, Wallet, Users, CheckCircle, XCircle,
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Notification {
@@ -88,6 +89,7 @@ export const NotificationCenter = () => {
   const { play } = useSounds();
   const { buttonClick } = useHaptics();
   const { user } = useAuth();
+  const { notificationPollInterval } = usePlatformSettings();
 
   // Fetch user's recent activity from wallet_transactions and game participations
   const fetchUserNotifications = useCallback(async () => {
@@ -192,9 +194,9 @@ export const NotificationCenter = () => {
   // Initial fetch and periodic refresh
   useEffect(() => {
     fetchUserNotifications();
-    const interval = setInterval(fetchUserNotifications, 30000); // Refresh every 30s
+    const interval = setInterval(fetchUserNotifications, notificationPollInterval);
     return () => clearInterval(interval);
-  }, [fetchUserNotifications]);
+  }, [fetchUserNotifications, notificationPollInterval]);
 
   // Realtime subscription for wallet transactions
   useEffect(() => {

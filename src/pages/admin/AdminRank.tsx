@@ -1,9 +1,11 @@
 import { useAdmin } from '@/contexts/AdminContext';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { Trophy, RotateCcw, Clock, Award } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export const AdminRank = () => {
   const { users, triggerWeeklyReset } = useAdmin();
+  const { weeklyRewards } = usePlatformSettings();
   const [weeklyCountdown, setWeeklyCountdown] = useState('');
 
   // Calculate weekly reset countdown
@@ -129,17 +131,17 @@ export const AdminRank = () => {
           <div className="p-4 bg-gold/10 rounded-xl border border-gold/30 text-center">
             <span className="text-3xl mb-2 block">🥇</span>
             <p className="text-sm font-medium text-foreground">1st Place</p>
-            <p className="text-xl font-black text-gold">₦50,000</p>
+            <p className="text-xl font-black text-gold">₦{weeklyRewards.first.toLocaleString()}</p>
           </div>
           <div className="p-4 bg-silver/10 rounded-xl border border-silver/30 text-center">
             <span className="text-3xl mb-2 block">🥈</span>
             <p className="text-sm font-medium text-foreground">2nd Place</p>
-            <p className="text-xl font-black text-silver">₦30,000</p>
+            <p className="text-xl font-black text-silver">₦{weeklyRewards.second.toLocaleString()}</p>
           </div>
           <div className="p-4 bg-bronze/10 rounded-xl border border-bronze/30 text-center">
             <span className="text-3xl mb-2 block">🥉</span>
             <p className="text-sm font-medium text-foreground">3rd Place</p>
-            <p className="text-xl font-black text-bronze">₦20,000</p>
+            <p className="text-xl font-black text-bronze">₦{weeklyRewards.third.toLocaleString()}</p>
           </div>
         </div>
       </div>

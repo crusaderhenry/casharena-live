@@ -15,14 +15,15 @@ interface DepositModalProps {
   defaultAmount?: number | null;
 }
 
-const QUICK_AMOUNTS = [1000, 2000, 5000, 10000];
-
 export const DepositModal = ({ open, onOpenChange, onSuccess, defaultAmount }: DepositModalProps) => {
   const { user, profile, refreshProfile } = useAuth();
-  const { isTestMode } = usePlatformSettings();
+  const { isTestMode, walletLimits } = usePlatformSettings();
   const [amount, setAmount] = useState(defaultAmount?.toString() || '');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  const QUICK_AMOUNTS = walletLimits.quickAmounts;
+  const MIN_DEPOSIT = walletLimits.minDeposit;
 
   // Update amount when defaultAmount changes
   React.useEffect(() => {
@@ -34,8 +35,8 @@ export const DepositModal = ({ open, onOpenChange, onSuccess, defaultAmount }: D
   const handleDeposit = async () => {
     const depositAmount = parseInt(amount);
     
-    if (!depositAmount || depositAmount < 100) {
-      toast.error('Minimum deposit is ₦100');
+    if (!depositAmount || depositAmount < MIN_DEPOSIT) {
+      toast.error(`Minimum deposit is ₦${MIN_DEPOSIT.toLocaleString()}`);
       return;
     }
 
@@ -127,9 +128,9 @@ export const DepositModal = ({ open, onOpenChange, onSuccess, defaultAmount }: D
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 className="text-lg"
-                min={100}
+                min={MIN_DEPOSIT}
               />
-              <p className="text-xs text-muted-foreground mt-1">Minimum: ₦100</p>
+              <p className="text-xs text-muted-foreground mt-1">Minimum: ₦{MIN_DEPOSIT.toLocaleString()}</p>
             </div>
 
             <div className="grid grid-cols-4 gap-2">
@@ -150,7 +151,7 @@ export const DepositModal = ({ open, onOpenChange, onSuccess, defaultAmount }: D
 
             <Button
               onClick={handleDeposit}
-              disabled={loading || !amount || parseInt(amount) < 100}
+              disabled={loading || !amount || parseInt(amount) < MIN_DEPOSIT}
               className="w-full"
               size="lg"
             >

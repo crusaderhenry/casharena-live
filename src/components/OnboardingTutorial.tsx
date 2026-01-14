@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, ChevronRight, ChevronLeft, Clock } from 'lucide-react';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 interface OnboardingTutorialProps {
   onComplete: () => void;
@@ -131,46 +132,52 @@ const GamepadIllustration = () => (
   </svg>
 );
 
-const steps = [
-  {
-    illustration: ZapIllustration,
-    title: "Welcome to Royal Rumble!",
-    description: "A live social cash showdown where the last active players win big prizes.",
-    highlight: "primary",
-  },
-  {
-    illustration: ChatIllustration,
-    title: "How It Works",
-    description: "Join a live game, send comments to stay active. Every comment resets a 60-second timer.",
-    highlight: "primary",
-  },
-  {
-    illustration: TimerIllustration,
-    title: "The Timer Is Key",
-    description: "If no one comments for 60 seconds, the game ends. The last players to comment WIN!",
-    highlight: "primary",
-  },
-  {
-    illustration: TrophyIllustration,
-    title: "Win Big Prizes",
-    description: "Top players share the prize pool. Some games are winner-takes-all, others split between top 3!",
-    highlight: "gold",
-  },
-  {
-    illustration: WalletIllustration,
-    title: "Fund Your Wallet",
-    description: "Add money to join paid games, or play daily sponsored games for free with real cash prizes!",
-    highlight: "primary",
-  },
-  {
-    illustration: GamepadIllustration,
-    title: "Join & Compete",
-    description: "Browse games, enter the lobby, and battle to be the last one standing!",
-    highlight: "primary",
-  },
-];
+// Generate steps dynamically based on settings
+const useSteps = () => {
+  const { defaultCommentTimer } = usePlatformSettings();
+  
+  return [
+    {
+      illustration: ZapIllustration,
+      title: "Welcome to Royal Rumble!",
+      description: "A live social cash showdown where the last active players win big prizes.",
+      highlight: "primary",
+    },
+    {
+      illustration: ChatIllustration,
+      title: "How It Works",
+      description: `Join a live game, send comments to stay active. Every comment resets a ${defaultCommentTimer}-second timer.`,
+      highlight: "primary",
+    },
+    {
+      illustration: TimerIllustration,
+      title: "The Timer Is Key",
+      description: `If no one comments for ${defaultCommentTimer} seconds, the game ends. The last players to comment WIN!`,
+      highlight: "primary",
+    },
+    {
+      illustration: TrophyIllustration,
+      title: "Win Big Prizes",
+      description: "Top players share the prize pool. Some games are winner-takes-all, others split between top 3!",
+      highlight: "gold",
+    },
+    {
+      illustration: WalletIllustration,
+      title: "Fund Your Wallet",
+      description: "Add money to join paid games, or play daily sponsored games for free with real cash prizes!",
+      highlight: "primary",
+    },
+    {
+      illustration: GamepadIllustration,
+      title: "Join & Compete",
+      description: "Browse games, enter the lobby, and battle to be the last one standing!",
+      highlight: "primary",
+    },
+  ];
+};
 
 export const OnboardingTutorial = ({ onComplete, onRemindLater }: OnboardingTutorialProps) => {
+  const steps = useSteps();
   const [currentStep, setCurrentStep] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const [isExiting, setIsExiting] = useState(false);
