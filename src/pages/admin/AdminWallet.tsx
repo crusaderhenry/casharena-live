@@ -21,7 +21,7 @@ interface AdminTransaction {
 }
 
 export const AdminWallet = () => {
-  const { stats, approvePayout } = useAdmin();
+  const { approvePayout } = useAdmin();
   const { isTestMode } = usePlatformSettings();
   const [transactions, setTransactions] = useState<AdminTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,6 +119,8 @@ export const AdminWallet = () => {
   // Calculate stats from transactions
   const testDeposits = transactions.filter(t => t.mode === 'test' && t.type === 'deposit' && t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
   const liveDeposits = transactions.filter(t => t.mode === 'live' && t.type === 'deposit' && t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+  // Platform balance from platform_cut transactions
+  const platformBalance = transactions.filter(t => t.type === 'platform_cut').reduce((sum, t) => sum + t.amount, 0);
 
   return (
     <div className="p-6 space-y-6">
@@ -137,7 +139,7 @@ export const AdminWallet = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Platform Balance"
-          value={`₦${stats.totalPlatformBalance.toLocaleString()}`}
+          value={`₦${platformBalance.toLocaleString()}`}
           icon={Wallet}
           variant="primary"
         />

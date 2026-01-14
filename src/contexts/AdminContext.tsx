@@ -244,6 +244,14 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
       const cyclesData = [...(activeCyclesData || []), ...(historyCyclesData || [])];
 
       if (cyclesData) {
+        // Helper to derive payoutType from winner_count
+        const getPayoutTypeFromWinnerCount = (winnerCount: number): AdminGame['payoutType'] => {
+          if (winnerCount === 1) return 'winner_takes_all';
+          if (winnerCount <= 3) return 'top3';
+          if (winnerCount <= 5) return 'top5';
+          return 'top10';
+        };
+
         const mappedGames: AdminGame[] = cyclesData.map(c => ({
           id: c.id,
           name: (c.game_templates as any)?.name || 'Royal Rumble',
@@ -254,7 +262,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
           startTime: c.live_start_at || c.created_at,
           endTime: c.actual_end_at || undefined,
           countdown: c.countdown,
-          payoutType: 'top3' as AdminGame['payoutType'],
+          payoutType: getPayoutTypeFromWinnerCount(c.winner_count || 3),
           payoutDistribution: c.prize_distribution.map(n => Number(n) / 100),
           commentTimer: c.comment_timer || 60,
           maxDuration: 15, // Default from template
