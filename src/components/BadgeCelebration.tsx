@@ -1,9 +1,10 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Confetti } from '@/components/Confetti';
-import { X, Share2, Twitter, Facebook, MessageCircle } from 'lucide-react';
+import { X, Share2, Twitter, Facebook, MessageCircle, Loader2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useOGImage } from '@/hooks/useOGImage';
 
 interface BadgeCelebrationProps {
   badge: {
@@ -26,11 +27,29 @@ const BRAGGING_CAPTIONS = [
 ];
 
 export const BadgeCelebration = ({ badge, onDismiss }: BadgeCelebrationProps) => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const shareCardRef = useRef<HTMLDivElement>(null);
+  const { generateOGImage, generating } = useOGImage();
+  const [ogImageUrl, setOgImageUrl] = useState<string | null>(null);
   
   const username = profile?.username || 'Player';
   const caption = BRAGGING_CAPTIONS[Math.floor(Math.random() * BRAGGING_CAPTIONS.length)];
+
+  // Pre-generate OG image
+  useEffect(() => {
+    if (badge.id && user?.id) {
+      generateOGImage({
+        type: 'badge',
+        badge_id: badge.id,
+        badge_name: badge.name,
+        badge_description: badge.description,
+        user_id: user.id,
+        username,
+      }).then(url => {
+        if (url) setOgImageUrl(url);
+      });
+    }
+  }, [badge.id, badge.name, badge.description, user?.id, username, generateOGImage]);
   
   // Auto-dismiss after 8 seconds
   useEffect(() => {
@@ -57,38 +76,48 @@ export const BadgeCelebration = ({ badge, onDismiss }: BadgeCelebrationProps) =>
   }, []);
 
   const shareToTwitter = useCallback(() => {
+    const shareUrl = ogImageUrl 
+      ? `https://fortuneshq.com?og_image=${encodeURIComponent(ogImageUrl)}`
+      : 'https://fortuneshq.com';
     const text = `${caption}\n\n🏅 ${badge.name}\n👤 ${username}\n\nJoin me on FortunesHQ!`;
-    const url = 'https://fortuneshq.com';
     window.open(
-      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,
       '_blank'
     );
     toast.success('Opening Twitter...');
-  }, [caption, badge.name, username]);
+  }, [caption, badge.name, username, ogImageUrl]);
 
   const shareToFacebook = useCallback(() => {
-    const url = 'https://fortuneshq.com';
+    const shareUrl = ogImageUrl 
+      ? `https://fortuneshq.com?og_image=${encodeURIComponent(ogImageUrl)}`
+      : 'https://fortuneshq.com';
     window.open(
-      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(`${caption} - ${badge.name}`)}`,
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(`${caption} - ${badge.name}`)}`,
       '_blank'
     );
     toast.success('Opening Facebook...');
-  }, [caption, badge.name]);
+  }, [caption, badge.name, ogImageUrl]);
 
   const shareToWhatsApp = useCallback(() => {
-    const text = `${caption}\n\n🏅 ${badge.name}\n👤 ${username}\n\nJoin me on FortunesHQ! https://fortuneshq.com`;
+    const shareUrl = ogImageUrl 
+      ? `https://fortuneshq.com?og_image=${encodeURIComponent(ogImageUrl)}`
+      : 'https://fortuneshq.com';
+    const text = `${caption}\n\n🏅 ${badge.name}\n👤 ${username}\n\nJoin me on FortunesHQ! ${shareUrl}`;
     window.open(
       `https://wa.me/?text=${encodeURIComponent(text)}`,
       '_blank'
     );
     toast.success('Opening WhatsApp...');
-  }, [caption, badge.name, username]);
+  }, [caption, badge.name, username, ogImageUrl]);
 
   const handleNativeShare = useCallback(async () => {
+    const shareUrl = ogImageUrl 
+      ? `https://fortuneshq.com?og_image=${encodeURIComponent(ogImageUrl)}`
+      : 'https://fortuneshq.com';
     const shareData = {
       title: `${badge.name} - FortunesHQ`,
       text: `${caption}\n\n🏅 ${badge.name}\n👤 ${username}`,
-      url: 'https://fortuneshq.com',
+      url: shareUrl,
     };
 
     try {

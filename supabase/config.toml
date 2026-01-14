@@ -59,3 +59,6 @@ verify_jwt = false
 
 [functions.elevenlabs-music]
 verify_jwt = false
+
+[functions.og-image]
+verify_jwt = false

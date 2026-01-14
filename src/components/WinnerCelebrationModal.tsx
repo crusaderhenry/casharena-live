@@ -13,6 +13,8 @@ interface WinnerCelebrationModalProps {
   avatar: string;
   position: number;
   prizeAmount: number;
+  cycleId?: string;
+  userId?: string;
 }
 
 export const WinnerCelebrationModal = ({
@@ -22,6 +24,8 @@ export const WinnerCelebrationModal = ({
   avatar,
   position,
   prizeAmount,
+  cycleId,
+  userId,
 }: WinnerCelebrationModalProps) => {
   const { play } = useSounds();
   const { prizeWin } = useHaptics();
@@ -90,6 +94,8 @@ export const WinnerCelebrationModal = ({
               position={position}
               amount={prizeAmount}
               gameType="finger"
+              cycleId={cycleId}
+              userId={userId}
             />
           </div>
         </div>
