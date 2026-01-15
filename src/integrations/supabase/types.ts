@@ -751,6 +751,33 @@ export type Database = {
         }
         Relationships: []
       }
+      kyc_attempts: {
+        Row: {
+          created_at: string
+          id: string
+          kyc_number: string
+          kyc_type: string
+          success: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kyc_number: string
+          kyc_type: string
+          success?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kyc_number?: string
+          kyc_type?: string
+          success?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       mock_game_participation: {
         Row: {
           comment_count: number

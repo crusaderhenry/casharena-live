@@ -10,8 +10,8 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const cronSecret = Deno.env.get('CRON_SECRET');
 
 // This function ticks the countdown for all live games every second
-// It's designed to be called frequently (every second) via client-side polling
-// or less frequently via cron with multiple ticks per call
+// It's designed to be called ONLY via cron job with valid x-cron-secret
+// User-triggered polling has been removed for security
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,27 +21,12 @@ Deno.serve(async (req) => {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Verify authentication - either cron secret or valid user session
+    // SECURITY: Only allow cron job access via secret header
     const cronHeader = req.headers.get('x-cron-secret');
-    const isCronJob = cronSecret && cronHeader === cronSecret;
     
-    const authHeader = req.headers.get('Authorization');
-    let isAuthorized = isCronJob;
-    
-    if (!isCronJob && authHeader) {
-      // Allow any authenticated user to trigger tick (they're playing the game)
-      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-      const token = authHeader.replace('Bearer ', '');
-      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-      });
-      
-      const { data: { user } } = await supabaseAuth.auth.getUser();
-      isAuthorized = !!user;
-    }
-    
-    if (!isAuthorized) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    if (!cronSecret || cronHeader !== cronSecret) {
+      console.warn('[countdown-ticker] Unauthorized access attempt');
+      return new Response(JSON.stringify({ error: 'Unauthorized - cron access only' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
