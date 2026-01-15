@@ -271,6 +271,15 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
       }
 
       const data = await response.json();
+      
+      // Check for app-level error (e.g., quota exceeded returned as HTTP 200)
+      if (data.error === 'quota_exceeded') {
+        console.warn('[TTS] Quota exceeded, switching to Web Speech API fallback');
+        quotaExceededRef.current = true;
+        fallbackSpeak(text);
+        return;
+      }
+      
       if (data.audioContent) {
         // Stop any current playback
         if (audioRef.current) {
