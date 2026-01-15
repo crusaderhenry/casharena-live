@@ -520,9 +520,48 @@
   animation: confetti-fall 3s linear forwards;
 }
 
+.confetti-burst-piece {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  top: -10px;
+  animation: confetti-burst 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
 @keyframes confetti-fall {
   0% { top: -10px; transform: rotate(0deg); opacity: 1; }
   100% { top: 100vh; transform: rotate(720deg); opacity: 0; }
+}
+
+@keyframes confetti-burst {
+  0% { top: 30%; transform: rotate(0deg) scale(0); opacity: 0; }
+  10% { opacity: 1; transform: rotate(90deg) scale(1.2); }
+  100% { top: 100vh; transform: rotate(720deg) scale(0.6); opacity: 0; }
+}
+
+/* Winner Reveal Zoom Animation */
+@keyframes winner-zoom-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+.animate-winner-zoom {
+  animation: winner-zoom-pulse 0.8s ease-in-out infinite;
+}
+
+/* Winner Spotlight Effect */
+.winner-spotlight {
+  transition: all 0.3s ease-out;
+}
+
+.winner-spotlight.active {
+  transform: scale(1.1);
+  box-shadow: 0 0 30px hsl(43 70% 69% / 0.5);
+}
+
+.winner-spotlight.dimmed {
+  transform: scale(0.95);
+  opacity: 0.5;
 }
 
 /* Screen Flash Effect */
