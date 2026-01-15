@@ -74,13 +74,36 @@ export const CycleResults = () => {
         return;
       }
 
-      // Redirect if game hasn't ended yet - prevent showing results for active games
-      if (cycleData.status === 'opening' || cycleData.status === 'waiting') {
-        navigate(`/arena/${cycleId}/lobby`, { replace: true });
-        return;
+      // If game is still live/ending, wait a moment for settlement then check again
+      if (cycleData.status === 'live' || cycleData.status === 'ending') {
+        // Trigger settlement tick
+        await supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } }).catch(() => {});
+        
+        // Wait briefly for settlement
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Refetch status
+        const { data: refreshedData } = await supabase
+          .from('game_cycles')
+          .select('status')
+          .eq('id', cycleId)
+          .single();
+        
+        // If still live after settlement attempt, something's wrong - stay on results with loading
+        if (refreshedData?.status === 'live' || refreshedData?.status === 'ending') {
+          // Game genuinely still running - redirect back
+          navigate(`/arena/${cycleId}/live`, { replace: true });
+          return;
+        }
+        
+        // Update cycle data with new status
+        if (refreshedData) {
+          cycleData.status = refreshedData.status;
+        }
       }
 
-      if (cycleData.status === 'live' || cycleData.status === 'ending') {
+      // Redirect if game hasn't started yet
+      if (cycleData.status === 'opening' || cycleData.status === 'waiting') {
         navigate(`/arena/${cycleId}`, { replace: true });
         return;
       }
@@ -95,7 +118,6 @@ export const CycleResults = () => {
       setCycle({
         ...cycleData,
         template_name: template?.name || 'Royal Rumble',
-        // Parse settlement_data from JSON if present
         settlement_data: cycleData.settlement_data as SettlementData | null,
       });
 
