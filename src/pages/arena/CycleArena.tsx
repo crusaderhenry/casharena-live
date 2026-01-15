@@ -230,6 +230,7 @@ export const CycleArena = () => {
     check();
   }, [cycleId, checkParticipation, isDemoMode]);
 
+  // Database changes subscription
   useEffect(() => {
     if (!cycleId) return;
     const channel = supabase
@@ -268,6 +269,7 @@ export const CycleArena = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [cycleId, navigate, showGameEndFreeze, secondsUntil]);
+
 
   // Game end handler - show freeze screen with winners, then navigate
   const handleGameEnd = useCallback(async () => {
@@ -364,7 +366,31 @@ export const CycleArena = () => {
     navigate(`/arena/${cycleId}/results`, { replace: true });
   }, [cycleId, navigate]);
 
-  // Local countdown ticker - prioritize game end timer
+  // Server-side timer broadcast subscription for accurate sync across all clients
+  useEffect(() => {
+    if (!cycleId || !isLive) return;
+    
+    const channel = supabase
+      .channel(`timer-sync-${cycleId}`)
+      .on('broadcast', { event: 'timer_tick' }, (payload) => {
+        const { countdown, gameTimeRemaining: serverGameTime, status } = payload.payload || {};
+        
+        if (typeof countdown === 'number') {
+          setLocalCountdown(countdown);
+        }
+        if (typeof serverGameTime === 'number') {
+          setGameTimeRemaining(serverGameTime);
+        }
+        
+        // If server says game ended/ending, trigger our end handler
+        if ((status === 'ending' || status === 'ended') && !gameEndTriggeredRef.current) {
+          handleGameEnd();
+        }
+      })
+      .subscribe();
+    
+    return () => { supabase.removeChannel(channel); };
+  }, [cycleId, isLive, handleGameEnd]);
   useEffect(() => {
     if (!cycle || cycle.status !== 'live') return;
     if (gameEndTriggeredRef.current) return;
