@@ -667,11 +667,13 @@ async function settleCycle(supabase: any, cycleId: string) {
     });
   }
 
-  // Mark cycle as settled
+  // Mark cycle as settled and update status to ended
   await supabase
     .from('game_cycles')
     .update({
+      status: 'ended',
       settled_at: new Date().toISOString(),
+      actual_end_at: new Date().toISOString(),
       settlement_data: { winners, platformCut, distributablePool, totalParticipants: participants?.length || 0 },
     })
     .eq('id', cycleId);
