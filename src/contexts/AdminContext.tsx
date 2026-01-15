@@ -107,6 +107,8 @@ interface CreateGameConfig {
   fixed_daily_time?: string | null;
   entry_wait_seconds?: number;
   min_participants_action?: 'reset' | 'cancel' | 'start_anyway';
+  // Open entry duration (minutes before game goes live)
+  open_entry_duration?: number;
   // Music settings
   ambient_music_style?: 'chill' | 'intense' | 'retro' | 'none';
   music_type?: 'generated' | 'uploaded';
@@ -488,6 +490,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
           mock_users_min: config.mock_users_min || 0,
           mock_users_max: config.mock_users_max || 100,
           sponsor_name: config.sponsor_name || null,
+          open_entry_duration: config.open_entry_duration || 5,
         })
         .select()
         .single();
