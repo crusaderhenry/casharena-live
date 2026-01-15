@@ -48,14 +48,19 @@ export const useCycleComments = (cycleId: string | null) => {
         return;
       }
 
-      // Fetch profiles for all commenters
+      // Fetch profiles using secure RPC function (bypasses need for direct profile access)
       const userIds = [...new Set((data || []).map(c => c.user_id))];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, username, avatar')
-        .in('id', userIds);
-
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      
+      let profileMap = new Map<string, { username: string; avatar: string }>();
+      
+      if (userIds.length > 0) {
+        const { data: profiles, error: profileError } = await supabase
+          .rpc('get_public_profiles', { user_ids: userIds });
+        
+        if (!profileError && profiles) {
+          profileMap = new Map(profiles.map((p: { id: string; username: string; avatar: string }) => [p.id, p]));
+        }
+      }
 
       const enrichedComments: CycleComment[] = (data || []).map(c => ({
         ...c,
@@ -84,14 +89,13 @@ export const useCycleComments = (cycleId: string | null) => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'cycle_comments', filter: `cycle_id=eq.${cycleId}` },
         async (payload) => {
-          const newComment = payload.new as any;
+          const newComment = payload.new as { id: string; cycle_id: string; user_id: string; content: string; server_timestamp: string };
           
-          // Fetch profile for the new commenter
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('username, avatar')
-            .eq('id', newComment.user_id)
-            .single();
+          // Fetch profile using secure RPC function
+          const { data: profiles } = await supabase
+            .rpc('get_public_profiles', { user_ids: [newComment.user_id] });
+
+          const profile = profiles?.[0];
 
           const enrichedComment: CycleComment = {
             ...newComment,
