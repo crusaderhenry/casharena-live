@@ -114,9 +114,24 @@ export const CycleResults = () => {
         const { data: profiles } = await supabase
           .rpc('get_public_profiles', { user_ids: userIds });
 
-        const profileMap = new Map(
-          (profiles as { id: string; username: string; avatar: string }[] | null)?.map(p => [p.id, p]) || []
+        const profileMap = new Map<string, { username: string; avatar: string }>(
+          (profiles as { id: string; username: string; avatar: string }[] | null)?.map(p => [p.id, { username: p.username, avatar: p.avatar }]) || []
         );
+        
+        // Check mock_users for any IDs not found in profiles
+        const missingIds = userIds.filter(id => !profileMap.has(id));
+        if (missingIds.length > 0) {
+          const { data: mockUsers } = await supabase
+            .from('mock_users')
+            .select('id, username, avatar')
+            .in('id', missingIds);
+          
+          if (mockUsers) {
+            mockUsers.forEach((m: { id: string; username: string; avatar: string }) => {
+              profileMap.set(m.id, { username: m.username, avatar: m.avatar || '🎮' });
+            });
+          }
+        }
 
         const enrichedWinners: Winner[] = winnersData.map(w => ({
           ...w,

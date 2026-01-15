@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useCycleHostTTS } from '@/hooks/useCycleHostTTS';
+import { useMockCommentTrigger } from '@/hooks/useMockCommentTrigger';
 import { useLiveArenaSimulation } from '@/hooks/useLiveArenaSimulation';
 import { useMockVoiceRoom } from '@/hooks/useMockVoiceRoom';
 import { useMobileFullscreen } from '@/hooks/useMobileFullscreen';
@@ -58,6 +59,7 @@ interface CycleData {
   live_end_at: string;
   template_name?: string;
   ambient_music_style?: 'chill' | 'intense' | 'retro' | 'none';
+  mock_users_enabled?: boolean;
 }
 
 export const CycleArena = () => {
@@ -154,6 +156,13 @@ export const CycleArena = () => {
   
   // Use simulated voice participants in demo mode
   const voiceParticipantsToPass = isDemoMode ? simVoiceParticipants : mockVoiceParticipants;
+  
+  // Trigger mock user comments during live games (supplements slow cycle-manager tick)
+  useMockCommentTrigger(
+    cycleId || null,
+    isLive && !isDemoMode,
+    cycle?.mock_users_enabled ?? true
+  );
   
   // TTS Hook for host commentary
   const { 
