@@ -44,28 +44,31 @@ export const useActiveCycles = () => {
         return;
       }
 
-      const mappedCycles: GameCycle[] = (data || []).map((c: any) => ({
-        id: c.id,
-        template_id: c.template_id,
-        template_name: c.template_name || 'Royal Rumble',
-        game_type: c.game_type || 'royal_rumble',
-        status: c.status as GameCycle['status'],
-        entry_fee: c.entry_fee,
-        sponsored_prize_amount: c.sponsored_prize_amount || 0,
-        winner_count: c.winner_count,
-        prize_distribution: c.prize_distribution || [50, 30, 20],
-        pool_value: c.pool_value,
-        participant_count: c.participant_count,
-        countdown: c.countdown,
-        allow_spectators: c.allow_spectators,
-        entry_open_at: c.entry_open_at,
-        entry_close_at: c.entry_close_at,
-        live_start_at: c.live_start_at,
-        live_end_at: c.live_end_at,
-        seconds_until_opening: c.seconds_until_opening,
-        seconds_until_live: c.seconds_until_live,
-        seconds_remaining: c.seconds_remaining,
-      }));
+      // Filter out cancelled/ended games that may still be in the response
+      const mappedCycles: GameCycle[] = (data || [])
+        .filter((c: any) => !['cancelled', 'ended', 'settled'].includes(c.status))
+        .map((c: any) => ({
+          id: c.id,
+          template_id: c.template_id,
+          template_name: c.template_name || 'Royal Rumble',
+          game_type: c.game_type || 'royal_rumble',
+          status: c.status as GameCycle['status'],
+          entry_fee: c.entry_fee,
+          sponsored_prize_amount: c.sponsored_prize_amount || 0,
+          winner_count: c.winner_count,
+          prize_distribution: c.prize_distribution || [50, 30, 20],
+          pool_value: c.pool_value,
+          participant_count: c.participant_count,
+          countdown: c.countdown,
+          allow_spectators: c.allow_spectators,
+          entry_open_at: c.entry_open_at,
+          entry_close_at: c.entry_close_at,
+          live_start_at: c.live_start_at,
+          live_end_at: c.live_end_at,
+          seconds_until_opening: c.seconds_until_opening,
+          seconds_until_live: c.seconds_until_live,
+          seconds_remaining: c.seconds_remaining,
+        }));
 
       setCycles(mappedCycles);
       setError(null);
