@@ -1,3 +1,4 @@
+// Force rebuild v2.1.0 - New Arena UI with podium, dual timers, music toggle
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCycleJoin } from '@/hooks/useCycleJoin';
