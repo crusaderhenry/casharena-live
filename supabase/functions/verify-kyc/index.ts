@@ -12,6 +12,10 @@ interface KycRequest {
   last_name?: string;
 }
 
+// Rate limiting constants
+const MAX_ATTEMPTS_PER_DAY = 3;
+const RATE_LIMIT_HOURS = 24;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -45,12 +49,20 @@ Deno.serve(async (req) => {
     // Check if user is already KYC verified
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('kyc_verified, kyc_first_name, kyc_last_name, bank_account_name')
+      .select('kyc_verified, kyc_first_name, kyc_last_name, bank_account_name, status')
       .eq('id', user.id)
       .single();
 
     if (profileError) {
       throw profileError;
+    }
+
+    // Security: Check if user is suspended
+    if (profile?.status === 'suspended') {
+      return new Response(JSON.stringify({ error: 'Account suspended' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     if (profile?.kyc_verified) {
@@ -82,6 +94,61 @@ Deno.serve(async (req) => {
     // Strict validation: must be exactly 11 digits
     if (!number || !/^\d{11}$/.test(number)) {
       return new Response(JSON.stringify({ error: `${type.toUpperCase()} must be exactly 11 digits` }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Rate limiting: Check recent attempts for this user
+    const rateLimitCutoff = new Date(Date.now() - RATE_LIMIT_HOURS * 60 * 60 * 1000).toISOString();
+    const { data: recentAttempts, error: attemptsError } = await supabase
+      .from('kyc_attempts')
+      .select('id')
+      .eq('user_id', user.id)
+      .gte('created_at', rateLimitCutoff);
+
+    if (attemptsError) {
+      console.error('[verify-kyc] Error checking rate limit:', attemptsError);
+    }
+
+    const attemptCount = recentAttempts?.length || 0;
+    if (attemptCount >= MAX_ATTEMPTS_PER_DAY) {
+      console.log(`[verify-kyc] Rate limit exceeded for user ${user.id}: ${attemptCount} attempts`);
+      return new Response(JSON.stringify({ 
+        error: `Too many verification attempts. Please try again in ${RATE_LIMIT_HOURS} hours.` 
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Duplicate check: Ensure this NIN/BVN is not already verified by another user
+    const { data: existingVerification, error: duplicateError } = await supabase
+      .from('kyc_attempts')
+      .select('user_id')
+      .eq('kyc_number', number)
+      .eq('success', true)
+      .neq('user_id', user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (duplicateError) {
+      console.error('[verify-kyc] Error checking duplicate:', duplicateError);
+    }
+
+    if (existingVerification) {
+      // Log the failed attempt
+      await supabase.from('kyc_attempts').insert({
+        user_id: user.id,
+        kyc_type: type,
+        kyc_number: number,
+        success: false,
+      });
+      
+      console.log(`[verify-kyc] Duplicate ${type.toUpperCase()} ${number} already verified by another user`);
+      return new Response(JSON.stringify({ 
+        error: `This ${type.toUpperCase()} is already associated with another account.` 
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -143,7 +210,7 @@ Deno.serve(async (req) => {
         });
 
         const resolveData = await resolveResponse.json();
-        console.log(`[verify-kyc] Paystack BVN resolve response:`, JSON.stringify(resolveData));
+        console.log(`[verify-kyc] Paystack BVN resolve response status: ${resolveResponse.status}`);
 
         if (!resolveResponse.ok || !resolveData.status) {
           // If resolve fails, check if names were provided to verify manually
@@ -152,8 +219,16 @@ Deno.serve(async (req) => {
             verifiedFirstName = first_name;
             verifiedLastName = last_name;
           } else {
+            // Log failed attempt
+            await supabase.from('kyc_attempts').insert({
+              user_id: user.id,
+              kyc_type: type,
+              kyc_number: number,
+              success: false,
+            });
+            
             return new Response(JSON.stringify({ 
-              error: resolveData.message || 'BVN verification is not available. Please contact support.' 
+              error: 'BVN verification is not available. Please contact support.' 
             }), {
               status: 400,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -181,6 +256,14 @@ Deno.serve(async (req) => {
       }
 
       if (!verifiedFirstName || !verifiedLastName) {
+        // Log failed attempt
+        await supabase.from('kyc_attempts').insert({
+          user_id: user.id,
+          kyc_type: type,
+          kyc_number: number,
+          success: false,
+        });
+        
         return new Response(JSON.stringify({ 
           error: 'Could not retrieve name from verification. Please provide your name.' 
         }), {
@@ -189,6 +272,14 @@ Deno.serve(async (req) => {
         });
       }
     }
+
+    // Record successful attempt
+    await supabase.from('kyc_attempts').insert({
+      user_id: user.id,
+      kyc_type: type,
+      kyc_number: number,
+      success: true,
+    });
 
     // Update user profile with KYC info
     const { error: updateError } = await supabase
@@ -206,7 +297,7 @@ Deno.serve(async (req) => {
       throw updateError;
     }
 
-    console.log(`[verify-kyc] User ${user.id} verified via ${type.toUpperCase()}: ${verifiedFirstName} ${verifiedLastName}`);
+    console.log(`[verify-kyc] User ${user.id} verified via ${type.toUpperCase()}`);
 
     // Send KYC verified email
     try {
