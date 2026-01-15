@@ -162,6 +162,23 @@ export const CycleLobby = () => {
     fetchCycle();
   }, [fetchCycle]);
 
+  // Proactive status sync: when local timer says "opening" but DB is still "waiting"
+  // Trigger cycle-manager tick to sync the status before user tries to join
+  useEffect(() => {
+    if (!cycle || !cycleId) return;
+    
+    // If local timer says entries should be open, but DB status is waiting, trigger tick
+    if (cycle.status === 'waiting' && timeUntilOpening <= 0) {
+      console.log('[CycleLobby] Status mismatch detected (waiting but should be opening) - triggering tick...');
+      supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } })
+        .then(() => {
+          // Refetch cycle data after tick
+          setTimeout(fetchCycle, 500);
+        })
+        .catch(err => console.error('[CycleLobby] Proactive tick error:', err));
+    }
+  }, [cycle?.status, timeUntilOpening, cycleId, fetchCycle]);
+
   // Check user participation
   useEffect(() => {
     const check = async () => {

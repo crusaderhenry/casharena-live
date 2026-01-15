@@ -40,7 +40,8 @@ export const useCycleJoin = () => {
 
     setJoining(true);
     try {
-      const { data, error } = await supabase.rpc('join_cycle_atomic', {
+      // First attempt to join
+      let { data, error } = await supabase.rpc('join_cycle_atomic', {
         p_cycle_id: cycleId,
         p_user_id: user.id,
         p_as_spectator: asSpectator,
@@ -52,7 +53,38 @@ export const useCycleJoin = () => {
         return { success: false, error: error.message };
       }
 
-      const result = data as unknown as JoinResult;
+      let result = data as unknown as JoinResult;
+      
+      // If "Entries are closed", trigger a tick and retry once
+      // This handles the race condition where UI shows "opening" but DB is still "waiting"
+      if (!result?.success && result?.error === 'Entries are closed') {
+        console.log('[useCycleJoin] Entries closed - triggering tick and retrying...');
+        
+        try {
+          await supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } });
+          
+          // Brief pause for status update to propagate
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Retry the join
+          const retryResult = await supabase.rpc('join_cycle_atomic', {
+            p_cycle_id: cycleId,
+            p_user_id: user.id,
+            p_as_spectator: asSpectator,
+          });
+          
+          if (retryResult.error) {
+            console.error('[useCycleJoin] Retry RPC error:', retryResult.error);
+            toast.error(retryResult.error.message);
+            return { success: false, error: retryResult.error.message };
+          }
+          
+          result = retryResult.data as unknown as JoinResult;
+        } catch (tickError) {
+          console.error('[useCycleJoin] Tick failed:', tickError);
+          // Continue with original error
+        }
+      }
       
       if (!result || !result.success) {
         const errorMsg = result?.error || 'Failed to join';
