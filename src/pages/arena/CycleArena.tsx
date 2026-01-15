@@ -1,4 +1,4 @@
-// Force rebuild v2.2.0 - Instagram Live style UI upgrade
+// Force rebuild v2.3.0 - Sticky Leaders + Collapsible Host/Voice
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCycleJoin } from '@/hooks/useCycleJoin';
@@ -20,6 +20,7 @@ import { CompactHostBanner } from '@/components/CompactHostBanner';
 import { LiveCommentsIG } from '@/components/LiveCommentsIG';
 import { SmartCommentInput } from '@/components/SmartCommentInput';
 import { CompactLeaderboard } from '@/components/CompactLeaderboard';
+import { CollapsedHostVoice } from '@/components/CollapsedHostVoice';
 import { Confetti } from '@/components/Confetti';
 import { WinningBanner } from '@/components/WinningBanner';
 import { 
@@ -107,8 +108,10 @@ export const CycleArena = () => {
   const [showConfetti, setShowConfetti] = useState(false);
   const [leaderChanged, setLeaderChanged] = useState(false);
   const [openingTickSent, setOpeningTickSent] = useState(false);
+  const [isScrolledPastHost, setIsScrolledPastHost] = useState(false);
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
+  const hostVoiceRef = useRef<HTMLDivElement>(null);
   const gameEndTriggeredRef = useRef(false);
   
   const comments = isDemoMode ? simulatedComments : realComments;
@@ -117,6 +120,23 @@ export const CycleArena = () => {
   useEffect(() => {
     const timer = setTimeout(() => setIsEntering(false), 100);
     return () => clearTimeout(timer);
+  }, []);
+
+  // IntersectionObserver for Host/Voice collapse detection
+  useEffect(() => {
+    const target = hostVoiceRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Show collapsed card when original section is NOT visible (scrolled past)
+        setIsScrolledPastHost(!entry.isIntersecting);
+      },
+      { threshold: 0, rootMargin: '-100px 0px 0px 0px' }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
   }, []);
 
   const isLive = cycle?.status === 'live' || cycle?.status === 'ending';
@@ -538,24 +558,35 @@ export const CycleArena = () => {
             </div>
           </div>
         )}
+        
+        {/* Sticky Leaders - inside header */}
+        {isLive && orderedCommenters.length > 0 && (
+          <div className="px-3 pb-2">
+            <CompactLeaderboard
+              orderedCommenters={orderedCommenters}
+              winnerCount={cycle.winner_count}
+              prizeDistribution={cycle.prize_distribution}
+              effectivePrizePool={effectivePrizePool}
+              currentUserId={user?.id}
+            />
+          </div>
+        )}
       </div>
+
+      {/* Collapsed Host+Voice Card - shows when scrolled past original */}
+      {isScrolledPastHost && isLive && (
+        <div className="sticky top-[180px] z-15 px-3 py-1">
+          <CollapsedHostVoice 
+            voiceParticipantCount={voiceParticipantsToPass.length || 3}
+          />
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden px-3 py-2 gap-2">
-        {/* Compact Leaderboard */}
-        {isLive && orderedCommenters.length > 0 && (
-          <CompactLeaderboard
-            orderedCommenters={orderedCommenters}
-            winnerCount={cycle.winner_count}
-            prizeDistribution={cycle.prize_distribution}
-            effectivePrizePool={effectivePrizePool}
-            currentUserId={user?.id}
-          />
-        )}
-
-        {/* Host Banner + Voice Room Compact */}
+        {/* Host Banner + Voice Room Compact - with ref for intersection */}
         {isLive && (
-          <div className="space-y-2">
+          <div ref={hostVoiceRef} className="space-y-2">
             <CompactHostBanner isLive={isLive} isSpeaking={hostIsSpeaking} />
             {cycleId && (
               <VoiceRoomCompact 
