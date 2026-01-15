@@ -894,6 +894,7 @@ export type Database = {
           created_at: string
           event_type: string
           id: string
+          ip_address: string | null
           payload: Json | null
           provider: string
           reference: string
@@ -904,6 +905,7 @@ export type Database = {
           created_at?: string
           event_type: string
           id?: string
+          ip_address?: string | null
           payload?: Json | null
           provider?: string
           reference: string
@@ -914,6 +916,7 @@ export type Database = {
           created_at?: string
           event_type?: string
           id?: string
+          ip_address?: string | null
           payload?: Json | null
           provider?: string
           reference?: string
@@ -1462,6 +1465,14 @@ export type Database = {
           total_wins: number
           username: string
           weekly_rank: number
+        }[]
+      }
+      get_public_profiles: {
+        Args: { user_ids: string[] }
+        Returns: {
+          avatar: string
+          id: string
+          username: string
         }[]
       }
       get_server_time: { Args: never; Returns: string }
