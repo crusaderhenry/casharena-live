@@ -6,7 +6,7 @@ import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 interface GameEndFreezeProps {
   isActive: boolean;
-  winnerName: string;
+  winnerName: string | null; // null means no real winner
   winnerAvatar: string;
   prizeAmount: number;
   onComplete: () => void;
@@ -125,38 +125,59 @@ export const GameEndFreeze = ({
         <div className={`mb-8 transition-all duration-700 ${
           phase === 'drumroll' ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
         }`}>
-          <div className="relative inline-block mb-4">
-            {/* Pulsing glow effect */}
-            <div className="absolute inset-0 rounded-full bg-gold/40 blur-2xl animate-pulse" />
-            <div className="absolute inset-0 rounded-full bg-gold/20 blur-3xl animate-ping" style={{ animationDuration: '2s' }} />
-            
-            {/* Avatar */}
-            <div className={`relative w-28 h-28 rounded-full bg-gradient-to-br from-gold via-gold/80 to-amber-600 flex items-center justify-center text-6xl border-4 border-gold/50 shadow-2xl shadow-gold/40 transition-all duration-500 ${
-              phase === 'celebration' ? 'animate-bounce' : ''
-            }`} style={{ animationDuration: '1s' }}>
-              {winnerAvatar}
-            </div>
-            
-            {/* Crown with animation */}
-            <Crown className={`absolute -top-5 left-1/2 -translate-x-1/2 w-12 h-12 text-gold drop-shadow-lg transition-all duration-500 ${
-              phase === 'celebration' ? 'animate-pulse' : ''
-            }`} />
-          </div>
-          
-          <h2 className="text-4xl font-black text-gold mb-2 flex items-center justify-center gap-2">
-            <Sparkles className={`w-7 h-7 ${phase === 'celebration' ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
-            {winnerName}
-            <Sparkles className={`w-7 h-7 ${phase === 'celebration' ? 'animate-spin' : ''}`} style={{ animationDuration: '3s', animationDirection: 'reverse' }} />
-          </h2>
-          
-          <p className="text-lg text-muted-foreground mb-4">is the Last One Standing!</p>
-          
-          <div className={`inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-gold/30 to-amber-500/30 border-2 border-gold/50 transition-all duration-500 ${
-            phase === 'celebration' ? 'scale-110' : ''
-          }`}>
-            <Trophy className="w-8 h-8 text-gold animate-pulse" />
-            <span className="text-4xl font-black text-gold">{formatMoney(prizeAmount)}</span>
-          </div>
+          {winnerName ? (
+            <>
+              <div className="relative inline-block mb-4">
+                {/* Pulsing glow effect */}
+                <div className="absolute inset-0 rounded-full bg-gold/40 blur-2xl animate-pulse" />
+                <div className="absolute inset-0 rounded-full bg-gold/20 blur-3xl animate-ping" style={{ animationDuration: '2s' }} />
+                
+                {/* Avatar */}
+                <div className={`relative w-28 h-28 rounded-full bg-gradient-to-br from-gold via-gold/80 to-amber-600 flex items-center justify-center text-6xl border-4 border-gold/50 shadow-2xl shadow-gold/40 transition-all duration-500 ${
+                  phase === 'celebration' ? 'animate-bounce' : ''
+                }`} style={{ animationDuration: '1s' }}>
+                  {winnerAvatar}
+                </div>
+                
+                {/* Crown with animation */}
+                <Crown className={`absolute -top-5 left-1/2 -translate-x-1/2 w-12 h-12 text-gold drop-shadow-lg transition-all duration-500 ${
+                  phase === 'celebration' ? 'animate-pulse' : ''
+                }`} />
+              </div>
+              
+              <h2 className="text-4xl font-black text-gold mb-2 flex items-center justify-center gap-2">
+                <Sparkles className={`w-7 h-7 ${phase === 'celebration' ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
+                {winnerName}
+                <Sparkles className={`w-7 h-7 ${phase === 'celebration' ? 'animate-spin' : ''}`} style={{ animationDuration: '3s', animationDirection: 'reverse' }} />
+              </h2>
+              
+              <p className="text-lg text-muted-foreground mb-4">is the Last One Standing!</p>
+              
+              <div className={`inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-gold/30 to-amber-500/30 border-2 border-gold/50 transition-all duration-500 ${
+                phase === 'celebration' ? 'scale-110' : ''
+              }`}>
+                <Trophy className="w-8 h-8 text-gold animate-pulse" />
+                <span className="text-4xl font-black text-gold">{formatMoney(prizeAmount)}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* No Winner Display */}
+              <div className="relative inline-block mb-4">
+                <div className="relative w-28 h-28 rounded-full bg-muted/50 flex items-center justify-center text-6xl border-4 border-muted shadow-xl">
+                  🤷
+                </div>
+              </div>
+              
+              <h2 className="text-3xl font-black text-muted-foreground mb-2">
+                No Winner
+              </h2>
+              
+              <p className="text-lg text-muted-foreground mb-4">
+                Game ended with no eligible winners
+              </p>
+            </>
+          )}
         </div>
 
         {/* Transition Countdown */}

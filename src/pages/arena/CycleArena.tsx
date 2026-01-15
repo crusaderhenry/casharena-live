@@ -115,9 +115,10 @@ export const CycleArena = () => {
   const [isEntering, setIsEntering] = useState(true);
   const [showGameEndFreeze, setShowGameEndFreeze] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [gameWinner, setGameWinner] = useState<{ name: string; avatar: string; prize: number } | null>(null);
+  const [gameWinner, setGameWinner] = useState<{ name: string | null; avatar: string; prize: number } | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [leaderChanged, setLeaderChanged] = useState(false);
+  const [winnerDisplayed, setWinnerDisplayed] = useState(false); // Guard to prevent double popup
   const commentsContainerRef = useRef<HTMLDivElement>(null);
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
@@ -238,7 +239,7 @@ export const CycleArena = () => {
     check();
   }, [cycleId, checkParticipation, isDemoMode]);
 
-  // Real-time subscription
+  // Real-time subscription - ONLY updates cycle data, does NOT trigger winner display
   useEffect(() => {
     if (!cycleId) return;
 
@@ -251,25 +252,9 @@ export const CycleArena = () => {
           const updated = payload.new as CycleData;
           setCycle(prev => prev ? { ...prev, ...updated } : null);
           setLocalCountdown(updated.countdown);
-
-          // Handle game ending - show freeze overlay
-          if (updated.status === 'ending' || updated.status === 'ended') {
-            const orderedCommenters = getOrderedCommenters();
-            const winner = orderedCommenters[0];
-            const effectivePrizePool = updated.pool_value + (updated.sponsored_prize_amount || 0);
-            const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (updated.prize_distribution[0] / 100));
-            
-            if (winner) {
-              play('prizeWin');
-              setGameWinner({
-                name: winner.username,
-                avatar: winner.avatar,
-                prize: prizeAmount,
-              });
-              announceGameOver(winner.username, prizeAmount);
-              setShowGameEndFreeze(true);
-            }
-          }
+          
+          // Note: Winner display is handled by the local countdown ticker (single trigger point)
+          // This subscription only updates cycle data for UI consistency
         }
       )
       .subscribe();
@@ -277,31 +262,73 @@ export const CycleArena = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [cycleId, getOrderedCommenters, play, announceGameOver]);
+  }, [cycleId]);
 
   // Local countdown ticker - use server time for accurate sync
+  // SINGLE trigger point for winner display to prevent double popup
   useEffect(() => {
     if (!cycle) return;
 
-    const triggerGameEnd = () => {
-      if (gameEndTriggeredRef.current || showGameEndFreeze) return;
+    const triggerGameEnd = async () => {
+      // Guard: prevent multiple triggers
+      if (gameEndTriggeredRef.current || showGameEndFreeze || winnerDisplayed) return;
       gameEndTriggeredRef.current = true;
+      setWinnerDisplayed(true);
       
-      const orderedCommenters = getOrderedCommenters();
-      const winner = orderedCommenters[0];
-      const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
-      const prizeAmount = Math.floor(effectivePrizePool * 0.9 * (cycle.prize_distribution[0] / 100));
-      
-      if (winner) {
-        play('prizeWin');
-        setGameWinner({
-          name: winner.username,
-          avatar: winner.avatar,
-          prize: prizeAmount,
-        });
-        announceGameOver(winner.username, prizeAmount);
-        setShowGameEndFreeze(true);
+      // Trigger backend tick to ensure settlement happens
+      try {
+        await supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } });
+      } catch (err) {
+        console.error('[CycleArena] Tick error:', err);
       }
+      
+      // Wait a moment for backend settlement to complete
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Fetch actual winner from cycle_winners table (backend source of truth)
+      const { data: winners } = await supabase
+        .from('cycle_winners')
+        .select('user_id, position, prize_amount')
+        .eq('cycle_id', cycleId)
+        .order('position')
+        .limit(1);
+      
+      if (winners && winners.length > 0) {
+        const winner = winners[0];
+        
+        // Get winner profile
+        const { data: profiles } = await supabase
+          .rpc('get_public_profiles', { user_ids: [winner.user_id] });
+        
+        const profile = profiles?.[0];
+        
+        if (profile) {
+          play('prizeWin');
+          setGameWinner({
+            name: profile.username,
+            avatar: profile.avatar || '🎮',
+            prize: winner.prize_amount,
+          });
+          announceGameOver(profile.username, winner.prize_amount);
+        } else {
+          // Fallback: profile lookup failed but we have a winner
+          setGameWinner({
+            name: 'Winner',
+            avatar: '🏆',
+            prize: winner.prize_amount,
+          });
+        }
+      } else {
+        // No real winner - game ended with only mock user comments or no comments
+        setGameWinner({
+          name: null,
+          avatar: '🤷',
+          prize: 0,
+        });
+        announceGameOver('Nobody', 0);
+      }
+      
+      setShowGameEndFreeze(true);
     };
 
     const interval = setInterval(() => {
@@ -334,7 +361,7 @@ export const CycleArena = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [cycle, getOrderedCommenters, play, announceGameOver, showGameEndFreeze, secondsUntil]);
+  }, [cycle, cycleId, play, announceGameOver, showGameEndFreeze, winnerDisplayed, secondsUntil]);
 
   // Timer warning announcements
   useEffect(() => {
