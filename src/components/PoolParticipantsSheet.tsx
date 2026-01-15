@@ -77,49 +77,62 @@ export const PoolParticipantsSheet = ({
     const fetchParticipants = async () => {
       setLoading(true);
       
-      // Fetch real participants from cycle_participants
-      const { data: realParticipants } = await supabase
+      // Fetch ALL participants from cycle_participants
+      const { data: allParticipants } = await supabase
         .from('cycle_participants')
         .select('*')
         .eq('cycle_id', gameId)
         .eq('is_spectator', false)
         .order('joined_at', { ascending: false });
 
-      // Fetch mock participants for display
-      const { data: mockData } = await supabase.functions.invoke('mock-user-service', {
-        body: { action: 'get_mock_participants', gameId },
-      });
-      const mockParticipantsList = mockData?.participants || [];
+      // Fetch ALL mock users to build a lookup map
+      const { data: mockUsersList } = await supabase
+        .from('mock_users')
+        .select('id, username, avatar');
+      
+      const mockUsersMap = new Map(
+        (mockUsersList || []).map(m => [m.id, { username: m.username, avatar: m.avatar }])
+      );
 
-      // Get profiles for real participants
-      const realWithProfiles = await Promise.all(
-        (realParticipants || []).map(async (p) => {
-          const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: p.user_id });
-          return { ...p, profile: profileData?.[0], isMock: false };
+      // Process each participant - check if mock or real
+      const withProfiles = await Promise.all(
+        (allParticipants || []).map(async (p) => {
+          const mockProfile = mockUsersMap.get(p.user_id);
+          
+          if (mockProfile) {
+            // It's a mock user - use mock profile data directly
+            return { 
+              ...p, 
+              profile: { username: mockProfile.username, avatar: mockProfile.avatar },
+              isMock: true 
+            };
+          } else {
+            // It's a real user - fetch from profiles via RPC
+            const { data: profileData } = await supabase.rpc('get_public_profile', { 
+              profile_id: p.user_id 
+            });
+            return { 
+              ...p, 
+              profile: profileData?.[0], 
+              isMock: false 
+            };
+          }
         })
       );
 
-      // Format mock participants
-      const mockFormatted = mockParticipantsList.map((m: any) => ({
-        id: m.id,
-        user_id: m.id,
-        joined_at: m.joined_at,
-        profile: { username: m.username, avatar: m.avatar },
-        isMock: true,
-      }));
-
-      // Combine and sort by join time
-      const combined = [...realWithProfiles, ...mockFormatted].sort(
-        (a, b) => new Date(b.joined_at).getTime() - new Date(a.joined_at).getTime()
-      );
-
-      setParticipants(combined);
+      setParticipants(withProfiles);
       setLoading(false);
     };
 
     fetchParticipants();
 
     // Subscribe to real-time updates
+    // Build mock users map for realtime updates
+    let mockUsersMapRef = new Map<string, { username: string; avatar: string }>();
+    supabase.from('mock_users').select('id, username, avatar').then(({ data }) => {
+      mockUsersMapRef = new Map((data || []).map(m => [m.id, { username: m.username, avatar: m.avatar }]));
+    });
+
     const channel = supabase
       .channel(`pool-sheet-${gameId}`)
       .on('postgres_changes', 
@@ -127,9 +140,21 @@ export const PoolParticipantsSheet = ({
         async (payload) => {
           if (payload.eventType === 'INSERT') {
             const newP = payload.new as any;
-            if (newP.is_spectator) return; // Skip spectators
-            const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: newP.user_id });
-            setParticipants(prev => [{ ...newP, profile: profileData?.[0] }, ...prev]);
+            if (newP.is_spectator) return;
+            
+            // Check if it's a mock user first
+            const mockProfile = mockUsersMapRef.get(newP.user_id);
+            if (mockProfile) {
+              setParticipants(prev => [{ 
+                ...newP, 
+                profile: { username: mockProfile.username, avatar: mockProfile.avatar },
+                isMock: true 
+              }, ...prev]);
+            } else {
+              // Real user - fetch profile
+              const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: newP.user_id });
+              setParticipants(prev => [{ ...newP, profile: profileData?.[0], isMock: false }, ...prev]);
+            }
             setParticipantCount(prev => prev + 1);
             setPoolValue(prev => prev + entryFee);
           } else if (payload.eventType === 'DELETE') {
