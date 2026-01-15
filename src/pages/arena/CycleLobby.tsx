@@ -113,6 +113,27 @@ export const CycleLobby = () => {
       return;
     }
 
+    // CRITICAL: Handle cancelled/ended games immediately before showing lobby
+    if (data.status === 'cancelled') {
+      if (data.participant_count === 0) {
+        toast.info('Game cancelled — no players joined');
+        navigate('/arena', { replace: true });
+      } else {
+        navigate(`/arena/${cycleId}/results`, { replace: true });
+      }
+      return;
+    }
+
+    if (data.status === 'ended' || data.status === 'settled') {
+      navigate(`/arena/${cycleId}/results`, { replace: true });
+      return;
+    }
+
+    if (data.status === 'live' || data.status === 'ending') {
+      navigate(`/arena/${cycleId}/live`, { replace: true });
+      return;
+    }
+
     // Get template name
     const { data: template } = await supabase
       .from('game_templates')
