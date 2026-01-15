@@ -1,4 +1,4 @@
-import { useState, useEffect, forwardRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useSounds } from '@/hooks/useSounds';
@@ -41,7 +41,7 @@ interface CycleResult {
   settlement_data?: SettlementData | null;
 }
 
-export const CycleResults = forwardRef<HTMLDivElement>((_, ref) => {
+export const CycleResults = () => {
   const { cycleId } = useParams<{ cycleId: string }>();
   const navigate = useNavigate();
   const { play } = useSounds();
@@ -300,7 +300,7 @@ export const CycleResults = forwardRef<HTMLDivElement>((_, ref) => {
   const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
 
   return (
-    <div ref={ref} className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24">
       {showConfetti && <Confetti />}
       
       {/* Winner Celebration Modal */}
@@ -537,6 +537,4 @@ export const CycleResults = forwardRef<HTMLDivElement>((_, ref) => {
       <BottomNav />
     </div>
   );
-});
-
-CycleResults.displayName = 'CycleResults';
+};

@@ -1,4 +1,3 @@
-import { forwardRef } from 'react';
 import { Home, Zap, Trophy, User, Wallet } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSounds } from '@/hooks/useSounds';
@@ -12,7 +11,7 @@ const navItems = [
   { icon: User, label: 'Profile', path: '/profile' },
 ];
 
-export const BottomNav = forwardRef<HTMLElement>((_, ref) => {
+export const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { play } = useSounds();
@@ -25,7 +24,7 @@ export const BottomNav = forwardRef<HTMLElement>((_, ref) => {
   };
 
   return (
-    <nav ref={ref} className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-border/30 z-50">
+    <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-border/30 z-50">
       <div className="flex items-center justify-evenly px-1 py-1.5 pb-safe">
         {navItems.map(({ icon: Icon, label, path }) => {
           const isActive = location.pathname === path || 
@@ -55,6 +54,4 @@ export const BottomNav = forwardRef<HTMLElement>((_, ref) => {
       </div>
     </nav>
   );
-});
-
-BottomNav.displayName = 'BottomNav';
+};
