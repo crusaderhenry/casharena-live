@@ -61,6 +61,7 @@ interface GameFormData {
   payoutType: 'winner_takes_all' | 'top3' | 'top5' | 'top10';
   minParticipants: number;
   entryWaitSeconds: number;
+  openEntryDuration: number; // Minutes before game goes live (entry period)
   // Scheduling
   goLiveType: 'immediate' | 'scheduled';
   scheduledDate: string;
@@ -278,6 +279,7 @@ export const AdminRumbleControl = () => {
     payoutType: 'top3',
     minParticipants: 3,
     entryWaitSeconds: 60,
+    openEntryDuration: 5, // Default 5 minutes before game starts
     goLiveType: 'immediate',
     scheduledDate: getDefaultDateTime().date,
     scheduledTime: getDefaultDateTime().time,
@@ -374,6 +376,8 @@ export const AdminRumbleControl = () => {
       fixed_daily_time: formData.recurrenceType === 'daily' ? formData.fixedDailyTime : null,
       entry_wait_seconds: formData.entryWaitSeconds,
       min_participants_action: formData.minParticipantsAction,
+      // Open entry duration (minutes before game goes live)
+      open_entry_duration: formData.openEntryDuration,
       // Music settings - ambient style takes priority
       ambient_music_style: formData.ambientMusicStyle,
       music_type: formData.ambientMusicStyle !== 'none' ? 'generated' : formData.musicType,
@@ -394,6 +398,7 @@ export const AdminRumbleControl = () => {
       payoutType: 'top3',
       minParticipants: 3,
       entryWaitSeconds: 60,
+      openEntryDuration: 5,
       goLiveType: 'immediate',
       scheduledDate: defaults.date,
       scheduledTime: defaults.time,
@@ -517,6 +522,7 @@ export const AdminRumbleControl = () => {
           payoutType,
           minParticipants: data.min_participants || 2,
           entryWaitSeconds: 60,
+          openEntryDuration: template?.open_entry_duration || 5,
           goLiveType: 'immediate',
           scheduledDate: defaults.date,
           scheduledTime: defaults.time,
@@ -580,6 +586,7 @@ export const AdminRumbleControl = () => {
       fixed_daily_time: formData.recurrenceType === 'daily' ? formData.fixedDailyTime : null,
       entry_wait_seconds: formData.entryWaitSeconds,
       min_participants_action: formData.minParticipantsAction,
+      open_entry_duration: formData.openEntryDuration,
       music_type: formData.musicType,
       lobby_music_url: formData.musicType === 'uploaded' ? formData.lobbyMusicUrl || null : null,
       arena_music_url: formData.musicType === 'uploaded' ? formData.arenaMusicUrl || null : null,
@@ -833,7 +840,26 @@ export const AdminRumbleControl = () => {
                   min={10}
                 />
                 <p className="text-xs text-muted-foreground">
-                  How long players have to join before the game goes live
+                  Countdown shown in lobby before going live
+                </p>
+              </div>
+
+              {/* Open Entry Duration - Time before game starts */}
+              <div className="space-y-2 p-3 bg-green-500/5 rounded-lg border border-green-500/20">
+                <Label htmlFor="openEntryDuration" className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-green-400" />
+                  Time Before Game Starts (minutes)
+                </Label>
+                <Input
+                  id="openEntryDuration"
+                  type="number"
+                  value={formData.openEntryDuration}
+                  onChange={(e) => setFormData(prev => ({ ...prev, openEntryDuration: Math.max(1, Math.min(60, parseInt(e.target.value) || 5)) }))}
+                  min={1}
+                  max={60}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Total time players have to join before the game goes live (1-60 min)
                 </p>
               </div>
               
@@ -1363,6 +1389,28 @@ export const AdminRumbleControl = () => {
                   onChange={(e) => setFormData(prev => ({ ...prev, entryWaitSeconds: parseInt(e.target.value) || 60 }))}
                   min={10}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Countdown shown in lobby before going live
+                </p>
+              </div>
+
+              {/* Open Entry Duration - Time before game starts */}
+              <div className="space-y-2 p-3 bg-green-500/5 rounded-lg border border-green-500/20">
+                <Label htmlFor="edit-openEntryDuration" className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-green-400" />
+                  Time Before Game Starts (minutes)
+                </Label>
+                <Input
+                  id="edit-openEntryDuration"
+                  type="number"
+                  value={formData.openEntryDuration}
+                  onChange={(e) => setFormData(prev => ({ ...prev, openEntryDuration: Math.max(1, Math.min(60, parseInt(e.target.value) || 5)) }))}
+                  min={1}
+                  max={60}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Total time players have to join before the game goes live (1-60 min)
+                </p>
               </div>
               
               {/* Min Participants */}

@@ -176,8 +176,23 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     }, 50);
   }, []);
 
+  // Voice profiles for fallback (simulating host personalities)
+  const FALLBACK_VOICE_PROFILES: Record<string, { basePitch: number; baseRate: number; gender: 'male' | 'female' }> = {
+    crusader: { basePitch: 1.15, baseRate: 1.12, gender: 'male' },  // Energetic male
+    mark: { basePitch: 0.95, baseRate: 1.0, gender: 'male' },       // Calm male
+    adaobi: { basePitch: 1.2, baseRate: 1.08, gender: 'female' },   // Energetic female
+    default: { basePitch: 1.0, baseRate: 1.05, gender: 'male' },
+  };
+
+  // Emotion modifiers for dynamic speech
+  const EMOTION_MODIFIERS: Record<string, { pitchMod: number; rateMod: number }> = {
+    excited: { pitchMod: 0.15, rateMod: 0.1 },    // Fast and high for celebrations
+    tense: { pitchMod: 0.08, rateMod: 0.12 },     // Urgent for countdowns
+    calm: { pitchMod: 0, rateMod: 0 },            // Neutral
+  };
+
   // Fallback to Web Speech API when ElevenLabs quota is exceeded
-  const fallbackSpeak = useCallback((text: string) => {
+  const fallbackSpeak = useCallback((text: string, emotion: 'excited' | 'tense' | 'calm' = 'calm') => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       triggerNextInQueue();
       return;
@@ -186,16 +201,35 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     const synth = window.speechSynthesis;
     synth.cancel(); // Stop any current speech
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.05;
-    utterance.pitch = 1.0;
-    utterance.volume = 0.8;
+    // Get host profile based on selectedHost
+    const profile = FALLBACK_VOICE_PROFILES[selectedHost] || FALLBACK_VOICE_PROFILES.default;
+    const emotionMod = EMOTION_MODIFIERS[emotion];
 
-    // Try to use an English voice
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = Math.min(Math.max(profile.baseRate + emotionMod.rateMod, 0.8), 1.5);
+    utterance.pitch = Math.min(Math.max(profile.basePitch + emotionMod.pitchMod, 0.5), 2.0);
+    utterance.volume = audioSettings.volume; // Respect user volume setting
+
+    // Try to find appropriate voice based on host gender
     const voices = synth.getVoices();
-    const englishVoice = voices.find(v => v.lang.startsWith('en'));
-    if (englishVoice) {
-      utterance.voice = englishVoice;
+    const isFemalHost = profile.gender === 'female';
+    
+    // Try to find a matching gendered voice
+    let selectedVoice = voices.find(v => 
+      v.lang.startsWith('en') && 
+      (isFemalHost 
+        ? (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('samantha') || v.name.toLowerCase().includes('victoria') || v.name.toLowerCase().includes('karen'))
+        : (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('james'))
+      )
+    );
+    
+    // Fallback to any English voice
+    if (!selectedVoice) {
+      selectedVoice = voices.find(v => v.lang.startsWith('en'));
+    }
+    
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
     }
 
     isSpeakingRef.current = true;
@@ -217,15 +251,21 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     };
 
     synth.speak(utterance);
-  }, [onSpeakingChange, triggerNextInQueue]);
+  }, [onSpeakingChange, triggerNextInQueue, selectedHost, audioSettings.volume]);
 
   // Play TTS audio with ElevenLabs, fallback to Web Speech API
   const speakText = useCallback(async (text: string, voiceId?: string) => {
     if (audioSettings.hostMuted || !isLive) return;
 
-    // If quota was exceeded, use fallback directly
+    // If quota was exceeded, use fallback directly with emotion
     if (quotaExceededRef.current) {
-      fallbackSpeak(text);
+      // Determine emotion from text content
+      const emotion = text.includes('!') && (text.includes('WIN') || text.includes('FIRE') || text.includes('GOOO') || text.includes('WILD'))
+        ? 'excited' 
+        : (text.includes('second') || text.includes('FINAL') || text.includes('CRITICAL'))
+          ? 'tense'
+          : 'calm';
+      fallbackSpeak(text, emotion);
       return;
     }
 
