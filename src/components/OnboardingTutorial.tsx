@@ -330,34 +330,5 @@ export const OnboardingTutorial = ({ onComplete, onRemindLater }: OnboardingTuto
   );
 };
 
-// Hook to check if onboarding should be shown
-export const useOnboarding = () => {
-  const [showOnboarding, setShowOnboarding] = useState(false);
-
-  useEffect(() => {
-    const completed = localStorage.getItem('fortuneshq_onboarding_complete');
-    const reminded = sessionStorage.getItem('fortuneshq_onboarding_reminded');
-    
-    if (!completed && !reminded) {
-      // Small delay for smooth initial load
-      const timer = setTimeout(() => setShowOnboarding(true), 500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  const completeOnboarding = () => {
-    setShowOnboarding(false);
-  };
-
-  const remindLater = () => {
-    setShowOnboarding(false);
-  };
-
-  const resetOnboarding = () => {
-    localStorage.removeItem('fortuneshq_onboarding_complete');
-    sessionStorage.removeItem('fortuneshq_onboarding_reminded');
-    setShowOnboarding(true);
-  };
-
-  return { showOnboarding, completeOnboarding, remindLater, resetOnboarding };
-};
+// Re-export the hook from its dedicated file for backward compatibility
+export { useOnboarding } from '@/hooks/useOnboarding';
