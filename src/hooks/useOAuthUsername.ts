@@ -58,12 +58,12 @@ export const useOAuthUsername = (userId: string | undefined) => {
   }, [userId]);
 
   const showWelcomeToast = (uid: string) => {
-    // Only show once per session per user
+    // Only show once ever per user (use localStorage for persistence)
     const welcomeKey = `${WELCOME_SHOWN_KEY}_${uid}`;
-    if (welcomeShownRef.current || sessionStorage.getItem(welcomeKey)) return;
+    if (welcomeShownRef.current || localStorage.getItem(welcomeKey)) return;
     
     welcomeShownRef.current = true;
-    sessionStorage.setItem(welcomeKey, 'true');
+    localStorage.setItem(welcomeKey, 'true');
     
     // Small delay to let the page settle
     setTimeout(() => {

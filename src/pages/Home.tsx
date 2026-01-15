@@ -45,10 +45,13 @@ export const Home = () => {
     onRefresh: handleRefresh,
   });
 
-  const { newBadge, showCelebration, dismissCelebration } = useBadgeUnlock({
-    total_wins: profile?.total_wins || 0,
-    games_played: profile?.games_played || 0,
-  });
+  const { newBadge, showCelebration, dismissCelebration } = useBadgeUnlock(
+    {
+      total_wins: profile?.total_wins || 0,
+      games_played: profile?.games_played || 0,
+    },
+    user?.id
+  );
 
   // Onboarding tutorial for first-time visitors
   const { showOnboarding, completeOnboarding, remindLater } = useOnboarding();
