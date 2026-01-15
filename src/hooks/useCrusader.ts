@@ -139,9 +139,16 @@ export const useCrusader = () => {
         body: { text, voiceId: CRUSADER_VOICE_ID },
       });
 
+      // SDK-level error (non-2xx or network)
       if (error) {
         console.error('TTS error:', error);
-        // Fallback to Web Speech API
+        fallbackSpeak(text);
+        return;
+      }
+
+      // App-level error returned in JSON (e.g. quota exceeded)
+      if (data?.error) {
+        console.warn('TTS unavailable:', data.error);
         fallbackSpeak(text);
         return;
       }
@@ -149,6 +156,9 @@ export const useCrusader = () => {
       if (data?.audioContent) {
         const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
         queueAudio(audioUrl);
+      } else {
+        // No audio content received
+        fallbackSpeak(text);
       }
     } catch (err) {
       console.error('TTS request failed:', err);
