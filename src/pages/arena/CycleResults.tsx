@@ -56,6 +56,7 @@ export const CycleResults = () => {
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [showShareSection, setShowShareSection] = useState(false);
   const [hasShownModal, setHasShownModal] = useState(false);
+  const [didParticipate, setDidParticipate] = useState(false);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -87,6 +88,19 @@ export const CycleResults = () => {
         settlement_data: cycleData.settlement_data as SettlementData | null,
       });
 
+      // Check if current user participated (for accurate refund messaging)
+      if (user) {
+        const { data: participationData } = await supabase
+          .from('cycle_participants')
+          .select('id, is_spectator')
+          .eq('cycle_id', cycleId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        // Only count as participant if they joined as non-spectator
+        setDidParticipate(!!participationData && !participationData.is_spectator);
+      }
+
       // Fetch winners
       const { data: winnersData } = await supabase
         .from('cycle_winners')
@@ -94,15 +108,15 @@ export const CycleResults = () => {
         .eq('cycle_id', cycleId)
         .order('position');
 
-      if (winnersData) {
-        // Get profiles for winners
+      if (winnersData && winnersData.length > 0) {
+        // Get profiles for winners using secure RPC function
         const userIds = winnersData.map(w => w.user_id);
         const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, username, avatar')
-          .in('id', userIds);
+          .rpc('get_public_profiles', { user_ids: userIds });
 
-        const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+        const profileMap = new Map(
+          (profiles as { id: string; username: string; avatar: string }[] | null)?.map(p => [p.id, p]) || []
+        );
 
         const enrichedWinners: Winner[] = winnersData.map(w => ({
           ...w,
@@ -242,10 +256,18 @@ export const CycleResults = () => {
                   : `Only ${cycle.participant_count} player${cycle.participant_count > 1 ? 's' : ''} joined — at least ${cycle.min_participants} were needed`
                 }
               </p>
-              <div className="flex items-center justify-center gap-2 text-sm text-foreground bg-green-500/20 rounded-full px-4 py-2 w-fit mx-auto">
-                <Coins className="w-4 h-4 text-green-400" />
-                <span>Your entry fee of <strong className="text-green-400">{formatMoney(cycle.entry_fee)}</strong> has been refunded</span>
-              </div>
+              {/* Only show personal refund message if user actually participated */}
+              {didParticipate && cycle.entry_fee > 0 ? (
+                <div className="flex items-center justify-center gap-2 text-sm text-foreground bg-green-500/20 rounded-full px-4 py-2 w-fit mx-auto">
+                  <Coins className="w-4 h-4 text-green-400" />
+                  <span>Your entry fee of <strong className="text-green-400">{formatMoney(cycle.entry_fee)}</strong> has been refunded</span>
+                </div>
+              ) : cycle.participant_count > 0 && cycle.entry_fee > 0 ? (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-full px-4 py-2 w-fit mx-auto">
+                  <Coins className="w-4 h-4" />
+                  <span>Players who joined were refunded</span>
+                </div>
+              ) : null}
             </div>
           </div>
         )}
@@ -259,12 +281,18 @@ export const CycleResults = () => {
               <p className="text-muted-foreground mb-3">
                 {cycle.settlement_data?.reason || 'The game ended with no comments'}
               </p>
-              {cycle.entry_fee > 0 && (
+              {/* Only show personal refund message if user actually participated */}
+              {didParticipate && cycle.entry_fee > 0 ? (
                 <div className="flex items-center justify-center gap-2 text-sm text-foreground bg-green-500/20 rounded-full px-4 py-2 w-fit mx-auto">
                   <Coins className="w-4 h-4 text-green-400" />
                   <span>Your entry fee of <strong className="text-green-400">{formatMoney(cycle.entry_fee)}</strong> has been refunded</span>
                 </div>
-              )}
+              ) : cycle.participant_count > 0 && cycle.entry_fee > 0 ? (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-full px-4 py-2 w-fit mx-auto">
+                  <Coins className="w-4 h-4" />
+                  <span>Players who joined were refunded</span>
+                </div>
+              ) : null}
             </div>
           </div>
         )}
