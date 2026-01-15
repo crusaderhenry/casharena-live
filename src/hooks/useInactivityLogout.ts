@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const INACTIVITY_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
@@ -9,19 +10,31 @@ const INACTIVITY_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
  * who have been inactive for more than 24 hours.
  */
 export const useInactivityLogout = () => {
-  const { profile, signOut, user } = useAuth();
+  const { signOut, user } = useAuth();
   const hasCheckedRef = useRef(false);
 
   const checkInactivity = useCallback(async () => {
-    if (!user || !profile?.last_active_at) return;
+    if (!user) return;
 
-    const lastActiveTime = new Date(profile.last_active_at).getTime();
+    // Fetch fresh last_active_at from database instead of using stale context
+    const { data: freshProfile, error } = await supabase
+      .from('profiles')
+      .select('last_active_at')
+      .eq('id', user.id)
+      .single();
+
+    if (error || !freshProfile?.last_active_at) {
+      console.log('[Session] Could not fetch fresh profile for inactivity check');
+      return;
+    }
+
+    const lastActiveTime = new Date(freshProfile.last_active_at).getTime();
     const now = Date.now();
     const inactiveTime = now - lastActiveTime;
 
     if (inactiveTime > INACTIVITY_TIMEOUT) {
       console.log('[Session] Logging out due to inactivity:', {
-        lastActive: profile.last_active_at,
+        lastActive: freshProfile.last_active_at,
         inactiveHours: Math.round(inactiveTime / (60 * 60 * 1000)),
       });
 
@@ -32,15 +45,15 @@ export const useInactivityLogout = () => {
         duration: 6000,
       });
     }
-  }, [user, profile?.last_active_at, signOut]);
+  }, [user, signOut]);
 
   // Check on mount (only once per session)
   useEffect(() => {
-    if (!user || !profile?.last_active_at || hasCheckedRef.current) return;
+    if (!user || hasCheckedRef.current) return;
     
     hasCheckedRef.current = true;
     checkInactivity();
-  }, [user, profile?.last_active_at, checkInactivity]);
+  }, [user, checkInactivity]);
 
   // Check when tab becomes visible
   useEffect(() => {
