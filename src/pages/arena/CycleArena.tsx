@@ -195,11 +195,24 @@ export const CycleArena = () => {
           const updated = payload.new as CycleData;
           setCycle(prev => prev ? { ...prev, ...updated } : null);
           setLocalCountdown(updated.countdown);
+          
+          // Handle status changes via realtime - immediate redirect for ended/settled games
+          if (updated.status === 'ended' || updated.status === 'settled') {
+            console.log('[CycleArena] Game ended via realtime, navigating to results');
+            navigate(`/arena/${cycleId}/results`, { replace: true });
+          } else if (updated.status === 'cancelled') {
+            if (updated.participant_count === 0) {
+              toast.info('Game cancelled — no players joined');
+              navigate('/arena', { replace: true });
+            } else {
+              navigate(`/arena/${cycleId}/results`, { replace: true });
+            }
+          }
         }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [cycleId]);
+  }, [cycleId, navigate]);
 
   // Game end handler - immediate navigation to results (no delay)
   const handleGameEnd = useCallback(async () => {
