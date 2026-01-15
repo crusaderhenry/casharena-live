@@ -230,45 +230,7 @@ export const CycleArena = () => {
     check();
   }, [cycleId, checkParticipation, isDemoMode]);
 
-  // Database changes subscription
-  useEffect(() => {
-    if (!cycleId) return;
-    const channel = supabase
-      .channel(`arena-cycle-${cycleId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_cycles', filter: `id=eq.${cycleId}` },
-        (payload) => {
-          const updated = payload.new as CycleData;
-          setCycle(prev => prev ? { ...prev, ...updated } : null);
-          
-          // Always sync countdown and game time from server (authoritative)
-          setLocalCountdown(updated.countdown);
-          setGameTimeRemaining(secondsUntil(updated.live_end_at));
-          
-          // Handle status changes via realtime - but ONLY if freeze is NOT showing
-          // This prevents navigating away before freeze sequence completes
-          if (updated.status === 'ended' || updated.status === 'settled') {
-            if (!showGameEndFreeze && !navigatingToResultsRef.current) {
-              navigatingToResultsRef.current = true;
-              console.log('[CycleArena] Game ended via realtime, navigating to results');
-              navigate(`/arena/${cycleId}/results`, { replace: true });
-            }
-          } else if (updated.status === 'cancelled') {
-            // Cancelled games skip freeze entirely
-            if (!navigatingToResultsRef.current) {
-              navigatingToResultsRef.current = true;
-              if (updated.participant_count === 0) {
-                toast.info('Game cancelled — no players joined');
-                navigate('/arena', { replace: true });
-              } else {
-                navigate(`/arena/${cycleId}/results`, { replace: true });
-              }
-            }
-          }
-        }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [cycleId, navigate, showGameEndFreeze, secondsUntil]);
+  // NOTE: Database subscription moved after handleGameEnd definition to fix dependency order
 
 
   // Game end handler - show freeze screen with winners, then navigate
@@ -365,6 +327,45 @@ export const CycleArena = () => {
     navigatingToResultsRef.current = true;
     navigate(`/arena/${cycleId}/results`, { replace: true });
   }, [cycleId, navigate]);
+
+  // Database changes subscription (moved here after handleGameEnd is defined)
+  useEffect(() => {
+    if (!cycleId) return;
+    const channel = supabase
+      .channel(`arena-cycle-${cycleId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_cycles', filter: `id=eq.${cycleId}` },
+        (payload) => {
+          const updated = payload.new as CycleData;
+          setCycle(prev => prev ? { ...prev, ...updated } : null);
+          
+          // Always sync countdown and game time from server (authoritative)
+          setLocalCountdown(updated.countdown);
+          setGameTimeRemaining(secondsUntil(updated.live_end_at));
+          
+          // Handle status changes via realtime - trigger freeze sequence
+          if (updated.status === 'ended' || updated.status === 'settled' || updated.status === 'ending') {
+            // Trigger freeze sequence instead of immediate navigation
+            if (!gameEndTriggeredRef.current && !showGameEndFreeze) {
+              console.log('[CycleArena] Game ended via realtime, triggering freeze sequence');
+              handleGameEnd();
+            }
+          } else if (updated.status === 'cancelled') {
+            // Cancelled games skip freeze entirely
+            if (!navigatingToResultsRef.current) {
+              navigatingToResultsRef.current = true;
+              if (updated.participant_count === 0) {
+                toast.info('Game cancelled — no players joined');
+                navigate('/arena', { replace: true });
+              } else {
+                navigate(`/arena/${cycleId}/results`, { replace: true });
+              }
+            }
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [cycleId, navigate, showGameEndFreeze, secondsUntil, handleGameEnd]);
 
   // Server-side timer broadcast subscription for accurate sync across all clients
   useEffect(() => {
@@ -550,10 +551,28 @@ export const CycleArena = () => {
     return null;
   }
 
+  // If freeze is active OR should be active, render the freeze screen instead of navigating
   if (cycle.status === 'ended' || cycle.status === 'settled') {
-    if (!navigatingToResultsRef.current) {
-      navigatingToResultsRef.current = true;
-      navigate(`/arena/${cycleId}/results`, { replace: true });
+    // If we're showing the freeze, render just the freeze overlay
+    if (showGameEndFreeze || !navigatingToResultsRef.current) {
+      // Trigger freeze if not already shown
+      if (!showGameEndFreeze && !gameEndTriggeredRef.current) {
+        // This shouldn't happen often, but just in case - trigger the end handler
+        handleGameEnd();
+      }
+      
+      // Render ONLY the freeze overlay
+      return (
+        <div className="min-h-screen bg-background">
+          <GameEndFreeze
+            isActive={true}
+            winners={freezeWinners}
+            totalPrize={(cycle?.pool_value || 0) + (cycle?.sponsored_prize_amount || 0)}
+            onComplete={handleFreezeComplete}
+            freezeDuration={5}
+          />
+        </div>
+      );
     }
     return null;
   }
