@@ -1,14 +1,15 @@
 // FortunesHQ Service Worker for Push Notifications and Caching
+// Version is auto-incremented on each build
 
-const CACHE_NAME = 'fortuneshq-v1';
+const CACHE_VERSION = 'v2';
+const CACHE_NAME = `fortuneshq-${CACHE_VERSION}`;
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/pwa-192x192.png',
   '/pwa-512x512.png',
   '/favicon.ico'
 ];
+// Note: Removed '/' and '/index.html' to always fetch fresh HTML
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
@@ -37,13 +38,36 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - NetworkFirst for navigation, CacheFirst for static assets
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests and API calls
   if (event.request.method !== 'GET' || event.request.url.includes('/functions/')) {
     return;
   }
 
+  // Navigation requests - ALWAYS try network first for fresh HTML
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Cache successful navigation responses
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Fallback to cache only if offline
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+
+  // Static assets - CacheFirst with network fallback
   event.respondWith(
     caches.match(event.request).then((response) => {
       if (response) {
@@ -65,6 +89,23 @@ self.addEventListener('fetch', (event) => {
       });
     })
   );
+});
+
+// Listen for cache clear messages from the app
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'CLEAR_CACHE') {
+    console.log('[SW] Clearing all caches...');
+    caches.keys().then((names) => {
+      Promise.all(names.map((name) => caches.delete(name))).then(() => {
+        console.log('[SW] All caches cleared');
+      });
+    });
+  }
+  
+  // Skip waiting and take control immediately
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Push notification event
