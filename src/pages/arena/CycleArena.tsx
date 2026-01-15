@@ -967,6 +967,7 @@ export const CycleArena = () => {
             winnerCount={cycle.winner_count}
             currentUserId={user?.id}
             maxHeight="100%"
+            bottomOffset="80px"
           />
         </div>
       </div>
