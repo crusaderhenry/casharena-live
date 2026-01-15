@@ -145,6 +145,12 @@ export const GameEndFreeze = ({
         <div className={`space-y-2 transition-all duration-500 ${phase === 'drumroll' ? 'opacity-50' : 'opacity-100'}`}>
           <p className="text-sm text-muted-foreground">Heading to results in</p>
           <div className="text-5xl font-black text-primary animate-pulse">{countdown}</div>
+          <button
+            onClick={onComplete}
+            className="mt-3 text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+          >
+            Skip to results
+          </button>
         </div>
       </div>
 
