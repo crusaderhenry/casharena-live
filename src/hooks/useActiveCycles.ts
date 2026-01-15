@@ -165,6 +165,23 @@ export const useActiveCycles = () => {
     };
   }, [fetchCycles]);
 
+  // Periodic re-sync for live games to keep timers synchronized globally
+  useEffect(() => {
+    const hasActiveGames = cycles.some(c => 
+      ['waiting', 'opening', 'live', 'ending'].includes(c.status)
+    );
+    
+    if (!hasActiveGames) return;
+    
+    // Re-sync every 30 seconds to correct any drift
+    const syncInterval = setInterval(() => {
+      console.log('[useActiveCycles] Periodic re-sync');
+      fetchCycles();
+    }, 30000);
+    
+    return () => clearInterval(syncInterval);
+  }, [cycles, fetchCycles]);
+
   // Categorize cycles
   const waitingCycles = cycles.filter(c => c.status === 'waiting');
   const openingCycles = cycles.filter(c => c.status === 'opening');

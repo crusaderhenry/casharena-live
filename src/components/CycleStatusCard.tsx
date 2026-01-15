@@ -124,8 +124,9 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
           badgeClass: 'bg-red-500 text-white',
           borderClass: 'border-red-500/30',
           icon: <Radio className="w-3.5 h-3.5" />,
-          countdown: cycle.countdown,
-          countdownLabel: 'Comment Timer',
+          countdown: localCountdown.secondsRemaining, // Game end time, not comment timer
+          countdownLabel: 'Ends In',
+          commentTimer: cycle.countdown, // Secondary display for comment timer
           glow: 'shadow-red-500/20',
         };
       case 'ending':
@@ -134,8 +135,9 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
           badgeClass: 'bg-orange-500 text-white animate-pulse',
           borderClass: 'border-orange-500/30',
           icon: <Timer className="w-3.5 h-3.5" />,
-          countdown: cycle.countdown,
-          countdownLabel: 'Final Countdown',
+          countdown: localCountdown.secondsRemaining, // Game end time
+          countdownLabel: 'Ends In',
+          commentTimer: cycle.countdown,
           glow: 'shadow-orange-500/20',
         };
       case 'opening':
@@ -211,7 +213,7 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-3 mb-3">
+        <div className={`grid ${(displayStatus === 'live' || displayStatus === 'ending') ? 'grid-cols-4' : 'grid-cols-3'} gap-2 mb-3`}>
           <div className="text-center">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Prize Pool</p>
             <p className="text-lg font-black text-gold">{formatMoney(effectivePrizePool)}</p>
@@ -225,10 +227,19 @@ export const CycleStatusCard = ({ cycle, isParticipant = false }: CycleStatusCar
           </div>
           <div className="text-center">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{config.countdownLabel}</p>
-            <p className={`text-lg font-black ${cycle.status === 'live' || cycle.status === 'ending' ? 'text-red-400' : 'text-foreground'}`}>
+            <p className={`text-lg font-black ${displayStatus === 'live' || displayStatus === 'ending' ? 'text-red-400' : 'text-foreground'}`}>
               {formatTime(config.countdown)}
             </p>
           </div>
+          {/* Show comment timer as secondary for live games */}
+          {(displayStatus === 'live' || displayStatus === 'ending') && 'commentTimer' in config && (
+            <div className="text-center">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">💬 Comment</p>
+              <p className="text-lg font-black text-orange-400">
+                {formatTime(config.commentTimer || 0)}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Action Row */}
