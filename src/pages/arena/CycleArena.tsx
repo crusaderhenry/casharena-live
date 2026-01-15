@@ -1,4 +1,4 @@
-// Force rebuild v2.3.0 - Sticky Leaders + Collapsible Host/Voice
+// Force rebuild v2.4.0 - Game End Freeze + Faster Transitions
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCycleJoin } from '@/hooks/useCycleJoin';
@@ -23,6 +23,7 @@ import { CompactLeaderboard } from '@/components/CompactLeaderboard';
 import { CollapsedHostVoice } from '@/components/CollapsedHostVoice';
 import { Confetti } from '@/components/Confetti';
 import { WinningBanner } from '@/components/WinningBanner';
+import { GameEndFreeze } from '@/components/GameEndFreeze';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -109,6 +110,8 @@ export const CycleArena = () => {
   const [leaderChanged, setLeaderChanged] = useState(false);
   const [openingTickSent, setOpeningTickSent] = useState(false);
   const [isScrolledPastHost, setIsScrolledPastHost] = useState(false);
+  const [showGameEndFreeze, setShowGameEndFreeze] = useState(false);
+  const [freezeWinners, setFreezeWinners] = useState<Array<{ username: string; avatar: string; position: number; prizeAmount: number }>>([]);
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
   const hostVoiceRef = useRef<HTMLDivElement>(null);
@@ -261,21 +264,39 @@ export const CycleArena = () => {
     return () => { supabase.removeChannel(channel); };
   }, [cycleId, navigate]);
 
-  // Game end handler - immediate navigation to results (no delay)
+  // Game end handler - show freeze screen with winners, then navigate
   const handleGameEnd = useCallback(async () => {
     if (gameEndTriggeredRef.current || navigatingToResultsRef.current) return;
     gameEndTriggeredRef.current = true;
-    navigatingToResultsRef.current = true;
     
-    play('prizeWin');
-    
-    // Trigger backend settlement in background - don't wait
+    // Trigger backend settlement immediately in background
     supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } })
       .catch(err => console.error('[CycleArena] Background tick error:', err));
     
-    // Navigate to results immediately - results page will handle loading state
+    // Calculate winners from current leaders
+    const orderedCommenters = getOrderedCommenters();
+    const effectivePrize = (cycle?.pool_value || 0) + (cycle?.sponsored_prize_amount || 0);
+    const distribution = cycle?.prize_distribution || [100];
+    
+    const calculatedWinners = orderedCommenters
+      .slice(0, cycle?.winner_count || 1)
+      .map((commenter, idx) => ({
+        username: commenter.username,
+        avatar: commenter.avatar || '🎮',
+        position: idx + 1,
+        prizeAmount: Math.floor(effectivePrize * (distribution[idx] || 0) / 100),
+      }));
+    
+    setFreezeWinners(calculatedWinners);
+    setShowGameEndFreeze(true);
+  }, [cycle, getOrderedCommenters]);
+  
+  // Navigate to results after freeze completes
+  const handleFreezeComplete = useCallback(() => {
+    if (navigatingToResultsRef.current) return;
+    navigatingToResultsRef.current = true;
     navigate(`/arena/${cycleId}/results`, { replace: true });
-  }, [cycleId, navigate, play]);
+  }, [cycleId, navigate]);
 
   // Local countdown ticker
   useEffect(() => {
@@ -458,9 +479,20 @@ export const CycleArena = () => {
     !participation.isSpectator &&
     isLive;
 
+  const effectiveTotalPrize = effectivePrizePool;
+
   return (
     <div className={`min-h-screen bg-background flex flex-col transition-all duration-500 ease-out ${isEntering ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
       {showConfetti && <Confetti duration={3000} />}
+      
+      {/* Game End Freeze Overlay */}
+      <GameEndFreeze
+        isActive={showGameEndFreeze}
+        winners={freezeWinners}
+        totalPrize={effectiveTotalPrize}
+        onComplete={handleFreezeComplete}
+        freezeDuration={5}
+      />
       
       <WinningBanner 
         isVisible={currentUserIsWinning} 
