@@ -27,7 +27,7 @@ import NotFound from "./pages/NotFound";
 const ArenaListing = lazy(() => import("@/pages/arena/ArenaListing").then(m => ({ default: m.ArenaListing })));
 const CycleLobby = lazy(() => import("@/pages/arena/CycleLobby").then(m => ({ default: m.CycleLobby })));
 const CycleArena = lazy(() => import("@/pages/arena/CycleArena").then(m => ({ default: m.CycleArena })));
-const CycleResults = lazy(() => import("@/pages/arena/CycleResults").then(m => ({ default: m.CycleResults })));
+const CycleResults = lazy(() => import("@/pages/arena/CycleResults"));
 const WinnerCelebration = lazy(() => import("@/pages/arena/WinnerCelebration").then(m => ({ default: m.WinnerCelebration })));
 
 // Lazy loaded - Other screens
