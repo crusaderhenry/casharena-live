@@ -238,16 +238,21 @@ export const CycleArena = () => {
         (payload) => {
           const updated = payload.new as CycleData;
           setCycle(prev => prev ? { ...prev, ...updated } : null);
-          setLocalCountdown(updated.countdown);
           
-          // Handle status changes via realtime - immediate redirect for ended/settled games
+          // Always sync countdown and game time from server (authoritative)
+          setLocalCountdown(updated.countdown);
+          setGameTimeRemaining(secondsUntil(updated.live_end_at));
+          
+          // Handle status changes via realtime - but ONLY if freeze is NOT showing
+          // This prevents navigating away before freeze sequence completes
           if (updated.status === 'ended' || updated.status === 'settled') {
-            if (!navigatingToResultsRef.current) {
+            if (!showGameEndFreeze && !navigatingToResultsRef.current) {
               navigatingToResultsRef.current = true;
               console.log('[CycleArena] Game ended via realtime, navigating to results');
               navigate(`/arena/${cycleId}/results`, { replace: true });
             }
           } else if (updated.status === 'cancelled') {
+            // Cancelled games skip freeze entirely
             if (!navigatingToResultsRef.current) {
               navigatingToResultsRef.current = true;
               if (updated.participant_count === 0) {
@@ -262,23 +267,38 @@ export const CycleArena = () => {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [cycleId, navigate]);
+  }, [cycleId, navigate, showGameEndFreeze, secondsUntil]);
 
   // Game end handler - show freeze screen with winners, then navigate
   const handleGameEnd = useCallback(async () => {
     if (gameEndTriggeredRef.current || navigatingToResultsRef.current) return;
     gameEndTriggeredRef.current = true;
     
-    // Trigger backend settlement immediately in background
+    // Show freeze screen IMMEDIATELY for visual feedback
+    setShowGameEndFreeze(true);
+    
+    // Trigger backend settlement in background
     supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } })
       .catch(err => console.error('[CycleArena] Background tick error:', err));
+    
+    // PRE-LOAD all mock users FIRST for reliable lookup
+    const { data: allMockUsers } = await supabase
+      .from('mock_users')
+      .select('id, username, avatar');
+    
+    const mockUsersMap = new Map(
+      (allMockUsers || []).map(m => [m.id, { username: m.username, avatar: m.avatar || '🎮' }])
+    );
     
     // Calculate winners from current leaders
     let orderedCommenters = getOrderedCommenters();
     
-    // If local state is empty, try fetching from database for accurate display
-    if (orderedCommenters.length === 0 && cycleId) {
-      console.log('[CycleArena] Local comments empty, fetching from DB for freeze screen...');
+    // If local state is empty OR profiles missing, fetch from database
+    const needsFetch = orderedCommenters.length === 0 || 
+      orderedCommenters.some(c => !c.username || c.username === 'Unknown' || c.username === 'Player');
+    
+    if (needsFetch && cycleId) {
+      console.log('[CycleArena] Fetching authoritative winner data from DB...');
       
       const { data: dbComments } = await supabase
         .from('cycle_comments')
@@ -288,29 +308,15 @@ export const CycleArena = () => {
         .limit(20);
       
       if (dbComments && dbComments.length > 0) {
-        // Get unique user IDs
         const userIds = [...new Set(dbComments.map(c => c.user_id))];
         
-        // Fetch profiles for these users
+        // Fetch real profiles
         const { data: profiles } = await supabase
           .rpc('get_public_profiles', { user_ids: userIds });
         
         const profileMap = new Map((profiles || []).map((p: { id: string; username: string; avatar: string }) => [p.id, p]));
         
-        // Also check mock_users for any missing profiles
-        const missingIds = userIds.filter(id => !profileMap.has(id));
-        if (missingIds.length > 0) {
-          const { data: mockUsers } = await supabase
-            .from('mock_users')
-            .select('id, username, avatar')
-            .in('id', missingIds);
-          
-          mockUsers?.forEach((m: { id: string; username: string; avatar: string }) => {
-            profileMap.set(m.id, { id: m.id, username: m.username, avatar: m.avatar || '🎮' });
-          });
-        }
-        
-        // Deduplicate by user_id (last comment wins - first in desc order)
+        // Deduplicate and enrich with combined lookup
         const seen = new Set<string>();
         orderedCommenters = dbComments
           .filter(c => {
@@ -319,16 +325,18 @@ export const CycleArena = () => {
             return true;
           })
           .map(c => {
-            const profile = profileMap.get(c.user_id);
+            // Check real profiles first, then mock users map
+            const realProfile = profileMap.get(c.user_id);
+            const mockProfile = mockUsersMap.get(c.user_id);
+            
             return {
               id: c.user_id,
               user_id: c.user_id,
               cycle_id: cycleId,
               content: c.content,
               server_timestamp: c.server_timestamp,
-              username: profile?.username || 'Player',
-              avatar: profile?.avatar || '🎮',
-              isMock: false,
+              username: realProfile?.username || mockProfile?.username || 'Champion',
+              avatar: realProfile?.avatar || mockProfile?.avatar || '🎮',
             };
           });
       }
@@ -347,7 +355,6 @@ export const CycleArena = () => {
       }));
     
     setFreezeWinners(calculatedWinners);
-    setShowGameEndFreeze(true);
   }, [cycle, cycleId, getOrderedCommenters]);
   
   // Navigate to results after freeze completes
@@ -357,31 +364,32 @@ export const CycleArena = () => {
     navigate(`/arena/${cycleId}/results`, { replace: true });
   }, [cycleId, navigate]);
 
-  // Local countdown ticker
+  // Local countdown ticker - prioritize game end timer
   useEffect(() => {
-    if (!cycle) return;
+    if (!cycle || cycle.status !== 'live') return;
+    if (gameEndTriggeredRef.current) return;
 
     const interval = setInterval(() => {
-      if (cycle.status === 'live') {
-        const serverSyncedGameTime = secondsUntil(cycle.live_end_at);
-        setGameTimeRemaining(serverSyncedGameTime);
-        
-        // Game end time reached - end game immediately
-        if (serverSyncedGameTime <= 0) {
-          setLocalCountdown(0);
-          handleGameEnd();
-          return;
-        }
-        
-        setLocalCountdown(prev => {
-          const newVal = Math.max(0, prev - 1);
-          // Comment timer reached 0 - end game
-          if (newVal === 0 && prev > 0 && serverSyncedGameTime > 0) {
-            handleGameEnd();
-          }
-          return newVal;
-        });
+      const serverSyncedGameTime = secondsUntil(cycle.live_end_at);
+      setGameTimeRemaining(serverSyncedGameTime);
+      
+      // Game end time reached - takes priority, end immediately
+      if (serverSyncedGameTime <= 0 && !gameEndTriggeredRef.current) {
+        clearInterval(interval);
+        setLocalCountdown(0);
+        handleGameEnd();
+        return;
       }
+      
+      // Comment timer countdown
+      setLocalCountdown(prev => {
+        const newVal = Math.max(0, prev - 1);
+        // Comment timer reached 0 - end game (only if game time still active)
+        if (newVal === 0 && prev > 0 && serverSyncedGameTime > 0 && !gameEndTriggeredRef.current) {
+          handleGameEnd();
+        }
+        return newVal;
+      });
     }, 1000);
 
     return () => clearInterval(interval);

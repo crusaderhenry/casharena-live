@@ -23,7 +23,6 @@ export interface CycleComment {
   server_timestamp: string;
   username: string;
   avatar: string;
-  isMock: boolean;
 }
 
 export const useCycleComments = (cycleId: string | null) => {
@@ -52,7 +51,7 @@ export const useCycleComments = (cycleId: string | null) => {
       // Fetch profiles using secure RPC function (bypasses need for direct profile access)
       const userIds = [...new Set((data || []).map(c => c.user_id))];
       
-      let profileMap = new Map<string, { username: string; avatar: string; isMock: boolean }>();
+      let profileMap = new Map<string, { username: string; avatar: string }>();
       
       if (userIds.length > 0) {
         // First try real user profiles
@@ -60,10 +59,11 @@ export const useCycleComments = (cycleId: string | null) => {
           .rpc('get_public_profiles', { user_ids: userIds });
         
         if (!profileError && profiles) {
-          profileMap = new Map(profiles.map((p: { id: string; username: string; avatar: string }) => [p.id, { ...p, isMock: false }]));
+          profileMap = new Map(profiles.map((p: { id: string; username: string; avatar: string }) => [p.id, { username: p.username, avatar: p.avatar }]));
         }
         
         // Then fetch mock users for any IDs not found in profiles
+        // Mock users are treated identically - no distinction exposed
         const missingIds = userIds.filter(id => !profileMap.has(id));
         if (missingIds.length > 0) {
           const { data: mockUsers } = await supabase
@@ -73,7 +73,7 @@ export const useCycleComments = (cycleId: string | null) => {
           
           if (mockUsers) {
             mockUsers.forEach((m: { id: string; username: string; avatar: string }) => {
-              profileMap.set(m.id, { username: m.username, avatar: m.avatar || '🎮', isMock: true });
+              profileMap.set(m.id, { username: m.username, avatar: m.avatar || '🎮' });
             });
           }
         }
@@ -83,7 +83,6 @@ export const useCycleComments = (cycleId: string | null) => {
         ...c,
         username: profileMap.get(c.user_id)?.username || 'Unknown',
         avatar: profileMap.get(c.user_id)?.avatar || '🎮',
-        isMock: profileMap.get(c.user_id)?.isMock ?? false,
       }));
 
       setComments(enrichedComments);
@@ -114,9 +113,8 @@ export const useCycleComments = (cycleId: string | null) => {
             .rpc('get_public_profiles', { user_ids: [newComment.user_id] });
 
           let profile = profiles?.[0];
-          let isMock = false;
           
-          // If not found in profiles, check mock_users
+          // If not found in profiles, check mock_users (treated identically)
           if (!profile) {
             const { data: mockUser } = await supabase
               .from('mock_users')
@@ -126,7 +124,6 @@ export const useCycleComments = (cycleId: string | null) => {
             
             if (mockUser) {
               profile = { id: mockUser.id, username: mockUser.username, avatar: mockUser.avatar || '🎮' };
-              isMock = true;
             }
           }
 
@@ -134,7 +131,6 @@ export const useCycleComments = (cycleId: string | null) => {
             ...newComment,
             username: profile?.username || 'Unknown',
             avatar: profile?.avatar || '🎮',
-            isMock,
           };
 
           setComments(prev => [enrichedComment, ...prev].slice(0, 100));
@@ -181,15 +177,13 @@ export const useCycleComments = (cycleId: string | null) => {
   }, [cycleId, user]);
 
   // Get unique commenters ordered by last comment (for winner display)
-  // Set excludeMocks to true to filter out mock users (for determining real winners)
-  const getOrderedCommenters = useCallback((excludeMocks: boolean = false) => {
+  // All users (real and mock) are treated equally - no filtering
+  const getOrderedCommenters = useCallback(() => {
     const seen = new Set<string>();
     const ordered: CycleComment[] = [];
 
     for (const comment of comments) {
       if (!seen.has(comment.user_id)) {
-        // Skip mock users if excludeMocks is true
-        if (excludeMocks && comment.isMock) continue;
         seen.add(comment.user_id);
         ordered.push(comment);
       }
