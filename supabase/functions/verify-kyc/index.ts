@@ -65,7 +65,12 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { type, number, first_name, last_name }: KycRequest = await req.json();
+    const body: KycRequest = await req.json();
+    const type = body.type;
+    const number = body.number?.trim();
+    // Sanitize names: only allow letters, spaces, hyphens, and apostrophes
+    const first_name = body.first_name?.trim().replace(/[^a-zA-Z\s\-']/g, '').substring(0, 50);
+    const last_name = body.last_name?.trim().replace(/[^a-zA-Z\s\-']/g, '').substring(0, 50);
 
     if (!type || !['nin', 'bvn'].includes(type)) {
       return new Response(JSON.stringify({ error: 'Invalid KYC type. Must be nin or bvn' }), {
@@ -74,8 +79,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!number || number.length !== 11) {
-      return new Response(JSON.stringify({ error: `${type.toUpperCase()} must be 11 digits` }), {
+    // Strict validation: must be exactly 11 digits
+    if (!number || !/^\d{11}$/.test(number)) {
+      return new Response(JSON.stringify({ error: `${type.toUpperCase()} must be exactly 11 digits` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -236,9 +242,9 @@ Deno.serve(async (req) => {
     });
 
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[verify-kyc] Error:', message);
-    return new Response(JSON.stringify({ error: message }), {
+    const internalMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[verify-kyc] Error:', internalMessage);
+    return new Response(JSON.stringify({ error: 'Verification failed. Please try again.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
