@@ -8,7 +8,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
-import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award, ShieldCheck, ShieldX, Bell, Timer, Trash2, AlertTriangle, HelpCircle, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Trophy, Zap, Coins, Volume2, VolumeX, Music, Mic, LogOut, Shield, Award, ShieldCheck, ShieldX, Bell, Timer, Trash2, AlertTriangle, HelpCircle, RotateCcw, RefreshCw } from 'lucide-react';
+import { forceUpdate } from '@/utils/cacheUtils';
+import { APP_VERSION } from '@/config/version';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -660,6 +662,29 @@ export const ProfileScreen = () => {
                 </div>
               </div>
             </button>
+
+            {/* Clear Cache & Refresh */}
+            <button
+              onClick={async () => {
+                play('click');
+                buttonClick();
+                toast.loading('Clearing cache...', { id: 'cache-clear' });
+                try {
+                  await forceUpdate();
+                } catch (err) {
+                  toast.error('Failed to clear cache', { id: 'cache-clear' });
+                }
+              }}
+              className="w-full flex items-center justify-between p-3 bg-card-elevated hover:bg-muted rounded-xl border border-border/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <RefreshCw className="w-5 h-5 text-muted-foreground" />
+                <div className="text-left">
+                  <span className="text-foreground">Clear Cache & Refresh</span>
+                  <p className="text-xs text-muted-foreground">Fix display issues or get latest version</p>
+                </div>
+              </div>
+            </button>
           </div>
         </div>
 
@@ -684,7 +709,7 @@ export const ProfileScreen = () => {
         {/* App Info */}
         <div className="text-center py-4">
           <p className="text-sm text-muted-foreground">
-            <span className="text-primary font-bold">Fortunes</span>HQ v1.0
+            <span className="text-primary font-bold">Fortunes</span>HQ v{APP_VERSION}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             The live comment battle game
