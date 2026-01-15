@@ -476,6 +476,12 @@ export const CycleArena = () => {
     return null;
   }
 
+  // FIXED: Redirect cancelled games to results page (shows cancellation + refund info)
+  if (cycle.status === 'cancelled') {
+    navigate(`/arena/${cycleId}/results`, { replace: true });
+    return null;
+  }
+
   // Redirect ended games to results (unless showing freeze)
   if ((cycle.status === 'ended' || cycle.status === 'settled') && !showGameEndFreeze) {
     navigate(`/arena/${cycleId}/results`, { replace: true });

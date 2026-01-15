@@ -725,12 +725,13 @@ async function refundCycleParticipants(supabase: any, cycleId: string) {
         .update({ wallet_balance: profile.wallet_balance + cycle.entry_fee })
         .eq('id', p.user_id);
 
-      // Record refund transaction
+      // Record refund transaction WITH game_id for proper attribution
       await supabase.from('wallet_transactions').insert({
         user_id: p.user_id,
         type: 'refund',
         amount: cycle.entry_fee,
-        description: 'Royal Rumble Cancelled - Refund',
+        description: `${gameName} Cancelled - Refund`,
+        game_id: cycleId, // FIXED: Include game_id for transaction tracking
       });
 
       // Send game cancelled email (only to real users)

@@ -317,6 +317,12 @@ export const CycleLobby = () => {
     );
   }
 
+  // FIXED: Redirect cancelled games to results page (shows cancellation + refund info)
+  if (cycle.status === 'cancelled') {
+    navigate(`/arena/${cycleId}/results`, { replace: true });
+    return null;
+  }
+
   // If game is live, redirect
   if (cycle.status === 'live' || cycle.status === 'ending') {
     navigate(`/arena/${cycleId}/live`, { replace: true });
