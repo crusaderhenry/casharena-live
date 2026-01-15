@@ -54,11 +54,27 @@ export const useCycleComments = (cycleId: string | null) => {
       let profileMap = new Map<string, { username: string; avatar: string }>();
       
       if (userIds.length > 0) {
+        // First try real user profiles
         const { data: profiles, error: profileError } = await supabase
           .rpc('get_public_profiles', { user_ids: userIds });
         
         if (!profileError && profiles) {
           profileMap = new Map(profiles.map((p: { id: string; username: string; avatar: string }) => [p.id, p]));
+        }
+        
+        // Then fetch mock users for any IDs not found in profiles
+        const missingIds = userIds.filter(id => !profileMap.has(id));
+        if (missingIds.length > 0) {
+          const { data: mockUsers } = await supabase
+            .from('mock_users')
+            .select('id, username, avatar')
+            .in('id', missingIds);
+          
+          if (mockUsers) {
+            mockUsers.forEach((m: { id: string; username: string; avatar: string }) => {
+              profileMap.set(m.id, { username: m.username, avatar: m.avatar || '🎮' });
+            });
+          }
         }
       }
 
@@ -95,7 +111,20 @@ export const useCycleComments = (cycleId: string | null) => {
           const { data: profiles } = await supabase
             .rpc('get_public_profiles', { user_ids: [newComment.user_id] });
 
-          const profile = profiles?.[0];
+          let profile = profiles?.[0];
+          
+          // If not found in profiles, check mock_users
+          if (!profile) {
+            const { data: mockUser } = await supabase
+              .from('mock_users')
+              .select('id, username, avatar')
+              .eq('id', newComment.user_id)
+              .single();
+            
+            if (mockUser) {
+              profile = { id: mockUser.id, username: mockUser.username, avatar: mockUser.avatar || '🎮' };
+            }
+          }
 
           const enrichedComment: CycleComment = {
             ...newComment,

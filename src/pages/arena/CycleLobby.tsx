@@ -191,9 +191,8 @@ export const CycleLobby = () => {
             hapticSuccess();
             setFlashActive(true);
             setTransitioning(true);
-            setTimeout(() => {
-              navigate(`/arena/${cycleId}/live`, { replace: true });
-            }, 400);
+            // Navigate immediately - no delay needed
+            navigate(`/arena/${cycleId}/live`, { replace: true });
           } else if (updated.status === 'cancelled') {
             // Handle cancelled games - route based on participant count
             if (updated.participant_count === 0) {
@@ -238,9 +237,8 @@ export const CycleLobby = () => {
           hapticSuccess();
           setFlashActive(true);
           setTransitioning(true);
-          setTimeout(() => {
-            navigate(`/arena/${cycleId}/live`, { replace: true });
-          }, 400);
+          // Navigate immediately - no delay needed
+          navigate(`/arena/${cycleId}/live`, { replace: true });
         } else if (computedStatus === 'cancelled') {
           // Game cancelled - route based on participant count
           if (participantCount === 0) {
