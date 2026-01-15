@@ -23,6 +23,7 @@ interface LiveCommentsIGProps {
   winnerCount: number;
   currentUserId?: string;
   maxHeight?: string;
+  highlightWinners?: boolean;
 }
 
 export const LiveCommentsIG = ({ 
@@ -30,7 +31,8 @@ export const LiveCommentsIG = ({
   orderedCommenters, 
   winnerCount, 
   currentUserId,
-  maxHeight = '300px'
+  maxHeight = '300px',
+  highlightWinners = false
 }: LiveCommentsIGProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -72,15 +74,34 @@ export const LiveCommentsIG = ({
     );
   }
 
+  // Get the last (most recent) comment - this is the winning comment
+  const winningCommentId = comments.length > 0 ? comments[0].id : null;
+
   return (
     <div className="relative" style={{ height: maxHeight }}>
       {/* Gradient fade at top */}
       <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
       
+      {/* Pinned Last Comment (Winning Comment) for transparency */}
+      {highlightWinners && comments.length > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 z-20 p-2 bg-gradient-to-t from-background via-background to-transparent">
+          <div className="p-3 rounded-xl bg-gold/20 border border-gold/30">
+            <p className="text-[10px] text-gold uppercase font-bold mb-1">🏆 Last Comment (Winner)</p>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{comments[0].avatar}</span>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-bold text-gold">{comments[0].username}</span>
+                <p className="text-sm text-foreground truncate">{comments[0].content}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Comments container - IG style (newest at bottom) */}
       <div 
         ref={containerRef}
-        className="h-full overflow-y-auto px-2 py-2 space-y-1 scroll-smooth"
+        className={`h-full overflow-y-auto px-2 py-2 space-y-1 scroll-smooth ${highlightWinners ? 'pb-24' : ''}`}
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         <style>{`div::-webkit-scrollbar { display: none; }`}</style>
@@ -89,6 +110,7 @@ export const LiveCommentsIG = ({
           const position = getPosition(comment.user_id);
           const isCurrentUser = comment.user_id === currentUserId;
           const isNewest = idx === reversedComments.length - 1;
+          const isWinningComment = comment.id === winningCommentId;
           
           return (
             <div 
@@ -96,11 +118,13 @@ export const LiveCommentsIG = ({
               className={`flex items-start gap-2 py-1.5 px-2 rounded-xl transition-all ${
                 isNewest ? 'animate-slide-in-bottom' : ''
               } ${
-                isCurrentUser 
-                  ? 'bg-primary/10' 
-                  : position 
-                    ? 'bg-gold/5' 
-                    : 'bg-transparent'
+                isWinningComment && highlightWinners
+                  ? 'bg-gold/20 border border-gold/30 ring-2 ring-gold/20'
+                  : isCurrentUser 
+                    ? 'bg-primary/10' 
+                    : position 
+                      ? 'bg-gold/5' 
+                      : 'bg-transparent'
               }`}
             >
               {/* Avatar */}
@@ -116,6 +140,7 @@ export const LiveCommentsIG = ({
               {/* Content */}
               <div className="flex-1 min-w-0">
                 <span className={`text-xs font-bold ${
+                  isWinningComment && highlightWinners ? 'text-gold' :
                   position === 1 ? 'text-gold' : 
                   position ? 'text-primary' : 
                   isCurrentUser ? 'text-primary' :
@@ -123,6 +148,7 @@ export const LiveCommentsIG = ({
                 }`}>
                   {comment.username}
                   {isCurrentUser && <span className="ml-1 text-[10px] font-normal">(you)</span>}
+                  {isWinningComment && highlightWinners && <span className="ml-1 text-[10px] font-normal">🏆</span>}
                 </span>
                 <p className="text-sm text-foreground/90 break-words leading-tight">
                   {comment.content}
