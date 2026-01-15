@@ -4,6 +4,15 @@ import { QueryClient } from '@tanstack/react-query';
  * Clear all browser caches including service worker caches
  */
 export const clearAllCaches = async (): Promise<void> => {
+  // Preserve important user state (badge unlock tracking, welcome shown)
+  const preservedKeys: Record<string, string> = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && (key.startsWith('unlocked_badges_') || key.startsWith('fortunes_welcome_shown_') || key.startsWith('username_set_'))) {
+      preservedKeys[key] = localStorage.getItem(key) || '';
+    }
+  }
+
   // Clear service worker caches
   if ('caches' in window) {
     const cacheNames = await caches.keys();
@@ -16,11 +25,16 @@ export const clearAllCaches = async (): Promise<void> => {
     navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
   }
 
-  // Clear localStorage PWA items
+  // Clear localStorage PWA items only
   localStorage.removeItem('pwa-dismissed');
   localStorage.removeItem('pwa-never-show');
   
-  console.log('[Cache] All caches cleared');
+  // Restore preserved keys
+  Object.entries(preservedKeys).forEach(([key, value]) => {
+    localStorage.setItem(key, value);
+  });
+  
+  console.log('[Cache] All caches cleared (user state preserved)');
 };
 
 /**
