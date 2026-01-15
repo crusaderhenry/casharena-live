@@ -91,6 +91,46 @@ class AdminAudioManager {
     this.playBeep(880, 0.1, 0.25);
     setTimeout(() => this.playBeep(1100, 0.15, 0.3), 100);
   }
+
+  // Drumroll effect for winner reveal (plays for specified duration)
+  playDrumroll(durationMs: number = 4000) {
+    if (!this.enabled) return;
+
+    const interval = 60; // ms between hits
+    const totalHits = Math.floor(durationMs / interval);
+    let hitCount = 0;
+
+    const drumrollInterval = setInterval(() => {
+      if (hitCount >= totalHits) {
+        clearInterval(drumrollInterval);
+        return;
+      }
+
+      // Vary frequency slightly for natural feel
+      const baseFreq = 180 + Math.random() * 40;
+      // Gradually increase volume as we approach the end
+      const progress = hitCount / totalHits;
+      const volume = 0.1 + progress * 0.25;
+      
+      this.playBeep(baseFreq, 0.04, volume);
+      
+      // Occasionally add a higher accent hit
+      if (Math.random() < 0.15) {
+        setTimeout(() => this.playBeep(baseFreq * 1.5, 0.03, volume * 0.7), 20);
+      }
+
+      hitCount++;
+    }, interval);
+
+    return drumrollInterval;
+  }
+
+  // Stop drumroll (pass the interval returned from playDrumroll)
+  stopDrumroll(intervalId: ReturnType<typeof setInterval>) {
+    if (intervalId) {
+      clearInterval(intervalId);
+    }
+  }
 }
 
 export const adminAudio = new AdminAudioManager();

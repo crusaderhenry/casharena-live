@@ -1,4 +1,4 @@
-// Force rebuild v2.5.0 - Live Winner Reveal Overlay
+// Force rebuild v2.6.0 - Drumroll Sound Effect
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCycleJoin } from '@/hooks/useCycleJoin';
@@ -15,6 +15,7 @@ import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { useAudio } from '@/contexts/AudioContext';
 import { useServerTime } from '@/hooks/useServerTime';
 import { supabase } from '@/integrations/supabase/client';
+import { adminAudio } from '@/utils/adminAudio';
 import { VoiceRoomCompact } from '@/components/VoiceRoomCompact';
 import { CompactHostBanner } from '@/components/CompactHostBanner';
 import { LiveCommentsIG } from '@/components/LiveCommentsIG';
@@ -120,13 +121,21 @@ export const CycleArena = () => {
   const gameEndTriggeredRef = useRef(false);
   const navigatingToResultsRef = useRef(false);
   const freezeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const drumrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const comments = isDemoMode ? simulatedComments : realComments;
   const getOrderedCommenters = isDemoMode ? getSimOrderedCommenters : getRealOrderedCommenters;
   
   useEffect(() => {
     const timer = setTimeout(() => setIsEntering(false), 100);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // Cleanup drumroll on unmount
+      if (drumrollIntervalRef.current) {
+        adminAudio.stopDrumroll(drumrollIntervalRef.current);
+        drumrollIntervalRef.current = null;
+      }
+    };
   }, []);
 
   // IntersectionObserver for Host/Voice collapse detection
@@ -245,8 +254,21 @@ export const CycleArena = () => {
     setShowGameEndFreeze(true);
     setFreezeCountdown(5);
     
-    // Trigger confetti burst for winner reveal
-    setConfettiBurstKey(prev => prev + 1);
+    // Start drumroll sound effect (plays for ~4 seconds before confetti)
+    drumrollIntervalRef.current = adminAudio.playDrumroll(4000) || null;
+    
+    // Trigger confetti burst after drumroll (at ~4 seconds)
+    setTimeout(() => {
+      // Stop drumroll
+      if (drumrollIntervalRef.current) {
+        adminAudio.stopDrumroll(drumrollIntervalRef.current);
+        drumrollIntervalRef.current = null;
+      }
+      // Play victory fanfare
+      adminAudio.playGameStart();
+      // Trigger confetti burst
+      setConfettiBurstKey(prev => prev + 1);
+    }, 4000);
     
     // Start 5-second countdown then navigate to results
     const countdownInterval = setInterval(() => {
