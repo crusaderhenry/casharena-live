@@ -4,6 +4,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
 
 const STORAGE_KEY_PREFIX = 'unlocked_badges_';
+const SESSION_KEY = 'badge_session_initialized';
 
 interface BadgeUnlockState {
   newBadge: Badge | null;
@@ -19,16 +20,20 @@ export const useBadgeUnlock = (
   const [showCelebration, setShowCelebration] = useState(false);
   const { play } = useSounds();
   const { success } = useHaptics();
-  const isFirstLoadRef = useRef(true);
+  const hasCheckedRef = useRef(false);
+  const prevStatsRef = useRef<{ total_wins: number; games_played: number } | null>(null);
 
   useEffect(() => {
-    // Don't run without a userId
-    if (!userId) {
-      isFirstLoadRef.current = true;
+    // Don't run without a userId or valid stats
+    if (!userId || (stats.total_wins === 0 && stats.games_played === 0)) {
       return;
     }
 
     const storageKey = `${STORAGE_KEY_PREFIX}${userId}`;
+    const sessionKey = `${SESSION_KEY}_${userId}`;
+    
+    // Check if this session has already been initialized for this user
+    const sessionInitialized = sessionStorage.getItem(sessionKey) === 'true';
     
     // Get currently unlocked badges
     const currentBadges = getUnlockedBadges(stats);
@@ -43,9 +48,15 @@ export const useBadgeUnlock = (
 
     // Only celebrate if:
     // 1. There are new badges
-    // 2. This is NOT the first load (prevents celebration on login)
+    // 2. The session was already initialized (prevents celebration on login/navigation)
     // 3. There were previous badges stored (prevents celebration after cache clear)
-    if (newlyUnlocked.length > 0 && !isFirstLoadRef.current && storedBadgesJson) {
+    // 4. Stats actually changed since last check (real progress, not just remount)
+    const statsChanged = prevStatsRef.current && (
+      prevStatsRef.current.total_wins !== stats.total_wins ||
+      prevStatsRef.current.games_played !== stats.games_played
+    );
+    
+    if (newlyUnlocked.length > 0 && sessionInitialized && storedBadgesJson && statsChanged) {
       // Show the most recent/highest achievement
       const latestBadge = newlyUnlocked[newlyUnlocked.length - 1];
       setNewBadge(latestBadge);
@@ -56,11 +67,18 @@ export const useBadgeUnlock = (
       success();
     }
     
-    // Always update stored badges (including first load)
+    // Always update stored badges
     localStorage.setItem(storageKey, JSON.stringify(currentBadgeIds));
     
-    // Mark first load as complete
-    isFirstLoadRef.current = false;
+    // Store current stats for comparison
+    prevStatsRef.current = { ...stats };
+    
+    // Mark session as initialized after first run
+    if (!sessionInitialized) {
+      sessionStorage.setItem(sessionKey, 'true');
+    }
+    
+    hasCheckedRef.current = true;
   }, [stats.total_wins, stats.games_played, userId, play, success]);
 
   const dismissCelebration = useCallback(() => {
