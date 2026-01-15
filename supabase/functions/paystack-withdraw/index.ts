@@ -45,10 +45,26 @@ Deno.serve(async (req) => {
 
     const { amount, bank_code, account_number, account_name }: WithdrawRequest = await req.json();
 
+    // Check platform settings for test mode and limits
+    const { data: settings } = await supabase
+      .from('platform_settings')
+      .select('test_mode, min_withdrawal, max_deposit')
+      .single();
+
+    const minWithdrawal = settings?.min_withdrawal ?? 100;
+    const maxWithdrawal = settings?.max_deposit ?? 500000; // Use max_deposit as general max, default 500K
+
     // Validate request
-    if (!amount || amount < 100) {
+    if (!amount || amount < minWithdrawal) {
       return new Response(
-        JSON.stringify({ error: 'Minimum withdrawal is ₦100' }),
+        JSON.stringify({ error: `Minimum withdrawal is ₦${minWithdrawal.toLocaleString()}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (amount > maxWithdrawal) {
+      return new Response(
+        JSON.stringify({ error: `Maximum withdrawal is ₦${maxWithdrawal.toLocaleString()}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -59,12 +75,6 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Check platform test mode
-    const { data: settings } = await supabase
-      .from('platform_settings')
-      .select('test_mode')
-      .single();
 
     const isTestMode = settings?.test_mode ?? true;
 
