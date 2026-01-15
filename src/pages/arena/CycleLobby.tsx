@@ -61,7 +61,7 @@ export const CycleLobby = () => {
   const { user, profile } = useAuth();
   const { play } = useSounds();
   const { buttonClick, success: hapticSuccess } = useHaptics();
-  const { joinCycle, leaveCycle, joining, leaving, checkParticipation } = useCycleJoin();
+  const { joinCycle, leaveCycle, upgradeToParticipant, joining, leaving, upgrading, checkParticipation } = useCycleJoin();
   
   const [cycle, setCycle] = useState<CycleData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -216,9 +216,20 @@ export const CycleLobby = () => {
   useEffect(() => {
     if (!cycle) return;
 
-    // Lightweight status check for faster transitions - handles both live and cancelled states
-    const checkCycleStatusAndNavigate = async () => {
+    // Force backend to process state transition immediately, then check and navigate
+    const triggerTickAndNavigate = async () => {
       try {
+        console.log('[CycleLobby] Triggering immediate cycle-manager tick...');
+        
+        // First, trigger cycle-manager tick to force immediate state transition
+        await supabase.functions.invoke('cycle-manager', {
+          body: { action: 'tick' }
+        });
+        
+        // Brief pause to allow state update to propagate
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Now check the updated status
         const { data, error } = await supabase.functions.invoke('cycle-status-check', {
           body: { cycle_id: cycleId }
         });
@@ -231,13 +242,14 @@ export const CycleLobby = () => {
         const computedStatus = data?.computed_status;
         const participantCount = data?.participant_count ?? 0;
         
+        console.log('[CycleLobby] Status after tick:', computedStatus);
+        
         if (computedStatus === 'live') {
           // Backend confirmed live - trigger transition immediately
           play('gameStart');
           hapticSuccess();
           setFlashActive(true);
           setTransitioning(true);
-          // Navigate immediately - no delay needed
           navigate(`/arena/${cycleId}/live`, { replace: true });
         } else if (computedStatus === 'cancelled') {
           // Game cancelled - route based on participant count
@@ -249,7 +261,7 @@ export const CycleLobby = () => {
           }
         }
       } catch (e) {
-        console.log('[CycleLobby] Status check failed:', e);
+        console.log('[CycleLobby] Tick/status check failed:', e);
       }
     };
 
@@ -263,7 +275,7 @@ export const CycleLobby = () => {
           const newVal = Math.max(0, prev - 1);
           // Trigger backend sync when entry opens
           if (newVal === 0 && prev > 0) {
-            checkCycleStatusAndNavigate();
+            triggerTickAndNavigate();
           }
           return newVal;
         });
@@ -273,15 +285,15 @@ export const CycleLobby = () => {
           
           // Start fast polling when < 10 seconds (every 2 seconds)
           if (newVal <= 10 && newVal > 0 && !fastPollInterval) {
-            fastPollInterval = setInterval(checkCycleStatusAndNavigate, 2000);
-            checkCycleStatusAndNavigate();
+            fastPollInterval = setInterval(triggerTickAndNavigate, 2000);
+            triggerTickAndNavigate();
           }
           
-          // At T=0, check status and navigate appropriately (no longer assume /live)
+          // At T=0, force immediate tick and navigate
           if (newVal === 0 && prev > 0) {
             setFlashActive(true);
             setTransitioning(true);
-            checkCycleStatusAndNavigate();
+            triggerTickAndNavigate();
           }
           return newVal;
         });
@@ -701,6 +713,42 @@ export const CycleLobby = () => {
               </span>
             </div>
             
+            {/* Upgrade to Player Button - For spectators during opening phase */}
+            {participation.isSpectator && isOpening && (
+              <button
+                onClick={async () => {
+                  if (!cycleId) return;
+                  play('click');
+                  buttonClick();
+                  const result = await upgradeToParticipant(cycleId);
+                  if (result.success) {
+                    setParticipation({ isParticipant: true, isSpectator: false });
+                    hapticSuccess();
+                  }
+                }}
+                disabled={upgrading || !hasBalance}
+                className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-50 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+              >
+                {upgrading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    Upgrading...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    Upgrade to Player • {cycle?.entry_fee ? formatMoney(cycle.entry_fee) : 'Free'}
+                  </>
+                )}
+              </button>
+            )}
+            
+            {participation.isSpectator && isOpening && !hasBalance && cycle?.entry_fee > 0 && (
+              <p className="text-center text-xs text-destructive">
+                Insufficient balance to upgrade
+              </p>
+            )}
+            
             {/* Leave Game Button - Only if 5+ min before live */}
             {canLeave && !participation.isSpectator && (
               <button
@@ -714,13 +762,15 @@ export const CycleLobby = () => {
             )}
             
             <p className="text-center text-sm text-muted-foreground">
-              {isOpening 
-                ? isLastMinute 
-                  ? '🔥 Game starts in moments! Stay here!' 
-                  : canLeave 
-                    ? 'Game starts soon. You can leave until 5 min before.'
-                    : 'Less than 5 min to go. Locked in!'
-                : 'Waiting for entry to open...'}
+              {participation.isSpectator && isOpening
+                ? 'Upgrade to compete for the prize pool!'
+                : isOpening 
+                  ? isLastMinute 
+                    ? '🔥 Game starts in moments! Stay here!' 
+                    : canLeave 
+                      ? 'Game starts soon. You can leave until 5 min before.'
+                      : 'Less than 5 min to go. Locked in!'
+                  : 'Waiting for entry to open...'}
             </p>
           </div>
         ) : isOpening ? (
