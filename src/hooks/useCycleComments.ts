@@ -21,8 +21,9 @@ export interface CycleComment {
   user_id: string;
   content: string;
   server_timestamp: string;
-  username?: string;
-  avatar?: string;
+  username: string;
+  avatar: string;
+  isMock: boolean;
 }
 
 export const useCycleComments = (cycleId: string | null) => {
@@ -51,7 +52,7 @@ export const useCycleComments = (cycleId: string | null) => {
       // Fetch profiles using secure RPC function (bypasses need for direct profile access)
       const userIds = [...new Set((data || []).map(c => c.user_id))];
       
-      let profileMap = new Map<string, { username: string; avatar: string }>();
+      let profileMap = new Map<string, { username: string; avatar: string; isMock: boolean }>();
       
       if (userIds.length > 0) {
         // First try real user profiles
@@ -59,7 +60,7 @@ export const useCycleComments = (cycleId: string | null) => {
           .rpc('get_public_profiles', { user_ids: userIds });
         
         if (!profileError && profiles) {
-          profileMap = new Map(profiles.map((p: { id: string; username: string; avatar: string }) => [p.id, p]));
+          profileMap = new Map(profiles.map((p: { id: string; username: string; avatar: string }) => [p.id, { ...p, isMock: false }]));
         }
         
         // Then fetch mock users for any IDs not found in profiles
@@ -72,7 +73,7 @@ export const useCycleComments = (cycleId: string | null) => {
           
           if (mockUsers) {
             mockUsers.forEach((m: { id: string; username: string; avatar: string }) => {
-              profileMap.set(m.id, { username: m.username, avatar: m.avatar || '🎮' });
+              profileMap.set(m.id, { username: m.username, avatar: m.avatar || '🎮', isMock: true });
             });
           }
         }
@@ -82,6 +83,7 @@ export const useCycleComments = (cycleId: string | null) => {
         ...c,
         username: profileMap.get(c.user_id)?.username || 'Unknown',
         avatar: profileMap.get(c.user_id)?.avatar || '🎮',
+        isMock: profileMap.get(c.user_id)?.isMock ?? false,
       }));
 
       setComments(enrichedComments);
@@ -112,6 +114,7 @@ export const useCycleComments = (cycleId: string | null) => {
             .rpc('get_public_profiles', { user_ids: [newComment.user_id] });
 
           let profile = profiles?.[0];
+          let isMock = false;
           
           // If not found in profiles, check mock_users
           if (!profile) {
@@ -123,6 +126,7 @@ export const useCycleComments = (cycleId: string | null) => {
             
             if (mockUser) {
               profile = { id: mockUser.id, username: mockUser.username, avatar: mockUser.avatar || '🎮' };
+              isMock = true;
             }
           }
 
@@ -130,6 +134,7 @@ export const useCycleComments = (cycleId: string | null) => {
             ...newComment,
             username: profile?.username || 'Unknown',
             avatar: profile?.avatar || '🎮',
+            isMock,
           };
 
           setComments(prev => [enrichedComment, ...prev].slice(0, 100));
@@ -176,12 +181,15 @@ export const useCycleComments = (cycleId: string | null) => {
   }, [cycleId, user]);
 
   // Get unique commenters ordered by last comment (for winner display)
-  const getOrderedCommenters = useCallback(() => {
+  // Set excludeMocks to true to filter out mock users (for determining real winners)
+  const getOrderedCommenters = useCallback((excludeMocks: boolean = false) => {
     const seen = new Set<string>();
     const ordered: CycleComment[] = [];
 
     for (const comment of comments) {
       if (!seen.has(comment.user_id)) {
+        // Skip mock users if excludeMocks is true
+        if (excludeMocks && comment.isMock) continue;
         seen.add(comment.user_id);
         ordered.push(comment);
       }
