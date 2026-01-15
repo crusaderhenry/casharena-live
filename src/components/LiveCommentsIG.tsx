@@ -24,6 +24,7 @@ interface LiveCommentsIGProps {
   currentUserId?: string;
   maxHeight?: string;
   highlightWinners?: boolean;
+  bottomOffset?: string;
 }
 
 export const LiveCommentsIG = ({ 
@@ -32,7 +33,8 @@ export const LiveCommentsIG = ({
   winnerCount, 
   currentUserId,
   maxHeight = '300px',
-  highlightWinners = false
+  highlightWinners = false,
+  bottomOffset = '0px'
 }: LiveCommentsIGProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -101,8 +103,12 @@ export const LiveCommentsIG = ({
       {/* Comments container - IG style (newest at bottom) */}
       <div 
         ref={containerRef}
-        className={`h-full overflow-y-auto px-2 py-2 space-y-1 scroll-smooth ${highlightWinners ? 'pb-24' : ''}`}
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        className="h-full overflow-y-auto px-2 py-2 space-y-1 scroll-smooth"
+        style={{ 
+          scrollbarWidth: 'none', 
+          msOverflowStyle: 'none',
+          paddingBottom: highlightWinners ? '6rem' : bottomOffset
+        }}
       >
         <style>{`div::-webkit-scrollbar { display: none; }`}</style>
         
