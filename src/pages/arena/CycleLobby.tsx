@@ -406,7 +406,7 @@ export const CycleLobby = () => {
   const canJoin = isOpening && !participation.isParticipant;
   const hasBalance = (profile?.wallet_balance || 0) >= cycle.entry_fee;
   const isLastMinute = timeUntilLive <= 30;
-  const canLeave = timeUntilLive > 30; // 30 seconds before live
+  const canLeave = timeUntilLive > 10; // 10 seconds before live
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

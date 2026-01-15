@@ -971,6 +971,7 @@ export type Database = {
           hot_game_threshold_opening: number
           id: string
           leave_window_minutes: number
+          leave_window_seconds: number | null
           maintenance_mode: boolean
           max_deposit: number | null
           min_deposit: number | null
@@ -1012,6 +1013,7 @@ export type Database = {
           hot_game_threshold_opening?: number
           id?: string
           leave_window_minutes?: number
+          leave_window_seconds?: number | null
           maintenance_mode?: boolean
           max_deposit?: number | null
           min_deposit?: number | null
@@ -1053,6 +1055,7 @@ export type Database = {
           hot_game_threshold_opening?: number
           id?: string
           leave_window_minutes?: number
+          leave_window_seconds?: number | null
           maintenance_mode?: boolean
           max_deposit?: number | null
           min_deposit?: number | null
@@ -1332,15 +1335,7 @@ export type Database = {
           type?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "wallet_transactions_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "fastest_finger_games"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       winners: {
         Row: {

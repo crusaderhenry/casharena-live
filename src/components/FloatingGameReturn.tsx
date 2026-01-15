@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Radio, ArrowRight, Timer } from 'lucide-react';
+import { Radio, ArrowRight, Timer, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -9,6 +9,7 @@ interface ActiveGame {
   templateName: string;
   countdown: number;
   status: string;
+  liveStartAt: string;
 }
 
 export const FloatingGameReturn = () => {
@@ -17,6 +18,7 @@ export const FloatingGameReturn = () => {
   const { user } = useAuth();
   const [activeGame, setActiveGame] = useState<ActiveGame | null>(null);
   const [localCountdown, setLocalCountdown] = useState(0);
+  const [timeUntilLive, setTimeUntilLive] = useState(0);
 
   // Check for active game participation
   useEffect(() => {
@@ -26,7 +28,7 @@ export const FloatingGameReturn = () => {
     }
 
     const checkActiveGame = async () => {
-      // Find any live game the user is participating in (not as spectator)
+      // Find any active game the user is participating in (not as spectator)
       const { data: participation } = await supabase
         .from('cycle_participants')
         .select(`
@@ -36,7 +38,8 @@ export const FloatingGameReturn = () => {
             id,
             status,
             countdown,
-            template_id
+            template_id,
+            live_start_at
           )
         `)
         .eq('user_id', user.id)
@@ -47,27 +50,35 @@ export const FloatingGameReturn = () => {
         return;
       }
 
-      // Find any live game
-      const liveGame = participation.find(
+      // Find any active game (live, opening, or waiting)
+      const activeGameParticipation = participation.find(
         p => p.game_cycles && 
-        (p.game_cycles.status === 'live' || p.game_cycles.status === 'ending')
+        ['live', 'ending', 'opening', 'waiting'].includes(p.game_cycles.status)
       );
 
-      if (liveGame?.game_cycles) {
+      if (activeGameParticipation?.game_cycles) {
+        const gc = activeGameParticipation.game_cycles;
+        
         // Get template name
         const { data: template } = await supabase
           .from('game_templates')
           .select('name')
-          .eq('id', liveGame.game_cycles.template_id)
+          .eq('id', gc.template_id)
           .single();
 
         setActiveGame({
-          cycleId: liveGame.cycle_id,
+          cycleId: activeGameParticipation.cycle_id,
           templateName: template?.name || 'Royal Rumble',
-          countdown: liveGame.game_cycles.countdown,
-          status: liveGame.game_cycles.status,
+          countdown: gc.countdown,
+          status: gc.status,
+          liveStartAt: gc.live_start_at,
         });
-        setLocalCountdown(liveGame.game_cycles.countdown);
+        setLocalCountdown(gc.countdown);
+        
+        // Calculate time until live
+        const now = Date.now();
+        const liveAt = new Date(gc.live_start_at).getTime();
+        setTimeUntilLive(Math.max(0, Math.floor((liveAt - now) / 1000)));
       } else {
         setActiveGame(null);
       }
@@ -88,23 +99,40 @@ export const FloatingGameReturn = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, location.pathname]);
 
   // Local countdown ticker
   useEffect(() => {
-    if (!activeGame || activeGame.status !== 'live') return;
+    if (!activeGame) return;
 
     const interval = setInterval(() => {
-      setLocalCountdown(prev => Math.max(0, prev - 1));
+      if (activeGame.status === 'live' || activeGame.status === 'ending') {
+        setLocalCountdown(prev => Math.max(0, prev - 1));
+      } else {
+        // For waiting/opening, tick down time until live
+        setTimeUntilLive(prev => Math.max(0, prev - 1));
+      }
     }, 1000);
 
     return () => clearInterval(interval);
   }, [activeGame]);
 
-  // Hide if we're already on the arena page for this game
-  const isOnArenaPage = location.pathname.includes(`/arena/${activeGame?.cycleId}/live`);
+  // Determine the correct route based on game status
+  const getTargetRoute = () => {
+    if (!activeGame) return '/arena';
+    
+    if (activeGame.status === 'live' || activeGame.status === 'ending') {
+      return `/arena/${activeGame.cycleId}/live`;
+    }
+    // For waiting/opening, go to lobby
+    return `/arena/${activeGame.cycleId}`;
+  };
+
+  // Hide if we're already on the relevant game page
+  const targetRoute = getTargetRoute();
+  const isOnGamePage = location.pathname.includes(`/arena/${activeGame?.cycleId}`);
   
-  if (!activeGame || isOnArenaPage) return null;
+  if (!activeGame || isOnGamePage) return null;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -112,24 +140,37 @@ export const FloatingGameReturn = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const isUrgent = localCountdown <= 10 && localCountdown > 0;
+  const isLive = activeGame.status === 'live' || activeGame.status === 'ending';
+  const isUrgent = isLive && localCountdown <= 10 && localCountdown > 0;
+  const isWaiting = activeGame.status === 'waiting' || activeGame.status === 'opening';
 
   return (
     <button
-      onClick={() => navigate(`/arena/${activeGame.cycleId}/live`)}
+      onClick={() => navigate(targetRoute)}
       className={`fixed bottom-20 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl transition-all active:scale-95 ${
         isUrgent 
           ? 'bg-gradient-to-r from-red-500 to-orange-500 animate-pulse' 
-          : 'bg-gradient-to-r from-primary to-primary/80'
+          : isLive
+            ? 'bg-gradient-to-r from-primary to-primary/80'
+            : 'bg-gradient-to-r from-amber-500 to-orange-500'
       }`}
     >
-      {/* Live indicator */}
+      {/* Status indicator */}
       <div className="flex items-center gap-2">
-        <div className="relative">
-          <Radio className="w-4 h-4 text-white" />
-          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-white rounded-full animate-ping" />
-        </div>
-        <span className="text-xs font-bold text-white/90 uppercase">Live</span>
+        {isLive ? (
+          <>
+            <div className="relative">
+              <Radio className="w-4 h-4 text-white" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-white rounded-full animate-ping" />
+            </div>
+            <span className="text-xs font-bold text-white/90 uppercase">Live</span>
+          </>
+        ) : (
+          <>
+            <Clock className="w-4 h-4 text-white" />
+            <span className="text-xs font-bold text-white/90 uppercase">Joined</span>
+          </>
+        )}
       </div>
 
       {/* Game info */}
@@ -140,8 +181,9 @@ export const FloatingGameReturn = () => {
         <div className="flex items-center gap-1">
           <Timer className={`w-3 h-3 ${isUrgent ? 'text-white' : 'text-white/70'}`} />
           <span className={`text-sm font-bold tabular-nums ${isUrgent ? 'text-white' : 'text-white/90'}`}>
-            {formatTime(localCountdown)}
+            {isLive ? formatTime(localCountdown) : formatTime(timeUntilLive)}
           </span>
+          {isWaiting && <span className="text-[10px] text-white/60 ml-1">to live</span>}
         </div>
       </div>
 

@@ -37,7 +37,7 @@ import { GameShareModal } from '@/components/GameShareModal';
 import { MusicToggle } from '@/components/MusicToggle';
 import { 
   Users, Timer, Crown, Eye, 
-  Zap, Clock, Radio,
+  Zap, Clock, Radio, ArrowLeft,
   AlertTriangle, Hourglass,
   Maximize, Minimize, Share2
 } from 'lucide-react';
@@ -447,20 +447,37 @@ export const CycleArena = () => {
         prizeAmount={effectivePrizePool * (cycle.prize_distribution[0] / 100)} 
       />
 
-      {/* IG-Style Header: LIVE | Music | Share | Fullscreen */}
+      {/* IG-Style Header: Back | LIVE | Music | Share | Fullscreen */}
       <div className="sticky top-0 z-20 pt-safe bg-background/95 backdrop-blur-sm border-b border-border/30">
         <div className="px-3 py-2 flex items-center justify-between">
-          {/* LIVE indicator */}
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
-            isLive ? 'bg-red-500/20' : 'bg-muted'
-          }`}>
-            <div className="relative">
-              <Radio className={`w-3.5 h-3.5 ${isLive ? 'text-red-400' : 'text-muted-foreground'}`} />
-              {isLive && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />}
+          {/* Back button + LIVE indicator */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { 
+                play('click'); 
+                buttonClick();
+                if (participation.isParticipant && !participation.isSpectator && isLive) {
+                  setShowLeaveWarning(true);
+                } else {
+                  navigate('/arena');
+                }
+              }}
+              className="w-9 h-9 rounded-xl bg-muted/60 flex items-center justify-center"
+            >
+              <ArrowLeft className="w-4 h-4 text-foreground" />
+            </button>
+            
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+              isLive ? 'bg-red-500/20' : 'bg-muted'
+            }`}>
+              <div className="relative">
+                <Radio className={`w-3.5 h-3.5 ${isLive ? 'text-red-400' : 'text-muted-foreground'}`} />
+                {isLive && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />}
+              </div>
+              <span className={`text-xs font-bold uppercase ${isLive ? 'text-red-400' : 'text-muted-foreground'}`}>
+                {isLive ? 'Live' : cycle.status}
+              </span>
             </div>
-            <span className={`text-xs font-bold uppercase ${isLive ? 'text-red-400' : 'text-muted-foreground'}`}>
-              {isLive ? 'Live' : cycle.status}
-            </span>
           </div>
 
           {/* Right controls */}
@@ -575,7 +592,7 @@ export const CycleArena = () => {
 
       {/* Collapsed Host+Voice Card - shows when scrolled past original */}
       {isScrolledPastHost && isLive && (
-        <div className="sticky top-[180px] z-15 px-3 py-1">
+        <div className="fixed top-[180px] left-0 right-0 z-[15] px-3 py-1 animate-fade-in">
           <CollapsedHostVoice 
             voiceParticipantCount={voiceParticipantsToPass.length || 3}
           />
