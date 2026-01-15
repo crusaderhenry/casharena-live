@@ -4,20 +4,25 @@ import { Confetti } from '@/components/Confetti';
 import { useSounds } from '@/hooks/useSounds';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
+interface Winner {
+  username: string;
+  avatar: string;
+  position: number;
+  prizeAmount: number;
+}
+
 interface GameEndFreezeProps {
   isActive: boolean;
-  winnerName: string | null; // null means no real winner
-  winnerAvatar: string;
-  prizeAmount: number;
+  winners: Winner[];
+  totalPrize: number;
   onComplete: () => void;
-  freezeDuration?: number; // in seconds
+  freezeDuration?: number;
 }
 
 export const GameEndFreeze = ({
   isActive,
-  winnerName,
-  winnerAvatar,
-  prizeAmount,
+  winners,
+  totalPrize,
   onComplete,
   freezeDuration = 5,
 }: GameEndFreezeProps) => {
@@ -27,7 +32,6 @@ export const GameEndFreeze = ({
   const { play } = useSounds();
   const { enableDramaticSounds } = usePlatformSettings();
   
-  // Use ref to avoid dependency issues with onComplete
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
@@ -38,21 +42,19 @@ export const GameEndFreeze = ({
       return;
     }
 
-    // Phase 1: Drumroll and tension (1 second) - only if dramatic sounds enabled
+    // Phase 1: Drumroll (1.2s)
     if (enableDramaticSounds) {
       play('drumroll');
       play('tenseCrescendo');
     }
     
     const revealTimeout = setTimeout(() => {
-      // Phase 2: Reveal with crowd cheer
       setPhase('reveal');
       if (enableDramaticSounds) {
         play('crowdCheer');
       }
       setShowConfetti(true);
       
-      // Phase 3: Victory fanfare after reveal
       setTimeout(() => {
         setPhase('celebration');
         if (enableDramaticSounds) {
@@ -66,7 +68,6 @@ export const GameEndFreeze = ({
       setCountdown(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          // Use ref to call the callback
           onCompleteRef.current();
           return 0;
         }
@@ -80,11 +81,12 @@ export const GameEndFreeze = ({
     };
   }, [isActive, freezeDuration, play, enableDramaticSounds]);
 
-  const formatMoney = (amount: number) => {
-    return `₦${amount.toLocaleString()}`;
-  };
+  const formatMoney = (amount: number) => `₦${amount.toLocaleString()}`;
 
   if (!isActive) return null;
+
+  const hasWinner = winners.length > 0;
+  const topWinner = winners[0];
 
   return (
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-md flex items-center justify-center animate-fade-in overflow-hidden">
@@ -125,69 +127,24 @@ export const GameEndFreeze = ({
         <div className={`mb-8 transition-all duration-700 ${
           phase === 'drumroll' ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
         }`}>
-          {winnerName ? (
+          {hasWinner ? (
             <>
-              <div className="relative inline-block mb-4">
-                {/* Pulsing glow effect */}
-                <div className="absolute inset-0 rounded-full bg-gold/40 blur-2xl animate-pulse" />
-                <div className="absolute inset-0 rounded-full bg-gold/20 blur-3xl animate-ping" style={{ animationDuration: '2s' }} />
-                
-                {/* Avatar */}
-                <div className={`relative w-28 h-28 rounded-full bg-gradient-to-br from-gold via-gold/80 to-amber-600 flex items-center justify-center text-6xl border-4 border-gold/50 shadow-2xl shadow-gold/40 transition-all duration-500 ${
-                  phase === 'celebration' ? 'animate-bounce' : ''
-                }`} style={{ animationDuration: '1s' }}>
-                  {winnerAvatar}
-                </div>
-                
-                {/* Crown with animation */}
-                <Crown className={`absolute -top-5 left-1/2 -translate-x-1/2 w-12 h-12 text-gold drop-shadow-lg transition-all duration-500 ${
-                  phase === 'celebration' ? 'animate-pulse' : ''
-                }`} />
-              </div>
-              
-              <h2 className="text-4xl font-black text-gold mb-2 flex items-center justify-center gap-2">
-                <Sparkles className={`w-7 h-7 ${phase === 'celebration' ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
-                {winnerName}
-                <Sparkles className={`w-7 h-7 ${phase === 'celebration' ? 'animate-spin' : ''}`} style={{ animationDuration: '3s', animationDirection: 'reverse' }} />
-              </h2>
-              
-              <p className="text-lg text-muted-foreground mb-4">is the Last One Standing!</p>
-              
-              <div className={`inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-gold/30 to-amber-500/30 border-2 border-gold/50 transition-all duration-500 ${
-                phase === 'celebration' ? 'scale-110' : ''
-              }`}>
-                <Trophy className="w-8 h-8 text-gold animate-pulse" />
-                <span className="text-4xl font-black text-gold">{formatMoney(prizeAmount)}</span>
-              </div>
+              {/* Single winner or multiple winners */}
+              {winners.length === 1 ? (
+                <SingleWinnerDisplay winner={topWinner} phase={phase} formatMoney={formatMoney} />
+              ) : (
+                <MultipleWinnersDisplay winners={winners} phase={phase} formatMoney={formatMoney} />
+              )}
             </>
           ) : (
-            <>
-              {/* No Winner Display */}
-              <div className="relative inline-block mb-4">
-                <div className="relative w-28 h-28 rounded-full bg-muted/50 flex items-center justify-center text-6xl border-4 border-muted shadow-xl">
-                  🤷
-                </div>
-              </div>
-              
-              <h2 className="text-3xl font-black text-muted-foreground mb-2">
-                No Winner
-              </h2>
-              
-              <p className="text-lg text-muted-foreground mb-4">
-                Game ended with no eligible winners
-              </p>
-            </>
+            <NoWinnerDisplay />
           )}
         </div>
 
         {/* Transition Countdown */}
-        <div className={`space-y-2 transition-all duration-500 ${
-          phase === 'drumroll' ? 'opacity-50' : 'opacity-100'
-        }`}>
+        <div className={`space-y-2 transition-all duration-500 ${phase === 'drumroll' ? 'opacity-50' : 'opacity-100'}`}>
           <p className="text-sm text-muted-foreground">Heading to results in</p>
-          <div className="text-5xl font-black text-primary animate-pulse">
-            {countdown}
-          </div>
+          <div className="text-5xl font-black text-primary animate-pulse">{countdown}</div>
         </div>
       </div>
 
@@ -200,3 +157,105 @@ export const GameEndFreeze = ({
     </div>
   );
 };
+
+// Single winner display
+const SingleWinnerDisplay = ({ winner, phase, formatMoney }: { winner: Winner; phase: string; formatMoney: (n: number) => string }) => (
+  <>
+    <div className="relative inline-block mb-4">
+      <div className="absolute inset-0 rounded-full bg-gold/40 blur-2xl animate-pulse" />
+      <div className="absolute inset-0 rounded-full bg-gold/20 blur-3xl animate-ping" style={{ animationDuration: '2s' }} />
+      <div className={`relative w-28 h-28 rounded-full bg-gradient-to-br from-gold via-gold/80 to-amber-600 flex items-center justify-center text-6xl border-4 border-gold/50 shadow-2xl shadow-gold/40 transition-all duration-500 ${
+        phase === 'celebration' ? 'animate-bounce' : ''
+      }`} style={{ animationDuration: '1s' }}>
+        {winner.avatar}
+      </div>
+      <Crown className={`absolute -top-5 left-1/2 -translate-x-1/2 w-12 h-12 text-gold drop-shadow-lg transition-all duration-500 ${
+        phase === 'celebration' ? 'animate-pulse' : ''
+      }`} />
+    </div>
+    
+    <h2 className="text-4xl font-black text-gold mb-2 flex items-center justify-center gap-2">
+      <Sparkles className={`w-7 h-7 ${phase === 'celebration' ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
+      {winner.username}
+      <Sparkles className={`w-7 h-7 ${phase === 'celebration' ? 'animate-spin' : ''}`} style={{ animationDuration: '3s', animationDirection: 'reverse' }} />
+    </h2>
+    
+    <p className="text-lg text-muted-foreground mb-4">is the Last One Standing!</p>
+    
+    <div className={`inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-gold/30 to-amber-500/30 border-2 border-gold/50 transition-all duration-500 ${
+      phase === 'celebration' ? 'scale-110' : ''
+    }`}>
+      <Trophy className="w-8 h-8 text-gold animate-pulse" />
+      <span className="text-4xl font-black text-gold">{formatMoney(winner.prizeAmount)}</span>
+    </div>
+  </>
+);
+
+// Multiple winners display (podium style)
+const MultipleWinnersDisplay = ({ winners, phase, formatMoney }: { winners: Winner[]; phase: string; formatMoney: (n: number) => string }) => {
+  const getPositionEmoji = (pos: number) => {
+    switch (pos) { case 1: return '🥇'; case 2: return '🥈'; case 3: return '🥉'; default: return `#${pos}`; }
+  };
+  
+  return (
+    <>
+      <div className="flex items-end justify-center gap-2 mb-6">
+        {/* 2nd place */}
+        {winners[1] && (
+          <div className="text-center">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-300 to-gray-500 flex items-center justify-center text-3xl border-2 border-gray-400/50 shadow-lg mb-2">
+              {winners[1].avatar}
+            </div>
+            <p className="text-xs font-bold text-gray-400">{winners[1].username}</p>
+            <p className="text-lg font-bold text-gray-400">{getPositionEmoji(2)}</p>
+          </div>
+        )}
+        
+        {/* 1st place */}
+        <div className="text-center -mt-4">
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-gold/40 blur-xl animate-pulse" />
+            <div className={`relative w-24 h-24 rounded-full bg-gradient-to-br from-gold via-gold/80 to-amber-600 flex items-center justify-center text-5xl border-4 border-gold/50 shadow-2xl shadow-gold/40 ${
+              phase === 'celebration' ? 'animate-bounce' : ''
+            }`} style={{ animationDuration: '1s' }}>
+              {winners[0].avatar}
+            </div>
+            <Crown className="absolute -top-4 left-1/2 -translate-x-1/2 w-10 h-10 text-gold drop-shadow-lg" />
+          </div>
+          <p className="text-sm font-bold text-gold mt-2">{winners[0].username}</p>
+          <p className="text-xl font-bold text-gold">{getPositionEmoji(1)}</p>
+        </div>
+        
+        {/* 3rd place */}
+        {winners[2] && (
+          <div className="text-center">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center text-2xl border-2 border-amber-600/50 shadow-lg mb-2">
+              {winners[2].avatar}
+            </div>
+            <p className="text-xs font-bold text-amber-600">{winners[2].username}</p>
+            <p className="text-lg font-bold text-amber-600">{getPositionEmoji(3)}</p>
+          </div>
+        )}
+      </div>
+      
+      <h2 className="text-2xl font-black text-gold mb-4 flex items-center justify-center gap-2">
+        <Trophy className="w-6 h-6" />
+        {winners.length} Winners!
+        <Trophy className="w-6 h-6" />
+      </h2>
+    </>
+  );
+};
+
+// No winner display
+const NoWinnerDisplay = () => (
+  <>
+    <div className="relative inline-block mb-4">
+      <div className="relative w-28 h-28 rounded-full bg-muted/50 flex items-center justify-center text-6xl border-4 border-muted shadow-xl">
+        🤷
+      </div>
+    </div>
+    <h2 className="text-3xl font-black text-muted-foreground mb-2">No Winner</h2>
+    <p className="text-lg text-muted-foreground mb-4">Game ended with no eligible winners</p>
+  </>
+);

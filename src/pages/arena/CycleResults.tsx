@@ -58,9 +58,15 @@ export const CycleResults = () => {
   const [hasShownModal, setHasShownModal] = useState(false);
   const [didParticipate, setDidParticipate] = useState(false);
 
+  const [settlementProgress, setSettlementProgress] = useState(0);
+  const [settlementStep, setSettlementStep] = useState('Connecting...');
+
   useEffect(() => {
     const fetchResults = async () => {
       if (!cycleId) return;
+
+      setSettlementStep('Fetching game data...');
+      setSettlementProgress(10);
 
       // Fetch cycle data
       const { data: cycleData } = await supabase
@@ -74,13 +80,21 @@ export const CycleResults = () => {
         return;
       }
 
-      // If game is still live/ending, wait a moment for settlement then check again
+      setSettlementProgress(30);
+
+      // If game is still live/ending, trigger settlement quickly
       if (cycleData.status === 'live' || cycleData.status === 'ending') {
-        // Trigger settlement tick
+        setSettlementStep('Finalizing winners...');
+        setSettlementProgress(50);
+        
+        // Trigger settlement tick - don't wait long
         await supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } }).catch(() => {});
         
-        // Wait briefly for settlement
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        setSettlementStep('Processing results...');
+        setSettlementProgress(70);
+        
+        // Quick check - 500ms max
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Refetch status
         const { data: refreshedData } = await supabase
@@ -89,17 +103,12 @@ export const CycleResults = () => {
           .eq('id', cycleId)
           .single();
         
-        // If still live after settlement attempt, something's wrong - stay on results with loading
-        if (refreshedData?.status === 'live' || refreshedData?.status === 'ending') {
-          // Game genuinely still running - redirect back
-          navigate(`/arena/${cycleId}/live`, { replace: true });
-          return;
-        }
-        
         // Update cycle data with new status
         if (refreshedData) {
           cycleData.status = refreshedData.status;
         }
+        
+        setSettlementProgress(85);
       }
 
       // Redirect if game hasn't started yet
@@ -107,6 +116,9 @@ export const CycleResults = () => {
         navigate(`/arena/${cycleId}`, { replace: true });
         return;
       }
+
+      setSettlementStep('Loading game details...');
+      setSettlementProgress(90);
 
       // Get template name
       const { data: template } = await supabase
@@ -133,6 +145,9 @@ export const CycleResults = () => {
         // Only count as participant if they joined as non-spectator
         setDidParticipate(!!participationData && !participationData.is_spectator);
       }
+
+      setSettlementStep('Fetching winners...');
+      setSettlementProgress(95);
 
       // Fetch winners
       const { data: winnersData } = await supabase
@@ -180,12 +195,10 @@ export const CycleResults = () => {
           setUserWin(userWinData);
           setShowConfetti(true);
           play('win');
-          
-          // Stay on results page - no redirect to winner celebration page
-          // The results page now shows the win banner prominently
         }
       }
 
+      setSettlementProgress(100);
       setLoading(false);
     };
 
@@ -234,10 +247,43 @@ export const CycleResults = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-lg font-medium text-foreground">Calculating results...</p>
-          <p className="text-sm text-muted-foreground mt-1">This will only take a moment</p>
+        <div className="text-center max-w-xs mx-auto px-4">
+          {/* Progress ring */}
+          <div className="relative w-20 h-20 mx-auto mb-6">
+            <svg className="w-20 h-20 transform -rotate-90">
+              <circle
+                cx="40" cy="40" r="35"
+                stroke="currentColor"
+                strokeWidth="6"
+                fill="none"
+                className="text-muted/30"
+              />
+              <circle
+                cx="40" cy="40" r="35"
+                stroke="currentColor"
+                strokeWidth="6"
+                fill="none"
+                strokeDasharray={220}
+                strokeDashoffset={220 - (220 * settlementProgress / 100)}
+                className="text-primary transition-all duration-300"
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-lg font-bold text-primary">{settlementProgress}%</span>
+            </div>
+          </div>
+          
+          <p className="text-lg font-medium text-foreground mb-2">Calculating Results</p>
+          <p className="text-sm text-muted-foreground">{settlementStep}</p>
+          
+          {/* Progress bar */}
+          <div className="mt-4 h-1.5 bg-muted/30 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-primary to-gold rounded-full transition-all duration-300"
+              style={{ width: `${settlementProgress}%` }}
+            />
+          </div>
         </div>
       </div>
     );
