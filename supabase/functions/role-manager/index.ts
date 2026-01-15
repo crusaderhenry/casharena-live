@@ -216,10 +216,10 @@ serve(async (req) => {
         throw new Error(`Unknown action: ${action}`);
     }
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Role manager error:', message);
-    return new Response(JSON.stringify({ error: message }), {
-      status: 400,
+    const internalMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Role manager error:', internalMessage);
+    return new Response(JSON.stringify({ error: 'An error occurred processing your request' }), {
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
