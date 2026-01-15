@@ -42,7 +42,7 @@ export const GameEndFreeze = ({
       return;
     }
 
-    // Brief loading phase (300ms) to allow winner data to populate
+    // Extended loading phase (500ms) to allow winner data to populate reliably
     const loadingTimeout = setTimeout(() => {
       setPhase('drumroll');
       
@@ -69,7 +69,7 @@ export const GameEndFreeze = ({
       }, 1200);
 
       return () => clearTimeout(revealTimeout);
-    }, 300);
+    }, 500);
 
     const interval = setInterval(() => {
       setCountdown(prev => {
@@ -99,6 +99,20 @@ export const GameEndFreeze = ({
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
           <p className="text-lg font-bold text-foreground">Calculating Winner...</p>
+          <p className="text-sm text-muted-foreground mt-2">Please wait...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Fallback if still in drumroll but no winners (data still loading)
+  if (phase === 'drumroll' && winners.length === 0) {
+    return (
+      <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-md flex items-center justify-center animate-fade-in">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-lg font-bold text-foreground animate-pulse">AND THE WINNER IS...</p>
+          <p className="text-sm text-muted-foreground mt-2">Determining results</p>
         </div>
       </div>
     );

@@ -8,7 +8,6 @@ interface Comment {
   avatar: string;
   content: string;
   server_timestamp: string;
-  is_mock?: boolean;
 }
 
 interface Commenter {
