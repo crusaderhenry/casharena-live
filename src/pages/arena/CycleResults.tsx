@@ -237,11 +237,10 @@ export const CycleResults = () => {
               <div className="text-5xl mb-3">❌</div>
               <h2 className="text-2xl font-black text-orange-400 mb-2">Game Cancelled</h2>
               <p className="text-muted-foreground mb-3">
-                Not enough players joined before the game started
-                <br />
-                <span className="text-sm">
-                  ({cycle.participant_count} of {cycle.min_participants} required)
-                </span>
+                {cycle.participant_count === 0 
+                  ? 'No players joined before the game started'
+                  : `Only ${cycle.participant_count} player${cycle.participant_count > 1 ? 's' : ''} joined — at least ${cycle.min_participants} were needed`
+                }
               </p>
               <div className="flex items-center justify-center gap-2 text-sm text-foreground bg-green-500/20 rounded-full px-4 py-2 w-fit mx-auto">
                 <Coins className="w-4 h-4 text-green-400" />
