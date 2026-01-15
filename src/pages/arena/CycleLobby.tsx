@@ -466,6 +466,19 @@ export const CycleLobby = () => {
             </div>
             
             <div className="flex items-center gap-2">
+              {/* Wallet Balance Display */}
+              {user && (
+                <button
+                  onClick={() => { play('click'); buttonClick(); navigate('/wallet'); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
+                  title="View Wallet"
+                >
+                  <span className="text-xs font-bold text-primary">
+                    {formatMoney(profile?.wallet_balance || 0)}
+                  </span>
+                </button>
+              )}
+              
               <MusicToggle />
               
               <button
