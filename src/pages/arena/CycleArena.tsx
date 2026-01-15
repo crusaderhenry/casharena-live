@@ -1,4 +1,4 @@
-// Force rebuild v2.4.0 - Game End Freeze + Faster Transitions
+// Force rebuild v2.5.0 - Live Winner Reveal Overlay
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCycleJoin } from '@/hooks/useCycleJoin';
@@ -23,7 +23,6 @@ import { CompactLeaderboard } from '@/components/CompactLeaderboard';
 import { CollapsedHostVoice } from '@/components/CollapsedHostVoice';
 import { Confetti } from '@/components/Confetti';
 import { WinningBanner } from '@/components/WinningBanner';
-import { GameEndFreeze } from '@/components/GameEndFreeze';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -40,7 +39,7 @@ import {
   Users, Timer, Crown, Eye, 
   Zap, Clock, Radio, ArrowLeft,
   AlertTriangle, Hourglass,
-  Maximize, Minimize, Share2
+  Maximize, Minimize, Share2, Trophy
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -112,11 +111,15 @@ export const CycleArena = () => {
   const [isScrolledPastHost, setIsScrolledPastHost] = useState(false);
   const [showGameEndFreeze, setShowGameEndFreeze] = useState(false);
   const [freezeWinners, setFreezeWinners] = useState<Array<{ username: string; avatar: string; position: number; prizeAmount: number }>>([]);
+  const [freezeCountdown, setFreezeCountdown] = useState(5);
+  const [confettiBurstKey, setConfettiBurstKey] = useState(0);
+  const [spotlightIndex, setSpotlightIndex] = useState(0);
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
   const hostVoiceRef = useRef<HTMLDivElement>(null);
   const gameEndTriggeredRef = useRef(false);
   const navigatingToResultsRef = useRef(false);
+  const freezeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const comments = isDemoMode ? simulatedComments : realComments;
   const getOrderedCommenters = isDemoMode ? getSimOrderedCommenters : getRealOrderedCommenters;
@@ -233,13 +236,37 @@ export const CycleArena = () => {
   // NOTE: Database subscription moved after handleGameEnd definition to fix dependency order
 
 
-  // Game end handler - show freeze screen with winners, then navigate
+  // Game end handler - show live winner reveal overlay, then navigate
   const handleGameEnd = useCallback(async () => {
     if (gameEndTriggeredRef.current || navigatingToResultsRef.current) return;
     gameEndTriggeredRef.current = true;
     
-    // Show freeze screen IMMEDIATELY for visual feedback
+    // Show freeze overlay IMMEDIATELY for visual feedback
     setShowGameEndFreeze(true);
+    setFreezeCountdown(5);
+    
+    // Trigger confetti burst for winner reveal
+    setConfettiBurstKey(prev => prev + 1);
+    
+    // Start 5-second countdown then navigate to results
+    const countdownInterval = setInterval(() => {
+      setFreezeCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    // Guaranteed navigation after 5.5 seconds (with buffer)
+    freezeTimeoutRef.current = setTimeout(() => {
+      clearInterval(countdownInterval);
+      if (!navigatingToResultsRef.current) {
+        navigatingToResultsRef.current = true;
+        navigate(`/arena/${cycleId}/results`, { replace: true });
+      }
+    }, 5500);
     
     // Trigger backend settlement in background
     supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } })
@@ -319,7 +346,27 @@ export const CycleArena = () => {
       }));
     
     setFreezeWinners(calculatedWinners);
-  }, [cycle, cycleId, getOrderedCommenters]);
+  }, [cycle, cycleId, getOrderedCommenters, navigate]);
+  
+  // Cleanup freeze timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (freezeTimeoutRef.current) {
+        clearTimeout(freezeTimeoutRef.current);
+      }
+    };
+  }, []);
+  
+  // Spotlight rotation for multiple winners during freeze
+  useEffect(() => {
+    if (!showGameEndFreeze || freezeWinners.length <= 1) return;
+    
+    const interval = setInterval(() => {
+      setSpotlightIndex(prev => (prev + 1) % freezeWinners.length);
+    }, 700);
+    
+    return () => clearInterval(interval);
+  }, [showGameEndFreeze, freezeWinners.length]);
   
   // Navigate to results after freeze completes
   const handleFreezeComplete = useCallback(() => {
@@ -476,6 +523,8 @@ export const CycleArena = () => {
   };
 
   const handleSendComment = async () => {
+    // Guard: No comments during freeze or if not live
+    if (showGameEndFreeze || cycle?.status !== 'live') return;
     if (!commentText.trim() || !participation.isParticipant || participation.isSpectator) return;
     
     play('click');
@@ -551,34 +600,18 @@ export const CycleArena = () => {
     return null;
   }
 
-  // If freeze is active OR should be active, render the freeze screen instead of navigating
-  if (cycle.status === 'ended' || cycle.status === 'settled') {
-    // If we're showing the freeze, render just the freeze overlay
-    if (showGameEndFreeze || !navigatingToResultsRef.current) {
-      // Trigger freeze if not already shown
-      if (!showGameEndFreeze && !gameEndTriggeredRef.current) {
-        // This shouldn't happen often, but just in case - trigger the end handler
-        handleGameEnd();
-      }
-      
-      // Render ONLY the freeze overlay
-      return (
-        <div className="min-h-screen bg-background">
-          <GameEndFreeze
-            isActive={true}
-            winners={freezeWinners}
-            totalPrize={(cycle?.pool_value || 0) + (cycle?.sponsored_prize_amount || 0)}
-            onComplete={handleFreezeComplete}
-            freezeDuration={5}
-          />
-        </div>
-      );
-    }
-    return null;
+  // For ended/settled status, trigger freeze if not already done, then continue to render the arena with overlay
+  if ((cycle.status === 'ended' || cycle.status === 'settled') && !gameEndTriggeredRef.current && !showGameEndFreeze) {
+    // This triggers once to start the freeze sequence
+    handleGameEnd();
   }
 
+  // Compute freeze state - arena stays visible, overlay appears on top
+  const freezeActive = showGameEndFreeze;
+
   const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
-  const canComment = participation.isParticipant && !participation.isSpectator && isLive;
+  // Disable comments during freeze
+  const canComment = participation.isParticipant && !participation.isSpectator && isLive && !freezeActive;
   const orderedCommenters = getOrderedCommenters();
   const displayCountdown = isDemoMode ? simCountdown : localCountdown;
   const isCountdownCritical = displayCountdown <= 10 && isLive && comments.length > 0;
@@ -592,19 +625,99 @@ export const CycleArena = () => {
     isLive;
 
   const effectiveTotalPrize = effectivePrizePool;
+  
+  const formatPrize = (amount: number) => {
+    if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+    if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+    return `₦${amount.toLocaleString()}`;
+  };
+  
+  const getPositionEmoji = (position: number) => {
+    switch (position) {
+      case 1: return '🥇';
+      case 2: return '🥈';
+      case 3: return '🥉';
+      default: return '🏅';
+    }
+  };
 
   return (
     <div className={`min-h-screen bg-background flex flex-col transition-all duration-500 ease-out ${isEntering ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
       {showConfetti && <Confetti duration={3000} />}
       
-      {/* Game End Freeze Overlay */}
-      <GameEndFreeze
-        isActive={showGameEndFreeze}
-        winners={freezeWinners}
-        totalPrize={effectiveTotalPrize}
-        onComplete={handleFreezeComplete}
-        freezeDuration={5}
-      />
+      {/* Confetti Burst for Winner Reveal */}
+      {freezeActive && <Confetti key={confettiBurstKey} duration={2000} count={150} maxDelay={0.3} burst />}
+      
+      {/* Live Winner Reveal Overlay - keeps arena visible in background */}
+      {freezeActive && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/90 backdrop-blur-sm animate-fade-in">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Trophy className="w-8 h-8 text-gold animate-bounce" />
+              <span className="text-2xl font-black text-foreground">GAME OVER!</span>
+              <Trophy className="w-8 h-8 text-gold animate-bounce" />
+            </div>
+            <p className="text-muted-foreground text-sm">Winner determined by last valid comment</p>
+          </div>
+          
+          {/* Winner Cards - Leaders Style with Zoom Effect */}
+          <div className="w-full max-w-sm px-4 space-y-3">
+            {freezeWinners.length > 0 ? (
+              freezeWinners.map((winner, idx) => {
+                const isSpotlit = freezeWinners.length === 1 || spotlightIndex === idx;
+                return (
+                  <div
+                    key={idx}
+                    className={`winner-spotlight flex items-center gap-3 p-4 rounded-2xl border-2 transition-all duration-300 ${
+                      isSpotlit 
+                        ? 'active bg-gold/20 border-gold shadow-lg animate-winner-zoom' 
+                        : 'dimmed bg-muted/50 border-border/30'
+                    }`}
+                  >
+                    <span className="text-2xl">{getPositionEmoji(winner.position)}</span>
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center text-2xl border-2 border-gold/50">
+                      {winner.avatar}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-bold truncate ${isSpotlit ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {winner.username}
+                      </p>
+                      <p className={`text-sm font-bold ${isSpotlit ? 'text-gold' : 'text-muted-foreground'}`}>
+                        {formatPrize(winner.prizeAmount)}
+                      </p>
+                    </div>
+                    {winner.position === 1 && (
+                      <Crown className="w-6 h-6 text-gold animate-pulse" />
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Calculating winners...</p>
+                <div className="w-8 h-8 border-3 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mt-4" />
+              </div>
+            )}
+          </div>
+          
+          {/* Countdown to Results */}
+          <div className="mt-8 text-center">
+            <p className="text-muted-foreground text-sm mb-2">Going to results in</p>
+            <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
+              <span className="text-3xl font-black text-primary">{freezeCountdown}</span>
+            </div>
+          </div>
+          
+          {/* Skip Button */}
+          <button
+            onClick={handleFreezeComplete}
+            className="mt-6 px-6 py-2 rounded-xl bg-muted/50 text-muted-foreground text-sm hover:bg-muted transition-colors"
+          >
+            Skip to results →
+          </button>
+        </div>
+      )}
       
       <WinningBanner 
         isVisible={currentUserIsWinning} 
@@ -843,8 +956,16 @@ export const CycleArena = () => {
           />
         )}
 
+        {/* Comments Closed During Freeze */}
+        {freezeActive && participation.isParticipant && !participation.isSpectator && (
+          <div className="flex items-center justify-center gap-2 py-3 bg-gold/10 border border-gold/30 rounded-xl">
+            <Trophy className="w-4 h-4 text-gold animate-pulse" />
+            <span className="text-sm text-gold font-medium">Comments closed — revealing winner(s)...</span>
+          </div>
+        )}
+
         {/* Spectator notice */}
-        {participation.isSpectator && (
+        {participation.isSpectator && !freezeActive && (
           <div className="flex items-center justify-center gap-2 py-3 text-muted-foreground bg-muted/50 rounded-xl">
             <Eye className="w-4 h-4" />
             <span className="text-sm">Watching as spectator</span>
@@ -852,7 +973,7 @@ export const CycleArena = () => {
         )}
 
         {/* Participant waiting for game */}
-        {participation.isParticipant && !participation.isSpectator && !isLive && (
+        {participation.isParticipant && !participation.isSpectator && !isLive && !freezeActive && (
           <div className="flex items-center justify-center gap-2 py-3 bg-green-500/10 border border-green-500/20 rounded-xl">
             <Clock className="w-4 h-4 text-green-400 animate-pulse" />
             <span className="text-sm text-green-400 font-medium">You're in! Waiting for game...</span>

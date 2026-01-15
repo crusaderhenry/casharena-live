@@ -8,7 +8,14 @@ interface ConfettiPiece {
   size: number;
 }
 
-export const Confetti = ({ duration = 5000 }: { duration?: number }) => {
+interface ConfettiProps {
+  duration?: number;
+  count?: number;
+  maxDelay?: number;
+  burst?: boolean;
+}
+
+export const Confetti = ({ duration = 5000, count = 50, maxDelay = 2, burst = false }: ConfettiProps) => {
   const [pieces, setPieces] = useState<ConfettiPiece[]>([]);
   const [show, setShow] = useState(true);
 
@@ -18,15 +25,20 @@ export const Confetti = ({ duration = 5000 }: { duration?: number }) => {
       'hsl(175 85% 38%)', // teal
       'hsl(210 10% 70%)', // silver
       'hsl(30 50% 50%)', // bronze
+      'hsl(340 80% 60%)', // pink
+      'hsl(200 80% 55%)', // blue
     ];
 
     const newPieces: ConfettiPiece[] = [];
-    for (let i = 0; i < 50; i++) {
+    const pieceCount = burst ? count : 50;
+    const delayMax = burst ? maxDelay : 2;
+    
+    for (let i = 0; i < pieceCount; i++) {
       newPieces.push({
         id: i,
         left: Math.random() * 100,
         color: colors[Math.floor(Math.random() * colors.length)],
-        delay: Math.random() * 2,
+        delay: Math.random() * delayMax,
         size: 8 + Math.random() * 8,
       });
     }
@@ -37,7 +49,7 @@ export const Confetti = ({ duration = 5000 }: { duration?: number }) => {
     }, duration);
 
     return () => clearTimeout(timeout);
-  }, [duration]);
+  }, [duration, count, maxDelay, burst]);
 
   if (!show) return null;
 
@@ -46,7 +58,7 @@ export const Confetti = ({ duration = 5000 }: { duration?: number }) => {
       {pieces.map((piece) => (
         <div
           key={piece.id}
-          className="confetti-piece"
+          className={burst ? "confetti-burst-piece" : "confetti-piece"}
           style={{
             left: `${piece.left}%`,
             backgroundColor: piece.color,
