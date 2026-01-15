@@ -7,9 +7,10 @@ import { useAuth } from '@/contexts/AuthContext';
 interface ActiveGame {
   cycleId: string;
   templateName: string;
-  countdown: number;
+  countdown: number; // Comment timer
   status: string;
   liveStartAt: string;
+  liveEndAt: string;
 }
 
 export const FloatingGameReturn = () => {
@@ -17,8 +18,8 @@ export const FloatingGameReturn = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [activeGame, setActiveGame] = useState<ActiveGame | null>(null);
-  const [localCountdown, setLocalCountdown] = useState(0);
   const [timeUntilLive, setTimeUntilLive] = useState(0);
+  const [gameEndsIn, setGameEndsIn] = useState(0);
 
   // Check for active game participation
   useEffect(() => {
@@ -39,7 +40,8 @@ export const FloatingGameReturn = () => {
             status,
             countdown,
             template_id,
-            live_start_at
+            live_start_at,
+            live_end_at
           )
         `)
         .eq('user_id', user.id)
@@ -72,13 +74,17 @@ export const FloatingGameReturn = () => {
           countdown: gc.countdown,
           status: gc.status,
           liveStartAt: gc.live_start_at,
+          liveEndAt: gc.live_end_at,
         });
-        setLocalCountdown(gc.countdown);
         
         // Calculate time until live
         const now = Date.now();
         const liveAt = new Date(gc.live_start_at).getTime();
         setTimeUntilLive(Math.max(0, Math.floor((liveAt - now) / 1000)));
+        
+        // Calculate game ends in
+        const endAt = new Date(gc.live_end_at).getTime();
+        setGameEndsIn(Math.max(0, Math.floor((endAt - now) / 1000)));
       } else {
         setActiveGame(null);
       }
@@ -96,8 +102,12 @@ export const FloatingGameReturn = () => {
       )
       .subscribe();
 
+    // Re-sync every 30 seconds for accuracy
+    const syncInterval = setInterval(checkActiveGame, 30000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(syncInterval);
     };
   }, [user, location.pathname]);
 
@@ -107,7 +117,7 @@ export const FloatingGameReturn = () => {
 
     const interval = setInterval(() => {
       if (activeGame.status === 'live' || activeGame.status === 'ending') {
-        setLocalCountdown(prev => Math.max(0, prev - 1));
+        setGameEndsIn(prev => Math.max(0, prev - 1));
       } else {
         // For waiting/opening, tick down time until live
         setTimeUntilLive(prev => Math.max(0, prev - 1));
@@ -141,7 +151,7 @@ export const FloatingGameReturn = () => {
   };
 
   const isLive = activeGame.status === 'live' || activeGame.status === 'ending';
-  const isUrgent = isLive && localCountdown <= 10 && localCountdown > 0;
+  const isUrgent = isLive && gameEndsIn <= 30 && gameEndsIn > 0;
   const isWaiting = activeGame.status === 'waiting' || activeGame.status === 'opening';
 
   return (
@@ -181,8 +191,9 @@ export const FloatingGameReturn = () => {
         <div className="flex items-center gap-1">
           <Timer className={`w-3 h-3 ${isUrgent ? 'text-white' : 'text-white/70'}`} />
           <span className={`text-sm font-bold tabular-nums ${isUrgent ? 'text-white' : 'text-white/90'}`}>
-            {isLive ? formatTime(localCountdown) : formatTime(timeUntilLive)}
+            {isLive ? formatTime(gameEndsIn) : formatTime(timeUntilLive)}
           </span>
+          {isLive && <span className="text-[10px] text-white/60 ml-1">ends</span>}
           {isWaiting && <span className="text-[10px] text-white/60 ml-1">to live</span>}
         </div>
       </div>
