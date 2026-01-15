@@ -242,11 +242,6 @@ export const PoolParticipantsSheet = ({
                       Joined {formatTime(p.joined_at)}
                     </p>
                   </div>
-                  {index < 3 && (
-                    <span className="text-lg">
-                      {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
-                    </span>
-                  )}
                 </div>
               ))}
 

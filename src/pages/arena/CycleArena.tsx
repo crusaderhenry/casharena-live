@@ -113,6 +113,7 @@ export const CycleArena = () => {
   const announcedTimersRef = useRef<Set<number>>(new Set());
   const hostVoiceRef = useRef<HTMLDivElement>(null);
   const gameEndTriggeredRef = useRef(false);
+  const navigatingToResultsRef = useRef(false);
   
   const comments = isDemoMode ? simulatedComments : realComments;
   const getOrderedCommenters = isDemoMode ? getSimOrderedCommenters : getRealOrderedCommenters;
@@ -124,6 +125,9 @@ export const CycleArena = () => {
 
   // IntersectionObserver for Host/Voice collapse detection
   useEffect(() => {
+    // Only run observer when we have a live game and the target exists
+    if (!cycle || (cycle.status !== 'live' && cycle.status !== 'ending')) return;
+    
     const target = hostVoiceRef.current;
     if (!target) return;
 
@@ -132,12 +136,15 @@ export const CycleArena = () => {
         // Show collapsed card when original section is NOT visible (scrolled past)
         setIsScrolledPastHost(!entry.isIntersecting);
       },
-      { threshold: 0, rootMargin: '-100px 0px 0px 0px' }
+      { threshold: 0, rootMargin: '-150px 0px 0px 0px' }
     );
 
     observer.observe(target);
-    return () => observer.disconnect();
-  }, []);
+    return () => {
+      observer.disconnect();
+      setIsScrolledPastHost(false);
+    };
+  }, [cycle?.status]);
 
   const isLive = cycle?.status === 'live' || cycle?.status === 'ending';
   const arenaAmbientStyle = cycle?.ambient_music_style || 'intense';
@@ -232,14 +239,20 @@ export const CycleArena = () => {
           
           // Handle status changes via realtime - immediate redirect for ended/settled games
           if (updated.status === 'ended' || updated.status === 'settled') {
-            console.log('[CycleArena] Game ended via realtime, navigating to results');
-            navigate(`/arena/${cycleId}/results`, { replace: true });
-          } else if (updated.status === 'cancelled') {
-            if (updated.participant_count === 0) {
-              toast.info('Game cancelled — no players joined');
-              navigate('/arena', { replace: true });
-            } else {
+            if (!navigatingToResultsRef.current) {
+              navigatingToResultsRef.current = true;
+              console.log('[CycleArena] Game ended via realtime, navigating to results');
               navigate(`/arena/${cycleId}/results`, { replace: true });
+            }
+          } else if (updated.status === 'cancelled') {
+            if (!navigatingToResultsRef.current) {
+              navigatingToResultsRef.current = true;
+              if (updated.participant_count === 0) {
+                toast.info('Game cancelled — no players joined');
+                navigate('/arena', { replace: true });
+              } else {
+                navigate(`/arena/${cycleId}/results`, { replace: true });
+              }
             }
           }
         }
@@ -250,8 +263,9 @@ export const CycleArena = () => {
 
   // Game end handler - immediate navigation to results (no delay)
   const handleGameEnd = useCallback(async () => {
-    if (gameEndTriggeredRef.current) return;
+    if (gameEndTriggeredRef.current || navigatingToResultsRef.current) return;
     gameEndTriggeredRef.current = true;
+    navigatingToResultsRef.current = true;
     
     play('prizeWin');
     
@@ -410,17 +424,23 @@ export const CycleArena = () => {
   }
 
   if (cycle.status === 'cancelled') {
-    if (cycle.participant_count === 0) {
-      toast.info('Game cancelled — no players joined');
-      navigate('/arena', { replace: true });
-    } else {
-      navigate(`/arena/${cycleId}/results`, { replace: true });
+    if (!navigatingToResultsRef.current) {
+      navigatingToResultsRef.current = true;
+      if (cycle.participant_count === 0) {
+        toast.info('Game cancelled — no players joined');
+        navigate('/arena', { replace: true });
+      } else {
+        navigate(`/arena/${cycleId}/results`, { replace: true });
+      }
     }
     return null;
   }
 
   if (cycle.status === 'ended' || cycle.status === 'settled') {
-    navigate(`/arena/${cycleId}/results`, { replace: true });
+    if (!navigatingToResultsRef.current) {
+      navigatingToResultsRef.current = true;
+      navigate(`/arena/${cycleId}/results`, { replace: true });
+    }
     return null;
   }
 
