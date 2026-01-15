@@ -194,6 +194,7 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
   // Fallback to Web Speech API when ElevenLabs quota is exceeded
   const fallbackSpeak = useCallback((text: string, emotion: 'excited' | 'tense' | 'calm' = 'calm') => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('[TTS Fallback] SpeechSynthesis not available');
       triggerNextInQueue();
       return;
     }
@@ -210,55 +211,92 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     utterance.pitch = Math.min(Math.max(profile.basePitch + emotionMod.pitchMod, 0.5), 2.0);
     utterance.volume = audioSettings.volume; // Respect user volume setting
 
-    // Try to find appropriate voice based on host gender
-    const voices = synth.getVoices();
-    const isFemalHost = profile.gender === 'female';
-    
-    // Try to find a matching gendered voice
-    let selectedVoice = voices.find(v => 
-      v.lang.startsWith('en') && 
-      (isFemalHost 
-        ? (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('samantha') || v.name.toLowerCase().includes('victoria') || v.name.toLowerCase().includes('karen'))
-        : (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('james'))
-      )
-    );
-    
-    // Fallback to any English voice
-    if (!selectedVoice) {
-      selectedVoice = voices.find(v => v.lang.startsWith('en'));
-    }
-    
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-    }
+    // Get voices - may need to wait for them to load
+    const trySpeak = () => {
+      const voices = synth.getVoices();
+      
+      if (voices.length === 0) {
+        // Voices not loaded yet, wait and retry
+        console.log('[TTS Fallback] Waiting for voices to load...');
+        synth.onvoiceschanged = () => {
+          synth.onvoiceschanged = null;
+          trySpeak();
+        };
+        // Also set a timeout in case onvoiceschanged never fires
+        setTimeout(() => {
+          if (synth.getVoices().length > 0) {
+            synth.onvoiceschanged = null;
+            trySpeak();
+          } else {
+            console.warn('[TTS Fallback] No voices available after timeout');
+            triggerNextInQueue();
+          }
+        }, 500);
+        return;
+      }
+      
+      const isFemalHost = profile.gender === 'female';
+      
+      // Try to find a matching gendered voice
+      let selectedVoice = voices.find(v => 
+        v.lang.startsWith('en') && 
+        (isFemalHost 
+          ? (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('samantha') || v.name.toLowerCase().includes('victoria') || v.name.toLowerCase().includes('karen') || v.name.toLowerCase().includes('fiona'))
+          : (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('james') || v.name.toLowerCase().includes('alex'))
+        )
+      );
+      
+      // Fallback to any English voice
+      if (!selectedVoice) {
+        selectedVoice = voices.find(v => v.lang.startsWith('en'));
+      }
+      
+      // Final fallback - any voice
+      if (!selectedVoice && voices.length > 0) {
+        selectedVoice = voices[0];
+      }
+      
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        console.log(`[TTS Fallback] Using voice: ${selectedVoice.name}`);
+      }
 
-    isSpeakingRef.current = true;
-    setIsSpeaking(true);
-    onSpeakingChange?.(true);
+      isSpeakingRef.current = true;
+      setIsSpeaking(true);
+      onSpeakingChange?.(true);
 
-    utterance.onend = () => {
-      isSpeakingRef.current = false;
-      setIsSpeaking(false);
-      onSpeakingChange?.(false);
-      triggerNextInQueue();
+      utterance.onend = () => {
+        isSpeakingRef.current = false;
+        setIsSpeaking(false);
+        onSpeakingChange?.(false);
+        triggerNextInQueue();
+      };
+
+      utterance.onerror = (e) => {
+        console.warn('[TTS Fallback] Speech error:', e.error);
+        isSpeakingRef.current = false;
+        setIsSpeaking(false);
+        onSpeakingChange?.(false);
+        triggerNextInQueue();
+      };
+
+      synth.speak(utterance);
+      console.log(`[TTS Fallback] Speaking: "${text.substring(0, 30)}..."`);
     };
-
-    utterance.onerror = () => {
-      isSpeakingRef.current = false;
-      setIsSpeaking(false);
-      onSpeakingChange?.(false);
-      triggerNextInQueue();
-    };
-
-    synth.speak(utterance);
+    
+    trySpeak();
   }, [onSpeakingChange, triggerNextInQueue, selectedHost, audioSettings.volume]);
 
   // Play TTS audio with ElevenLabs, fallback to Web Speech API
   const speakText = useCallback(async (text: string, voiceId?: string) => {
-    if (audioSettings.hostMuted || !isLive) return;
+    if (audioSettings.hostMuted || !isLive) {
+      console.log('[TTS] Skipping: hostMuted or not live');
+      return;
+    }
 
     // If quota was exceeded, use fallback directly with emotion
     if (quotaExceededRef.current) {
+      console.log('[TTS] Using Web Speech fallback (quota exceeded)');
       // Determine emotion from text content
       const emotion = text.includes('!') && (text.includes('WIN') || text.includes('FIRE') || text.includes('GOOO') || text.includes('WILD'))
         ? 'excited' 

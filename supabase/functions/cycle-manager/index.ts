@@ -134,20 +134,66 @@ async function handleTick(supabase: any) {
   }
 
   const results = [];
+  const broadcastUpdates: Array<{ cycleId: string; countdown: number; gameTimeRemaining: number; status: string }> = [];
 
   for (const cycle of cycles || []) {
     const result = await processStateTransition(supabase, cycle, now);
-    if (result) results.push(result);
+    if (result) {
+      results.push(result);
+      
+      // Collect broadcast data for live games
+      if (result.to === 'live' || (cycle.status === 'live' && result.to === 'live')) {
+        const liveEndAt = new Date(cycle.live_end_at).getTime();
+        const gameTimeRemaining = Math.max(0, Math.floor((liveEndAt - now.getTime()) / 1000));
+        broadcastUpdates.push({
+          cycleId: cycle.id,
+          countdown: cycle.countdown,
+          gameTimeRemaining,
+          status: result.to,
+        });
+      }
+    }
+    
+    // Also broadcast for live games that didn't transition
+    if (cycle.status === 'live' && !result) {
+      const liveEndAt = new Date(cycle.live_end_at).getTime();
+      const gameTimeRemaining = Math.max(0, Math.floor((liveEndAt - now.getTime()) / 1000));
+      broadcastUpdates.push({
+        cycleId: cycle.id,
+        countdown: cycle.countdown,
+        gameTimeRemaining,
+        status: 'live',
+      });
+    }
   }
 
-  // 2. Check for infinity templates that need new cycles
+  // 2. Broadcast timer updates to all clients via Supabase Realtime
+  for (const update of broadcastUpdates) {
+    try {
+      await supabase.channel(`timer-sync-${update.cycleId}`).send({
+        type: 'broadcast',
+        event: 'timer_tick',
+        payload: {
+          countdown: update.countdown,
+          gameTimeRemaining: update.gameTimeRemaining,
+          status: update.status,
+          serverTime: now.toISOString(),
+        },
+      });
+    } catch (e) {
+      // Broadcast errors are non-fatal
+      console.log(`[tick] Broadcast failed for ${update.cycleId}:`, e);
+    }
+  }
+
+  // 3. Check for infinity templates that need new cycles
   await checkInfinityTemplates(supabase, now);
 
-  // 3. Auto-delete cancelled/ended cycles older than 5 minutes
+  // 4. Auto-delete cancelled/ended cycles older than 5 minutes
   const deletedCount = await cleanupOldCycles(supabase, now);
 
   return new Response(
-    JSON.stringify({ success: true, processed: results.length, results, deleted: deletedCount }),
+    JSON.stringify({ success: true, processed: results.length, results, deleted: deletedCount, broadcasts: broadcastUpdates.length }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 }
