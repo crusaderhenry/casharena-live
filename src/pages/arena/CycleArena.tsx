@@ -106,6 +106,7 @@ export const CycleArena = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [leaderChanged, setLeaderChanged] = useState(false);
+  const [openingTickSent, setOpeningTickSent] = useState(false);
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
   const gameEndTriggeredRef = useRef(false);
@@ -172,6 +173,19 @@ export const CycleArena = () => {
   }, [cycleId, navigate, secondsUntil]);
 
   useEffect(() => { fetchCycle(); }, [fetchCycle]);
+
+  // Opening status: trigger backend tick immediately to transition to live
+  useEffect(() => {
+    if (cycle?.status === 'opening' && !openingTickSent) {
+      setOpeningTickSent(true);
+      supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } })
+        .then(() => {
+          // Refetch after a short delay to get updated status
+          setTimeout(fetchCycle, 500);
+        })
+        .catch(console.error);
+    }
+  }, [cycle?.status, openingTickSent, fetchCycle]);
 
   useEffect(() => {
     if (isDemoMode) {
@@ -362,7 +376,7 @@ export const CycleArena = () => {
     return null;
   }
   
-  // For opening status, show a "Game starting..." state instead of redirecting
+  // For opening status, show brief "Game Starting" while backend transitions
   if (cycle.status === 'opening') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
