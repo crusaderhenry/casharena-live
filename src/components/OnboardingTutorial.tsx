@@ -329,6 +329,4 @@ export const OnboardingTutorial = ({ onComplete, onRemindLater }: OnboardingTuto
     </div>
   );
 };
-
-// Re-export the hook from its dedicated file for backward compatibility
-export { useOnboarding } from '@/hooks/useOnboarding';
+// Hook is now imported directly from @/hooks/useOnboarding
