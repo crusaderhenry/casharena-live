@@ -1537,6 +1537,10 @@ export type Database = {
           new_countdown: number
         }[]
       }
+      upgrade_spectator_to_participant: {
+        Args: { p_cycle_id: string; p_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

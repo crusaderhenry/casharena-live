@@ -19,10 +19,18 @@ interface LeaveResult {
   seconds_until_live?: number;
 }
 
+interface UpgradeResult {
+  success: boolean;
+  error?: string;
+  upgraded?: boolean;
+  amount_paid?: number;
+}
+
 export const useCycleJoin = () => {
   const { user, refreshProfile } = useAuth();
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
 
   const joinCycle = useCallback(async (cycleId: string, asSpectator: boolean = false): Promise<JoinResult> => {
     if (!user) {
@@ -116,6 +124,46 @@ export const useCycleJoin = () => {
     }
   }, [user, refreshProfile]);
 
+  const upgradeToParticipant = useCallback(async (cycleId: string): Promise<UpgradeResult> => {
+    if (!user) {
+      toast.error('Please log in');
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    setUpgrading(true);
+    try {
+      const { data, error } = await supabase.rpc('upgrade_spectator_to_participant', {
+        p_cycle_id: cycleId,
+        p_user_id: user.id,
+      });
+
+      if (error) {
+        console.error('[useCycleJoin] Upgrade RPC error:', error);
+        toast.error(error.message);
+        return { success: false, error: error.message };
+      }
+
+      const result = data as unknown as UpgradeResult;
+      
+      if (!result || !result.success) {
+        const errorMsg = result?.error || 'Failed to upgrade';
+        toast.error(errorMsg);
+        return { success: false, error: errorMsg };
+      }
+
+      toast.success(`Upgraded to player! ₦${result.amount_paid?.toLocaleString()} deducted.`);
+      await refreshProfile();
+      return result;
+    } catch (err) {
+      console.error('[useCycleJoin] Upgrade error:', err);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      toast.error(message);
+      return { success: false, error: message };
+    } finally {
+      setUpgrading(false);
+    }
+  }, [user, refreshProfile]);
+
   const checkParticipation = useCallback(async (cycleId: string): Promise<{ isParticipant: boolean; isSpectator: boolean }> => {
     if (!user) return { isParticipant: false, isSpectator: false };
 
@@ -136,8 +184,10 @@ export const useCycleJoin = () => {
   return {
     joinCycle,
     leaveCycle,
+    upgradeToParticipant,
     checkParticipation,
     joining,
     leaving,
+    upgrading,
   };
 };
