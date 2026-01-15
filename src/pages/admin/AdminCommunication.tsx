@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Mail, Send, Users, Clock, CheckCircle, AlertCircle, Plus, Trash2, Eye, RefreshCw } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -426,7 +427,7 @@ export const AdminCommunication = () => {
                 <p className="text-xs text-muted-foreground mb-2">Body</p>
                 <div 
                   className="prose prose-sm dark:prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: selectedCampaign.body }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedCampaign.body) }}
                 />
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">

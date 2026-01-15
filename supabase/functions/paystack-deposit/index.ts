@@ -44,19 +44,29 @@ Deno.serve(async (req) => {
 
     const { amount, email, callback_url }: DepositRequest = await req.json();
 
+    // Check platform settings for test mode and limits
+    const { data: settings } = await supabase
+      .from('platform_settings')
+      .select('test_mode, min_deposit, max_deposit')
+      .single();
+
+    const minDeposit = settings?.min_deposit ?? 100;
+    const maxDeposit = settings?.max_deposit ?? 1000000; // Default 1M max
+
     // Validate amount
-    if (!amount || amount < 100) {
+    if (!amount || amount < minDeposit) {
       return new Response(
-        JSON.stringify({ error: 'Minimum deposit is ₦100' }),
+        JSON.stringify({ error: `Minimum deposit is ₦${minDeposit.toLocaleString()}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Check platform test mode
-    const { data: settings } = await supabase
-      .from('platform_settings')
-      .select('test_mode')
-      .single();
+    if (amount > maxDeposit) {
+      return new Response(
+        JSON.stringify({ error: `Maximum deposit is ₦${maxDeposit.toLocaleString()}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const isTestMode = settings?.test_mode ?? true;
     const mode = isTestMode ? 'test' : 'live';

@@ -1,6 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { z } from 'zod';
+
+// Validation schema for comment content
+const commentSchema = z.string()
+  .trim()
+  .min(1, 'Comment cannot be empty')
+  .max(500, 'Comment must be 500 characters or less')
+  .transform(val => 
+    // Basic sanitization - remove script tags and other dangerous content
+    val.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+       .replace(/<[^>]*>/g, '') // Strip all HTML tags
+       .trim()
+  );
 
 export interface CycleComment {
   id: string;
@@ -96,16 +109,26 @@ export const useCycleComments = (cycleId: string | null) => {
     };
   }, [cycleId]);
 
-  // Send a comment
+  // Send a comment with validation
   const sendComment = useCallback(async (content: string): Promise<boolean> => {
-    if (!cycleId || !user || !content.trim()) return false;
+    if (!cycleId || !user) return false;
+
+    // Validate and sanitize content
+    const validationResult = commentSchema.safeParse(content);
+    if (!validationResult.success) {
+      console.error('[useCycleComments] Validation error:', validationResult.error.message);
+      return false;
+    }
+
+    const sanitizedContent = validationResult.data;
+    if (!sanitizedContent) return false;
 
     setSending(true);
     try {
       const { error } = await supabase.from('cycle_comments').insert({
         cycle_id: cycleId,
         user_id: user.id,
-        content: content.trim(),
+        content: sanitizedContent,
       });
 
       if (error) {

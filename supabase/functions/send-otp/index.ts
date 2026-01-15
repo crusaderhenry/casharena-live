@@ -5,6 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Rate limiting configuration
+const RATE_LIMIT_EMAIL = 3; // Max OTPs per email per hour
+const RATE_LIMIT_IP = 10; // Max OTPs per IP per hour
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -31,15 +36,61 @@ Deno.serve(async (req) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-
-    // Generate 6-digit OTP
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
+    // Get client IP for rate limiting
+    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                     req.headers.get('cf-connecting-ip') || 
+                     'unknown';
 
     // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check rate limits
+    const oneHourAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+
+    // Check email rate limit
+    const { count: emailCount } = await supabase
+      .from('otp_codes')
+      .select('*', { count: 'exact', head: true })
+      .eq('email', normalizedEmail)
+      .gte('created_at', oneHourAgo);
+
+    if ((emailCount || 0) >= RATE_LIMIT_EMAIL) {
+      console.warn(`[send-otp] Rate limit exceeded for email: ${normalizedEmail}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Too many verification requests. Please try again in an hour.' 
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check IP rate limit using payment_provider_logs as a general activity log
+    // We'll track OTP sends in the logs table with event_type 'otp_sent'
+    const { count: ipCount } = await supabase
+      .from('payment_provider_logs')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_type', 'otp_sent')
+      .eq('ip_address', clientIP)
+      .gte('created_at', oneHourAgo);
+
+    if ((ipCount || 0) >= RATE_LIMIT_IP) {
+      console.warn(`[send-otp] Rate limit exceeded for IP: ${clientIP}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Too many requests from this location. Please try again later.' 
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Generate 6-digit OTP
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Delete any existing unverified codes for this email
     await supabase
@@ -64,6 +115,16 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Log OTP send for IP rate limiting
+    await supabase.from('payment_provider_logs').insert({
+      provider: 'otp',
+      reference: `otp_${Date.now()}`,
+      event_type: 'otp_sent',
+      ip_address: clientIP,
+      payload: { email: normalizedEmail },
+      status: 'sent',
+    });
 
     // Send email via ZeptoMail
     const zeptoApiKey = Deno.env.get('ZEPTOMAIL_API_KEY');
