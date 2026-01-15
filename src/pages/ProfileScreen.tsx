@@ -3,7 +3,7 @@ import { ProfileBadges } from '@/components/ProfileBadges';
 import { KycVerificationModal } from '@/components/wallet/KycVerificationModal';
 import { PushNotificationToggle } from '@/components/PushNotificationBanner';
 import { ProfileSkeleton } from '@/components/ProfileSkeleton';
-import { useOnboarding } from '@/components/OnboardingTutorial';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { useSounds } from '@/hooks/useSounds';
