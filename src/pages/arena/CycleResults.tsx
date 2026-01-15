@@ -74,6 +74,17 @@ export const CycleResults = () => {
         return;
       }
 
+      // Redirect if game hasn't ended yet - prevent showing results for active games
+      if (cycleData.status === 'opening' || cycleData.status === 'waiting') {
+        navigate(`/arena/${cycleId}/lobby`, { replace: true });
+        return;
+      }
+
+      if (cycleData.status === 'live' || cycleData.status === 'ending') {
+        navigate(`/arena/${cycleId}`, { replace: true });
+        return;
+      }
+
       // Get template name
       const { data: template } = await supabase
         .from('game_templates')
