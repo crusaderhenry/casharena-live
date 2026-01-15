@@ -28,7 +28,7 @@ export const GameEndFreeze = ({
 }: GameEndFreezeProps) => {
   const [countdown, setCountdown] = useState(freezeDuration);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [phase, setPhase] = useState<'drumroll' | 'reveal' | 'celebration'>('drumroll');
+  const [phase, setPhase] = useState<'loading' | 'drumroll' | 'reveal' | 'celebration'>('loading');
   const { play } = useSounds();
   const { enableDramaticSounds } = usePlatformSettings();
   
@@ -38,31 +38,38 @@ export const GameEndFreeze = ({
   useEffect(() => {
     if (!isActive) {
       setCountdown(freezeDuration);
-      setPhase('drumroll');
+      setPhase('loading');
       return;
     }
 
-    // Phase 1: Drumroll (1.2s)
-    if (enableDramaticSounds) {
-      play('drumroll');
-      play('tenseCrescendo');
-    }
-    
-    const revealTimeout = setTimeout(() => {
-      setPhase('reveal');
-      if (enableDramaticSounds) {
-        play('crowdCheer');
-      }
-      setShowConfetti(true);
+    // Brief loading phase (300ms) to allow winner data to populate
+    const loadingTimeout = setTimeout(() => {
+      setPhase('drumroll');
       
-      setTimeout(() => {
-        setPhase('celebration');
+      // Phase 1: Drumroll (1.2s)
+      if (enableDramaticSounds) {
+        play('drumroll');
+        play('tenseCrescendo');
+      }
+      
+      const revealTimeout = setTimeout(() => {
+        setPhase('reveal');
         if (enableDramaticSounds) {
-          play('victoryFanfare');
-          play('prizeWin');
+          play('crowdCheer');
         }
-      }, 800);
-    }, 1200);
+        setShowConfetti(true);
+        
+        setTimeout(() => {
+          setPhase('celebration');
+          if (enableDramaticSounds) {
+            play('victoryFanfare');
+            play('prizeWin');
+          }
+        }, 800);
+      }, 1200);
+
+      return () => clearTimeout(revealTimeout);
+    }, 300);
 
     const interval = setInterval(() => {
       setCountdown(prev => {
@@ -77,13 +84,25 @@ export const GameEndFreeze = ({
 
     return () => {
       clearInterval(interval);
-      clearTimeout(revealTimeout);
+      clearTimeout(loadingTimeout);
     };
   }, [isActive, freezeDuration, play, enableDramaticSounds]);
 
   const formatMoney = (amount: number) => `₦${amount.toLocaleString()}`;
 
   if (!isActive) return null;
+
+  // Show loading spinner while waiting for winner data
+  if (phase === 'loading') {
+    return (
+      <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-md flex items-center justify-center animate-fade-in">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-lg font-bold text-foreground">Calculating Winner...</p>
+        </div>
+      </div>
+    );
+  }
 
   const hasWinner = winners.length > 0;
   const topWinner = winners[0];
@@ -253,15 +272,17 @@ const MultipleWinnersDisplay = ({ winners, phase, formatMoney }: { winners: Winn
   );
 };
 
-// No winner display
+// No winner display - more prominent styling
 const NoWinnerDisplay = () => (
   <>
     <div className="relative inline-block mb-4">
-      <div className="relative w-28 h-28 rounded-full bg-muted/50 flex items-center justify-center text-6xl border-4 border-muted shadow-xl">
-        🤷
+      <div className="absolute inset-0 rounded-full bg-muted/40 blur-xl animate-pulse" />
+      <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-muted to-muted/60 flex items-center justify-center text-6xl border-4 border-muted/50 shadow-xl">
+        ⏱️
       </div>
     </div>
-    <h2 className="text-3xl font-black text-muted-foreground mb-2">No Winner</h2>
-    <p className="text-lg text-muted-foreground mb-4">Game ended with no eligible winners</p>
+    <h2 className="text-3xl font-black text-foreground mb-2">Game Over!</h2>
+    <p className="text-lg text-muted-foreground mb-4">No comments were recorded</p>
+    <p className="text-sm text-muted-foreground/70">Entry fees will be refunded</p>
   </>
 );
