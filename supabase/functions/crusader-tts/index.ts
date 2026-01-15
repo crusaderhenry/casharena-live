@@ -108,13 +108,15 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error("[crusader-tts] ElevenLabs API error:", errorText);
       
-      // Check for quota exceeded specifically
-      if (errorText.includes('quota_exceeded')) {
-        return new Response(
-          JSON.stringify({ error: 'quota_exceeded', message: 'TTS service temporarily unavailable' }),
-          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+       // Check for quota exceeded specifically
+       if (errorText.includes('quota_exceeded')) {
+         // Return 200 so clients using SDK invoke() don't throw/unmount the UI.
+         // Client can detect this via the JSON body and fall back to Web Speech API.
+         return new Response(
+           JSON.stringify({ audioContent: null, error: 'quota_exceeded', message: 'TTS service temporarily unavailable' }),
+           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+         );
+       }
       
       throw new Error(`ElevenLabs API error: ${response.status}`);
     }

@@ -743,8 +743,16 @@ export const useCrusaderHost = () => {
         body: { text, voiceId: currentHost.voiceId },
       });
 
+      // SDK-level error (non-2xx or network)
       if (error) {
         console.error('TTS error:', error);
+        if (!settings.hostMuted) fallbackSpeak(text);
+        return;
+      }
+
+      // App-level error returned in JSON (e.g. quota exceeded)
+      if (data?.error) {
+        console.warn('TTS unavailable:', data.error);
         if (!settings.hostMuted) fallbackSpeak(text);
         return;
       }
@@ -752,6 +760,9 @@ export const useCrusaderHost = () => {
       if (data?.audioContent && !settings.hostMuted) {
         const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
         queueAudio(audioUrl);
+      } else if (!settings.hostMuted) {
+        // No audio content received
+        fallbackSpeak(text);
       }
     } catch (err) {
       console.error('TTS request failed:', err);
