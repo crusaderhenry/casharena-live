@@ -538,3 +538,5 @@ export const CycleResults = () => {
     </div>
   );
 };
+
+export default CycleResults;
