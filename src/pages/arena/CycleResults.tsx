@@ -19,6 +19,12 @@ interface Winner {
   avatar?: string;
 }
 
+interface SettlementData {
+  noWinner?: boolean;
+  reason?: string;
+  refundedCount?: number;
+}
+
 interface CycleResult {
   id: string;
   template_name: string;
@@ -30,6 +36,9 @@ interface CycleResult {
   status: string;
   actual_end_at: string;
   comment_timer: number;
+  entry_fee: number;
+  min_participants: number;
+  settlement_data?: SettlementData | null;
 }
 
 export const CycleResults = () => {
@@ -74,6 +83,8 @@ export const CycleResults = () => {
       setCycle({
         ...cycleData,
         template_name: template?.name || 'Royal Rumble',
+        // Parse settlement_data from JSON if present
+        settlement_data: cycleData.settlement_data as SettlementData | null,
       });
 
       // Fetch winners
@@ -179,6 +190,8 @@ export const CycleResults = () => {
     return null;
   }
 
+  const isCancelled = cycle.status === 'cancelled';
+  const isNoWinner = cycle.settlement_data?.noWinner || (cycle.status === 'ended' && winners.length === 0);
   const effectivePrizePool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
 
   return (
@@ -217,6 +230,46 @@ export const CycleResults = () => {
       </div>
 
       <div className="p-4 space-y-6">
+        {/* Cancelled Game Banner */}
+        {isCancelled && (
+          <div className="rounded-2xl border-2 border-orange-400/40 bg-gradient-to-r from-orange-500/20 via-orange-400/10 to-transparent p-6 text-center relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="text-5xl mb-3">❌</div>
+              <h2 className="text-2xl font-black text-orange-400 mb-2">Game Cancelled</h2>
+              <p className="text-muted-foreground mb-3">
+                Not enough players joined before the game started
+                <br />
+                <span className="text-sm">
+                  ({cycle.participant_count} of {cycle.min_participants} required)
+                </span>
+              </p>
+              <div className="flex items-center justify-center gap-2 text-sm text-foreground bg-green-500/20 rounded-full px-4 py-2 w-fit mx-auto">
+                <Coins className="w-4 h-4 text-green-400" />
+                <span>Your entry fee of <strong className="text-green-400">{formatMoney(cycle.entry_fee)}</strong> has been refunded</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* No Winner Banner (game ended with no comments) */}
+        {isNoWinner && !isCancelled && (
+          <div className="rounded-2xl border-2 border-muted-foreground/40 bg-gradient-to-r from-muted/40 via-muted/20 to-transparent p-6 text-center relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="text-5xl mb-3">🤷</div>
+              <h2 className="text-2xl font-black text-foreground mb-2">No Winner</h2>
+              <p className="text-muted-foreground mb-3">
+                {cycle.settlement_data?.reason || 'The game ended with no comments'}
+              </p>
+              {cycle.entry_fee > 0 && (
+                <div className="flex items-center justify-center gap-2 text-sm text-foreground bg-green-500/20 rounded-full px-4 py-2 w-fit mx-auto">
+                  <Coins className="w-4 h-4 text-green-400" />
+                  <span>Your entry fee of <strong className="text-green-400">{formatMoney(cycle.entry_fee)}</strong> has been refunded</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* User Win Banner (if won) */}
         {userWin && (
           <div className="rounded-2xl border-2 border-gold/40 bg-gradient-to-r from-gold/20 via-gold/10 to-transparent p-6 text-center relative overflow-hidden">

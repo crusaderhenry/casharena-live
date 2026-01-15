@@ -6,6 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/**
+ * READ-ONLY status check endpoint.
+ * This function ONLY computes and returns status information - it does NOT write to the database.
+ * All status transitions are handled by cycle-manager to ensure proper side-effects (refunds, etc.)
+ */
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -26,10 +31,10 @@ serve(async (req) => {
       );
     }
 
-    // Get current cycle status
+    // Get current cycle status (READ-ONLY)
     const { data: cycle, error: fetchError } = await supabase
       .from('game_cycles')
-      .select('id, status, entry_open_at, live_start_at, live_end_at, participant_count, min_participants')
+      .select('id, status, entry_open_at, live_start_at, live_end_at, participant_count, min_participants, countdown')
       .eq('id', cycle_id)
       .single();
 
@@ -45,48 +50,43 @@ serve(async (req) => {
     const liveStartAt = new Date(cycle.live_start_at);
     const liveEndAt = new Date(cycle.live_end_at);
 
-    let newStatus = cycle.status;
-    let statusUpdated = false;
+    // Compute what the status SHOULD be based on current time
+    // This is READ-ONLY - we do NOT update the database here
+    let computedStatus = cycle.status;
+    let shouldTransition = false;
 
-    // Check for status transitions
     if (cycle.status === 'waiting' && now >= entryOpenAt) {
-      newStatus = 'opening';
-      statusUpdated = true;
+      computedStatus = 'opening';
+      shouldTransition = true;
     } else if (cycle.status === 'opening' && now >= liveStartAt) {
-      // Check min participants
+      // Check min participants to determine if it would go live or be cancelled
       if (cycle.participant_count < cycle.min_participants) {
-        newStatus = 'cancelled';
+        computedStatus = 'cancelled';
       } else {
-        newStatus = 'live';
+        computedStatus = 'live';
       }
-      statusUpdated = true;
+      shouldTransition = true;
     } else if (cycle.status === 'live' && now >= liveEndAt) {
-      newStatus = 'ending';
-      statusUpdated = true;
-    }
-
-    // Update status if changed
-    if (statusUpdated) {
-      const { error: updateError } = await supabase
-        .from('game_cycles')
-        .update({ status: newStatus })
-        .eq('id', cycle_id);
-
-      if (updateError) {
-        console.error('[cycle-status-check] Update error:', updateError);
-      }
+      computedStatus = 'ending';
+      shouldTransition = true;
     }
 
     return new Response(
       JSON.stringify({
         cycle_id: cycle.id,
+        current_status: cycle.status,
+        computed_status: computedStatus,
+        should_transition: shouldTransition,
+        // Keep these for frontend display (backwards compatibility)
+        status_updated: shouldTransition && computedStatus !== cycle.status,
         previous_status: cycle.status,
-        current_status: newStatus,
-        status_updated: statusUpdated,
         server_time: now.toISOString(),
         seconds_until_opening: Math.max(0, Math.floor((entryOpenAt.getTime() - now.getTime()) / 1000)),
         seconds_until_live: Math.max(0, Math.floor((liveStartAt.getTime() - now.getTime()) / 1000)),
         seconds_until_end: Math.max(0, Math.floor((liveEndAt.getTime() - now.getTime()) / 1000)),
+        countdown: cycle.countdown,
+        participant_count: cycle.participant_count,
+        min_participants: cycle.min_participants,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
