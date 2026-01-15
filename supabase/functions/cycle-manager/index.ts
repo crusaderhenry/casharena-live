@@ -500,9 +500,11 @@ async function settleCycle(supabase: any, cycleId: string) {
       });
     }
     
-    // Mark cycle as settled with no winners
+    // Mark cycle as settled with no winners and update status to ended
     await supabase.from('game_cycles').update({
+      status: 'ended',
       settled_at: new Date().toISOString(),
+      actual_end_at: new Date().toISOString(),
       settlement_data: { 
         winners: [], 
         noWinner: true, 
