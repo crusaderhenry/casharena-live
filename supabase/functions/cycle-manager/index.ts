@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
       case 'create_cycle':
         return await createCycleFromTemplate(supabase, templateId);
       case 'settle_cycle':
+      case 'settle':
         return await settleCycle(supabase, cycleId);
       case 'init_infinity':
         return await initInfinityTemplates(supabase);
