@@ -274,7 +274,66 @@ export const CycleArena = () => {
       .catch(err => console.error('[CycleArena] Background tick error:', err));
     
     // Calculate winners from current leaders
-    const orderedCommenters = getOrderedCommenters();
+    let orderedCommenters = getOrderedCommenters();
+    
+    // If local state is empty, try fetching from database for accurate display
+    if (orderedCommenters.length === 0 && cycleId) {
+      console.log('[CycleArena] Local comments empty, fetching from DB for freeze screen...');
+      
+      const { data: dbComments } = await supabase
+        .from('cycle_comments')
+        .select('user_id, content, server_timestamp')
+        .eq('cycle_id', cycleId)
+        .order('server_timestamp', { ascending: false })
+        .limit(20);
+      
+      if (dbComments && dbComments.length > 0) {
+        // Get unique user IDs
+        const userIds = [...new Set(dbComments.map(c => c.user_id))];
+        
+        // Fetch profiles for these users
+        const { data: profiles } = await supabase
+          .rpc('get_public_profiles', { user_ids: userIds });
+        
+        const profileMap = new Map((profiles || []).map((p: { id: string; username: string; avatar: string }) => [p.id, p]));
+        
+        // Also check mock_users for any missing profiles
+        const missingIds = userIds.filter(id => !profileMap.has(id));
+        if (missingIds.length > 0) {
+          const { data: mockUsers } = await supabase
+            .from('mock_users')
+            .select('id, username, avatar')
+            .in('id', missingIds);
+          
+          mockUsers?.forEach((m: { id: string; username: string; avatar: string }) => {
+            profileMap.set(m.id, { id: m.id, username: m.username, avatar: m.avatar || '🎮' });
+          });
+        }
+        
+        // Deduplicate by user_id (last comment wins - first in desc order)
+        const seen = new Set<string>();
+        orderedCommenters = dbComments
+          .filter(c => {
+            if (seen.has(c.user_id)) return false;
+            seen.add(c.user_id);
+            return true;
+          })
+          .map(c => {
+            const profile = profileMap.get(c.user_id);
+            return {
+              id: c.user_id,
+              user_id: c.user_id,
+              cycle_id: cycleId,
+              content: c.content,
+              server_timestamp: c.server_timestamp,
+              username: profile?.username || 'Player',
+              avatar: profile?.avatar || '🎮',
+              isMock: false,
+            };
+          });
+      }
+    }
+    
     const effectivePrize = (cycle?.pool_value || 0) + (cycle?.sponsored_prize_amount || 0);
     const distribution = cycle?.prize_distribution || [100];
     
@@ -289,7 +348,7 @@ export const CycleArena = () => {
     
     setFreezeWinners(calculatedWinners);
     setShowGameEndFreeze(true);
-  }, [cycle, getOrderedCommenters]);
+  }, [cycle, cycleId, getOrderedCommenters]);
   
   // Navigate to results after freeze completes
   const handleFreezeComplete = useCallback(() => {
