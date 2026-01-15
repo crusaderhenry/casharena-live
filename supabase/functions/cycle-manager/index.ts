@@ -538,20 +538,28 @@ async function settleCycle(supabase: any, cycleId: string) {
 
   console.log(`[settle] Unique commenters ordered by last comment: ${orderedCommenters.length}`);
 
-  // Filter out mock users from winners
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, user_type')
-    .in('id', orderedCommenters);
+  // Filter out mock users from winners ONLY if mock_users_enabled is false
+  // When mock users are enabled, they should be treated equally and can win prizes
+  let eligibleWinners = orderedCommenters;
+  
+  if (!cycle.mock_users_enabled) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, user_type')
+      .in('id', orderedCommenters);
 
-  const realUsers = new Set(
-    (profiles || [])
-      .filter((p: any) => p.user_type !== 'mock')
-      .map((p: any) => p.id)
-  );
+    const realUsers = new Set(
+      (profiles || [])
+        .filter((p: any) => p.user_type !== 'mock')
+        .map((p: any) => p.id)
+    );
 
-  // Get real winners only
-  const realWinners = orderedCommenters.filter(id => realUsers.has(id));
+    // Get real winners only when mock users are disabled
+    eligibleWinners = orderedCommenters.filter(id => realUsers.has(id));
+    console.log(`[settle] Mock users disabled - filtered to ${eligibleWinners.length} real users`);
+  } else {
+    console.log(`[settle] Mock users enabled - all ${eligibleWinners.length} commenters are eligible to win`);
+  }
 
   // Calculate prize pool
   const totalPool = cycle.pool_value + (cycle.sponsored_prize_amount || 0);
@@ -561,8 +569,8 @@ async function settleCycle(supabase: any, cycleId: string) {
   const winners: any[] = [];
   const prizeDistribution = cycle.prize_distribution || [50, 30, 20];
 
-  for (let i = 0; i < Math.min(cycle.winner_count, realWinners.length); i++) {
-    const userId = realWinners[i];
+  for (let i = 0; i < Math.min(cycle.winner_count, eligibleWinners.length); i++) {
+    const userId = eligibleWinners[i];
     const percentage = prizeDistribution[i] || 0;
     const prize = Math.floor(distributablePool * (percentage / 100));
 
