@@ -164,11 +164,22 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
 
   // Track if quota is exceeded to skip API calls
   const quotaExceededRef = useRef(false);
+  
+  // Ref to trigger queue processing without circular dependencies
+  const triggerQueueProcessRef = useRef<(() => void) | null>(null);
+
+  // Helper to trigger queue processing safely
+  const triggerNextInQueue = useCallback(() => {
+    // Use setTimeout to break the synchronous call chain and avoid hook order issues
+    setTimeout(() => {
+      triggerQueueProcessRef.current?.();
+    }, 50);
+  }, []);
 
   // Fallback to Web Speech API when ElevenLabs quota is exceeded
   const fallbackSpeak = useCallback((text: string) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      processQueue();
+      triggerNextInQueue();
       return;
     }
 
@@ -195,18 +206,18 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
       isSpeakingRef.current = false;
       setIsSpeaking(false);
       onSpeakingChange?.(false);
-      processQueue();
+      triggerNextInQueue();
     };
 
     utterance.onerror = () => {
       isSpeakingRef.current = false;
       setIsSpeaking(false);
       onSpeakingChange?.(false);
-      processQueue();
+      triggerNextInQueue();
     };
 
     synth.speak(utterance);
-  }, [onSpeakingChange]);
+  }, [onSpeakingChange, triggerNextInQueue]);
 
   // Play TTS audio with ElevenLabs, fallback to Web Speech API
   const speakText = useCallback(async (text: string, voiceId?: string) => {
@@ -280,7 +291,7 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
           setIsSpeaking(false);
           onSpeakingChange?.(false);
           audioRef.current = null;
-          processQueue();
+          triggerNextInQueue();
         };
 
         audio.onerror = () => {
@@ -288,7 +299,7 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
           setIsSpeaking(false);
           onSpeakingChange?.(false);
           audioRef.current = null;
-          processQueue();
+          triggerNextInQueue();
         };
 
         await audio.play();
@@ -300,7 +311,7 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
       console.error('[TTS] Error, using fallback:', error);
       fallbackSpeak(text);
     }
-  }, [audioSettings.hostMuted, isLive, getVoiceId, onSpeakingChange, fallbackSpeak]);
+  }, [audioSettings.hostMuted, isLive, getVoiceId, onSpeakingChange, fallbackSpeak, triggerNextInQueue]);
 
   // Process queue with voice alternation
   const processQueue = useCallback(() => {
@@ -311,6 +322,11 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
       }
     }
   }, [speakText]);
+
+  // Wire up the ref so fallbackSpeak can trigger queue processing
+  useEffect(() => {
+    triggerQueueProcessRef.current = processQueue;
+  }, [processQueue]);
 
   // Queue a message for TTS with optional voice override
   const queueMessage = useCallback((text: string, useCoHost = false) => {
