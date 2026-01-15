@@ -43,13 +43,13 @@ serve(async (req) => {
       );
     }
 
-    // Rate limiting per user
+    // Rate limiting per user - return 200 with error so clients can gracefully fall back
     const lastRequest = rateLimitMap.get(user.id);
     const now = Date.now();
     if (lastRequest && (now - lastRequest) < RATE_LIMIT_MS) {
       return new Response(
-        JSON.stringify({ error: 'Rate limit exceeded. Please wait before making another request.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ audioContent: null, error: 'rate_limited', message: 'Please wait before making another request' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     rateLimitMap.set(user.id, now);

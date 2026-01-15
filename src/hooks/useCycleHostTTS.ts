@@ -257,9 +257,9 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         
-        // Check for quota exceeded - switch to fallback permanently for this session
-        if (response.status === 503 || errorData.error === 'quota_exceeded') {
-          console.warn('[TTS] Quota exceeded, switching to Web Speech API fallback');
+        // Check for rate limit or quota exceeded - switch to fallback permanently for this session
+        if (response.status === 429 || response.status === 503 || errorData.error === 'quota_exceeded') {
+          console.warn('[TTS] Rate limit or quota exceeded, switching to Web Speech API fallback');
           quotaExceededRef.current = true;
           fallbackSpeak(text);
           return;
@@ -272,9 +272,9 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
 
       const data = await response.json();
       
-      // Check for app-level error (e.g., quota exceeded returned as HTTP 200)
-      if (data.error === 'quota_exceeded') {
-        console.warn('[TTS] Quota exceeded, switching to Web Speech API fallback');
+      // Check for app-level error (e.g., quota exceeded or rate limited returned as HTTP 200)
+      if (data.error === 'quota_exceeded' || data.error === 'rate_limited') {
+        console.warn('[TTS] Rate limit or quota exceeded, switching to Web Speech API fallback');
         quotaExceededRef.current = true;
         fallbackSpeak(text);
         return;
