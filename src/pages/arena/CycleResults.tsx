@@ -82,30 +82,32 @@ export const CycleResults = () => {
 
       setSettlementProgress(30);
 
-      // If game is still live/ending, trigger settlement quickly
+      // If game is still live/ending, trigger settlement with retry
       if (cycleData.status === 'live' || cycleData.status === 'ending') {
         setSettlementStep('Finalizing winners...');
         setSettlementProgress(50);
         
-        // Trigger settlement tick - don't wait long
+        // Trigger settlement tick
         await supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } }).catch(() => {});
         
         setSettlementStep('Processing results...');
-        setSettlementProgress(70);
+        setSettlementProgress(65);
         
-        // Quick check - 500ms max
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Refetch status
-        const { data: refreshedData } = await supabase
-          .from('game_cycles')
-          .select('status')
-          .eq('id', cycleId)
-          .single();
-        
-        // Update cycle data with new status
-        if (refreshedData) {
-          cycleData.status = refreshedData.status;
+        // Retry loop - poll up to 3 times with 300ms delay
+        let attempts = 0;
+        while ((cycleData.status === 'live' || cycleData.status === 'ending') && attempts < 3) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          const { data: refreshedData } = await supabase
+            .from('game_cycles')
+            .select('status')
+            .eq('id', cycleId)
+            .single();
+          
+          if (refreshedData) {
+            cycleData.status = refreshedData.status;
+          }
+          attempts++;
+          setSettlementProgress(70 + (attempts * 5));
         }
         
         setSettlementProgress(85);
@@ -265,7 +267,7 @@ export const CycleResults = () => {
                 fill="none"
                 strokeDasharray={220}
                 strokeDashoffset={220 - (220 * settlementProgress / 100)}
-                className="text-primary transition-all duration-300"
+                className="text-primary transition-all duration-500 ease-out"
                 strokeLinecap="round"
               />
             </svg>
