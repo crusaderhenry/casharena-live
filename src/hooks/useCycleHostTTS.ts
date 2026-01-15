@@ -162,16 +162,69 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
     return phrase(...args);
   };
 
-  // Play TTS audio
+  // Track if quota is exceeded to skip API calls
+  const quotaExceededRef = useRef(false);
+
+  // Fallback to Web Speech API when ElevenLabs quota is exceeded
+  const fallbackSpeak = useCallback((text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      processQueue();
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+    synth.cancel(); // Stop any current speech
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+    utterance.volume = 0.8;
+
+    // Try to use an English voice
+    const voices = synth.getVoices();
+    const englishVoice = voices.find(v => v.lang.startsWith('en'));
+    if (englishVoice) {
+      utterance.voice = englishVoice;
+    }
+
+    isSpeakingRef.current = true;
+    setIsSpeaking(true);
+    onSpeakingChange?.(true);
+
+    utterance.onend = () => {
+      isSpeakingRef.current = false;
+      setIsSpeaking(false);
+      onSpeakingChange?.(false);
+      processQueue();
+    };
+
+    utterance.onerror = () => {
+      isSpeakingRef.current = false;
+      setIsSpeaking(false);
+      onSpeakingChange?.(false);
+      processQueue();
+    };
+
+    synth.speak(utterance);
+  }, [onSpeakingChange]);
+
+  // Play TTS audio with ElevenLabs, fallback to Web Speech API
   const speakText = useCallback(async (text: string, voiceId?: string) => {
     if (audioSettings.hostMuted || !isLive) return;
+
+    // If quota was exceeded, use fallback directly
+    if (quotaExceededRef.current) {
+      fallbackSpeak(text);
+      return;
+    }
 
     try {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
       
       if (!token) {
-        console.warn('[TTS] No auth token available');
+        console.warn('[TTS] No auth token available, using fallback');
+        fallbackSpeak(text);
         return;
       }
 
@@ -191,7 +244,18 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
       );
 
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        
+        // Check for quota exceeded - switch to fallback permanently for this session
+        if (response.status === 503 || errorData.error === 'quota_exceeded') {
+          console.warn('[TTS] Quota exceeded, switching to Web Speech API fallback');
+          quotaExceededRef.current = true;
+          fallbackSpeak(text);
+          return;
+        }
+        
         console.warn('[TTS] Request failed:', response.status);
+        fallbackSpeak(text);
         return;
       }
 
@@ -228,14 +292,15 @@ export const useCycleHostTTS = ({ cycleId, isLive, onSpeakingChange }: TTSOption
         };
 
         await audio.play();
+      } else {
+        // No audio content received, use fallback
+        fallbackSpeak(text);
       }
     } catch (error) {
-      console.error('[TTS] Error:', error);
-      isSpeakingRef.current = false;
-      setIsSpeaking(false);
-      onSpeakingChange?.(false);
+      console.error('[TTS] Error, using fallback:', error);
+      fallbackSpeak(text);
     }
-  }, [audioSettings.hostMuted, isLive, getVoiceId, onSpeakingChange]);
+  }, [audioSettings.hostMuted, isLive, getVoiceId, onSpeakingChange, fallbackSpeak]);
 
   // Process queue with voice alternation
   const processQueue = useCallback(() => {
