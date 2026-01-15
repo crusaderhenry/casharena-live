@@ -164,16 +164,23 @@ export const CycleLobby = () => {
           const updated = payload.new as CycleData;
           setCycle(prev => prev ? { ...prev, ...updated } : null);
 
-          // Transition with flash when game goes live
+          // Handle status transitions via realtime
           if (updated.status === 'live') {
             play('gameStart');
             hapticSuccess();
             setFlashActive(true);
             setTransitioning(true);
-            // Navigate after flash effect
             setTimeout(() => {
               navigate(`/arena/${cycleId}/live`, { replace: true });
             }, 400);
+          } else if (updated.status === 'cancelled') {
+            // Handle cancelled games - route based on participant count
+            if (updated.participant_count === 0) {
+              toast.info('Game cancelled — no players joined');
+              navigate('/arena', { replace: true });
+            } else {
+              navigate(`/arena/${cycleId}/results`, { replace: true });
+            }
           }
         }
       )
@@ -189,14 +196,22 @@ export const CycleLobby = () => {
   useEffect(() => {
     if (!cycle) return;
 
-    // Lightweight status check for faster transitions
-    const checkCycleStatus = async () => {
+    // Lightweight status check for faster transitions - handles both live and cancelled states
+    const checkCycleStatusAndNavigate = async () => {
       try {
         const { data, error } = await supabase.functions.invoke('cycle-status-check', {
           body: { cycle_id: cycleId }
         });
         
-        if (!error && data?.status_updated && data?.current_status === 'live') {
+        if (error) {
+          console.log('[CycleLobby] Status check failed:', error);
+          return;
+        }
+        
+        const computedStatus = data?.computed_status;
+        const participantCount = data?.participant_count ?? 0;
+        
+        if (computedStatus === 'live') {
           // Backend confirmed live - trigger transition immediately
           play('gameStart');
           hapticSuccess();
@@ -205,6 +220,14 @@ export const CycleLobby = () => {
           setTimeout(() => {
             navigate(`/arena/${cycleId}/live`, { replace: true });
           }, 400);
+        } else if (computedStatus === 'cancelled') {
+          // Game cancelled - route based on participant count
+          if (participantCount === 0) {
+            toast.info('Game cancelled — no players joined');
+            navigate('/arena', { replace: true });
+          } else {
+            navigate(`/arena/${cycleId}/results`, { replace: true });
+          }
         }
       } catch (e) {
         console.log('[CycleLobby] Status check failed:', e);
@@ -221,7 +244,7 @@ export const CycleLobby = () => {
           const newVal = Math.max(0, prev - 1);
           // Trigger backend sync when entry opens
           if (newVal === 0 && prev > 0) {
-            checkCycleStatus();
+            checkCycleStatusAndNavigate();
           }
           return newVal;
         });
@@ -231,20 +254,15 @@ export const CycleLobby = () => {
           
           // Start fast polling when < 10 seconds (every 2 seconds)
           if (newVal <= 10 && newVal > 0 && !fastPollInterval) {
-            fastPollInterval = setInterval(checkCycleStatus, 2000);
-            checkCycleStatus();
+            fastPollInterval = setInterval(checkCycleStatusAndNavigate, 2000);
+            checkCycleStatusAndNavigate();
           }
           
-          // Transition with flash when timer hits 0 - navigate immediately
+          // At T=0, check status and navigate appropriately (no longer assume /live)
           if (newVal === 0 && prev > 0) {
-            play('gameStart');
-            hapticSuccess();
             setFlashActive(true);
             setTransitioning(true);
-            checkCycleStatus();
-            setTimeout(() => {
-              navigate(`/arena/${cycleId}/live`, { replace: true });
-            }, 400);
+            checkCycleStatusAndNavigate();
           }
           return newVal;
         });
