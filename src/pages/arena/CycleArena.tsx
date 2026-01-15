@@ -1,4 +1,4 @@
-// Force rebuild v2.6.0 - Drumroll Sound Effect
+// Force rebuild v2.7.0 - Winner Reveal Improvements + Host Sync + Music Stop
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCycleJoin } from '@/hooks/useCycleJoin';
@@ -111,10 +111,11 @@ export const CycleArena = () => {
   const [openingTickSent, setOpeningTickSent] = useState(false);
   const [isScrolledPastHost, setIsScrolledPastHost] = useState(false);
   const [showGameEndFreeze, setShowGameEndFreeze] = useState(false);
-  const [freezeWinners, setFreezeWinners] = useState<Array<{ username: string; avatar: string; position: number; prizeAmount: number }>>([]);
+  const [freezeWinners, setFreezeWinners] = useState<Array<{ username: string; avatar: string; position: number; prizeAmount: number; winningComment?: string }>>([]);
   const [freezeCountdown, setFreezeCountdown] = useState(5);
   const [confettiBurstKey, setConfettiBurstKey] = useState(0);
   const [spotlightIndex, setSpotlightIndex] = useState(0);
+  const [freezePhase, setFreezePhase] = useState<'drumroll' | 'reveal' | 'countdown'>('drumroll');
   const previousLeaderRef = useRef<string | null>(null);
   const announcedTimersRef = useRef<Set<number>>(new Set());
   const hostVoiceRef = useRef<HTMLDivElement>(null);
@@ -176,7 +177,7 @@ export const CycleArena = () => {
   
   useMockCommentTrigger(cycleId || null, isLive && !isDemoMode, cycle?.mock_users_enabled ?? true);
   
-  const { announceComment, announceLeaderChange, announceTimerWarning, announceGameOver } = useCycleHostTTS({ 
+  const { announceComment, announceLeaderChange, announceTimerWarning, announceGameOver, stopSpeaking } = useCycleHostTTS({ 
     cycleId, 
     isLive: !!isLive,
     onSpeakingChange: setHostIsSpeaking
@@ -250,51 +251,19 @@ export const CycleArena = () => {
     if (gameEndTriggeredRef.current || navigatingToResultsRef.current) return;
     gameEndTriggeredRef.current = true;
     
+    // Stop any background music and host speech to avoid audio conflict
+    stopBackgroundMusic();
+    stopSpeaking();
+    
     // Show freeze overlay IMMEDIATELY for visual feedback
     setShowGameEndFreeze(true);
     setFreezeCountdown(5);
+    setFreezePhase('drumroll');
     
     // Start drumroll sound effect (plays for ~4 seconds before confetti)
     drumrollIntervalRef.current = adminAudio.playDrumroll(4000) || null;
     
-    // Trigger confetti burst after drumroll (at ~4 seconds)
-    setTimeout(() => {
-      // Stop drumroll
-      if (drumrollIntervalRef.current) {
-        adminAudio.stopDrumroll(drumrollIntervalRef.current);
-        drumrollIntervalRef.current = null;
-      }
-      // Play victory fanfare
-      adminAudio.playGameStart();
-      // Trigger confetti burst
-      setConfettiBurstKey(prev => prev + 1);
-    }, 4000);
-    
-    // Start 5-second countdown then navigate to results
-    const countdownInterval = setInterval(() => {
-      setFreezeCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownInterval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    
-    // Guaranteed navigation after 5.5 seconds (with buffer)
-    freezeTimeoutRef.current = setTimeout(() => {
-      clearInterval(countdownInterval);
-      if (!navigatingToResultsRef.current) {
-        navigatingToResultsRef.current = true;
-        navigate(`/arena/${cycleId}/results`, { replace: true });
-      }
-    }, 5500);
-    
-    // Trigger backend settlement in background
-    supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } })
-      .catch(err => console.error('[CycleArena] Background tick error:', err));
-    
-    // PRE-LOAD all mock users FIRST for reliable lookup
+    // PRE-LOAD all mock users FIRST for reliable lookup (do this during drumroll)
     const { data: allMockUsers } = await supabase
       .from('mock_users')
       .select('id, username, avatar');
@@ -365,10 +334,64 @@ export const CycleArena = () => {
         avatar: commenter.avatar || '🎮',
         position: idx + 1,
         prizeAmount: Math.floor(effectivePrize * (distribution[idx] || 0) / 100),
+        winningComment: (commenter as any).content || undefined,
       }));
     
     setFreezeWinners(calculatedWinners);
-  }, [cycle, cycleId, getOrderedCommenters, navigate]);
+    
+    // Trigger reveal phase after drumroll (at ~4 seconds)
+    setTimeout(() => {
+      // Stop drumroll
+      if (drumrollIntervalRef.current) {
+        adminAudio.stopDrumroll(drumrollIntervalRef.current);
+        drumrollIntervalRef.current = null;
+      }
+      
+      // Switch to reveal phase
+      setFreezePhase('reveal');
+      
+      // Play victory fanfare
+      adminAudio.playGameStart();
+      
+      // Trigger confetti burst
+      setConfettiBurstKey(prev => prev + 1);
+      
+      // Host announces the winner
+      if (calculatedWinners.length > 0) {
+        const winner = calculatedWinners[0];
+        announceGameOver(winner.username, winner.prizeAmount);
+      }
+      
+      // Switch to countdown phase after brief reveal
+      setTimeout(() => {
+        setFreezePhase('countdown');
+      }, 500);
+    }, 4000);
+    
+    // Start 5-second countdown then navigate to results
+    const countdownInterval = setInterval(() => {
+      setFreezeCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    // Guaranteed navigation after 5.5 seconds (with buffer)
+    freezeTimeoutRef.current = setTimeout(() => {
+      clearInterval(countdownInterval);
+      if (!navigatingToResultsRef.current) {
+        navigatingToResultsRef.current = true;
+        navigate(`/arena/${cycleId}/results`, { replace: true });
+      }
+    }, 5500);
+    
+    // Trigger backend settlement in background
+    supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } })
+      .catch(err => console.error('[CycleArena] Background tick error:', err));
+  }, [cycle, cycleId, getOrderedCommenters, navigate, stopBackgroundMusic, stopSpeaking, announceGameOver]);
   
   // Cleanup freeze timeout on unmount
   useEffect(() => {
@@ -673,71 +696,94 @@ export const CycleArena = () => {
       {/* Live Winner Reveal Overlay - keeps arena visible in background */}
       {freezeActive && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/90 backdrop-blur-sm animate-fade-in">
-          {/* Header */}
-          <div className="text-center mb-6">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Trophy className="w-8 h-8 text-gold animate-bounce" />
-              <span className="text-2xl font-black text-foreground">GAME OVER!</span>
-              <Trophy className="w-8 h-8 text-gold animate-bounce" />
+          {/* Drumroll Phase - Loading State */}
+          {freezePhase === 'drumroll' && freezeWinners.length === 0 && (
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-xl font-bold text-foreground">Calculating winners...</p>
+              <p className="text-muted-foreground mt-2">🥁 Drumroll please...</p>
             </div>
-            <p className="text-muted-foreground text-sm">Winner determined by last valid comment</p>
-          </div>
+          )}
           
-          {/* Winner Cards - Leaders Style with Zoom Effect */}
-          <div className="w-full max-w-sm px-4 space-y-3">
-            {freezeWinners.length > 0 ? (
-              freezeWinners.map((winner, idx) => {
-                const isSpotlit = freezeWinners.length === 1 || spotlightIndex === idx;
-                return (
-                  <div
-                    key={idx}
-                    className={`winner-spotlight flex items-center gap-3 p-4 rounded-2xl border-2 transition-all duration-300 ${
-                      isSpotlit 
-                        ? 'active bg-gold/20 border-gold shadow-lg animate-winner-zoom' 
-                        : 'dimmed bg-muted/50 border-border/30'
-                    }`}
-                  >
-                    <span className="text-2xl">{getPositionEmoji(winner.position)}</span>
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center text-2xl border-2 border-gold/50">
-                      {winner.avatar}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-bold truncate ${isSpotlit ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {winner.username}
-                      </p>
-                      <p className={`text-sm font-bold ${isSpotlit ? 'text-gold' : 'text-muted-foreground'}`}>
-                        {formatPrize(winner.prizeAmount)}
-                      </p>
-                    </div>
-                    {winner.position === 1 && (
-                      <Crown className="w-6 h-6 text-gold animate-pulse" />
-                    )}
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Calculating winners...</p>
-                <div className="w-8 h-8 border-3 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mt-4" />
+          {/* Reveal & Countdown Phases */}
+          {(freezePhase !== 'drumroll' || freezeWinners.length > 0) && (
+            <>
+              {/* Header */}
+              <div className="text-center mb-6">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Trophy className="w-8 h-8 text-gold animate-bounce" />
+                  <span className="text-2xl font-black text-foreground">GAME OVER!</span>
+                  <Trophy className="w-8 h-8 text-gold animate-bounce" />
+                </div>
+                <p className="text-muted-foreground text-sm">Winner determined by last valid comment</p>
               </div>
-            )}
-          </div>
-          
-          {/* Countdown to Results */}
-          <div className="mt-8 text-center">
-            <p className="text-muted-foreground text-sm mb-2">Going to results in</p>
-            <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
-              <span className="text-3xl font-black text-primary">{freezeCountdown}</span>
-            </div>
-          </div>
-          
-          {/* Skip Button */}
-          <button
-            onClick={handleFreezeComplete}
-            className="mt-6 px-6 py-2 rounded-xl bg-muted/50 text-muted-foreground text-sm hover:bg-muted transition-colors"
-          >
-            Skip to results →
-          </button>
+              
+              {/* Winner Cards - Leaders Style with Zoom Effect */}
+              <div className="w-full max-w-sm px-4 space-y-3">
+                {freezeWinners.length > 0 ? (
+                  freezeWinners.map((winner, idx) => {
+                    const isSpotlit = freezeWinners.length === 1 || spotlightIndex === idx;
+                    return (
+                      <div
+                        key={idx}
+                        className={`winner-spotlight flex flex-col p-4 rounded-2xl border-2 transition-all duration-300 ${
+                          isSpotlit 
+                            ? 'active bg-gold/20 border-gold shadow-lg animate-winner-zoom' 
+                            : 'dimmed bg-muted/50 border-border/30'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{getPositionEmoji(winner.position)}</span>
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center text-2xl border-2 border-gold/50">
+                            {winner.avatar}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-bold truncate ${isSpotlit ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {winner.username}
+                            </p>
+                            <p className={`text-sm font-bold ${isSpotlit ? 'text-gold' : 'text-muted-foreground'}`}>
+                              {formatPrize(winner.prizeAmount)}
+                            </p>
+                          </div>
+                          {winner.position === 1 && (
+                            <Crown className="w-6 h-6 text-gold animate-pulse" />
+                          )}
+                        </div>
+                        {/* Show winning comment for 1st place */}
+                        {winner.position === 1 && winner.winningComment && isSpotlit && (
+                          <div className="mt-3 pt-3 border-t border-gold/20">
+                            <p className="text-xs text-muted-foreground mb-1">Winning comment:</p>
+                            <p className="text-sm text-foreground italic">"{winner.winningComment}"</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Calculating winners...</p>
+                    <div className="w-8 h-8 border-3 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mt-4" />
+                  </div>
+                )}
+              </div>
+              
+              {/* Countdown to Results */}
+              <div className="mt-8 text-center">
+                <p className="text-muted-foreground text-sm mb-2">Going to results in</p>
+                <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
+                  <span className="text-3xl font-black text-primary">{freezeCountdown}</span>
+                </div>
+              </div>
+              
+              {/* Skip Button */}
+              <button
+                onClick={handleFreezeComplete}
+                className="mt-6 px-6 py-2 rounded-xl bg-muted/50 text-muted-foreground text-sm hover:bg-muted transition-colors"
+              >
+                Skip to results →
+              </button>
+            </>
+          )}
         </div>
       )}
       

@@ -140,6 +140,7 @@ export const AdminRumbleControl = () => {
     mock_users_enabled: boolean;
     mock_users_min: number;
     mock_users_max: number;
+    open_entry_duration: number;
   }
   const [templates, setTemplates] = useState<GameTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
@@ -202,6 +203,7 @@ export const AdminRumbleControl = () => {
     mockUsersEnabled: false,
     mockUsersMin: 0,
     mockUsersMax: 100,
+    openEntryDuration: 5,
   });
 
   // Open template edit dialog
@@ -211,6 +213,7 @@ export const AdminRumbleControl = () => {
       mockUsersEnabled: template.mock_users_enabled || false,
       mockUsersMin: template.mock_users_min || 0,
       mockUsersMax: template.mock_users_max || 100,
+      openEntryDuration: template.open_entry_duration || 5,
     });
     setShowTemplateEditDialog(true);
   };
@@ -229,6 +232,7 @@ export const AdminRumbleControl = () => {
         mock_users_enabled: templateFormData.mockUsersEnabled,
         mock_users_min: templateFormData.mockUsersMin,
         mock_users_max: templateFormData.mockUsersMax,
+        open_entry_duration: templateFormData.openEntryDuration,
         // Enforce min_participants rule
         min_participants: Math.max(template?.min_participants || minRequired, minRequired),
       })
@@ -242,6 +246,7 @@ export const AdminRumbleControl = () => {
               mock_users_enabled: templateFormData.mockUsersEnabled,
               mock_users_min: templateFormData.mockUsersMin,
               mock_users_max: templateFormData.mockUsersMax,
+              open_entry_duration: templateFormData.openEntryDuration,
               min_participants: Math.max(t.min_participants, minRequired),
             } 
           : t
@@ -844,11 +849,11 @@ export const AdminRumbleControl = () => {
                 </p>
               </div>
 
-              {/* Open Entry Duration - Time before game starts */}
+              {/* Open Entry Duration - Game Start In */}
               <div className="space-y-2 p-3 bg-green-500/5 rounded-lg border border-green-500/20">
                 <Label htmlFor="openEntryDuration" className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-green-400" />
-                  Time Before Game Starts (minutes)
+                  Game Start In (Entry Duration)
                 </Label>
                 <Input
                   id="openEntryDuration"
@@ -859,7 +864,7 @@ export const AdminRumbleControl = () => {
                   max={60}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Total time players have to join before the game goes live (1-60 min)
+                  How long players have to join before the game goes LIVE (1-60 minutes)
                 </p>
               </div>
               
@@ -1394,11 +1399,11 @@ export const AdminRumbleControl = () => {
                 </p>
               </div>
 
-              {/* Open Entry Duration - Time before game starts */}
+              {/* Open Entry Duration - Game Start In */}
               <div className="space-y-2 p-3 bg-green-500/5 rounded-lg border border-green-500/20">
                 <Label htmlFor="edit-openEntryDuration" className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-green-400" />
-                  Time Before Game Starts (minutes)
+                  Game Start In (Entry Duration)
                 </Label>
                 <Input
                   id="edit-openEntryDuration"
@@ -1409,7 +1414,7 @@ export const AdminRumbleControl = () => {
                   max={60}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Total time players have to join before the game goes live (1-60 min)
+                  How long players have to join before the game goes LIVE (1-60 minutes)
                 </p>
               </div>
               
@@ -1930,12 +1935,32 @@ export const AdminRumbleControl = () => {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Bot className="w-5 h-5 text-purple-400" />
-                Edit Template - Mock Users
+                <Settings className="w-5 h-5 text-primary" />
+                Edit Template Settings
               </DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4 py-4">
+              {/* Game Start In (Entry Duration) */}
+              <div className="space-y-2 p-3 bg-green-500/5 rounded-lg border border-green-500/20">
+                <Label htmlFor="tpl-openEntryDuration" className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-green-400" />
+                  Game Start In (Entry Duration)
+                </Label>
+                <Input
+                  id="tpl-openEntryDuration"
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={templateFormData.openEntryDuration}
+                  onChange={(e) => setTemplateFormData(prev => ({ ...prev, openEntryDuration: Math.max(1, Math.min(60, parseInt(e.target.value) || 5)) }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  How long players have to join before game goes LIVE (1-60 min)
+                </p>
+              </div>
+
+              {/* Mock Users Section */}
               <div className="flex items-center justify-between p-3 bg-purple-500/5 rounded-lg border border-purple-500/20">
                 <div>
                   <Label className="flex items-center gap-2">
