@@ -565,6 +565,7 @@ export type Database = {
           sponsored_prize_amount: number | null
           status: string
           template_id: string
+          updated_at: string | null
           winner_count: number
         }
         Insert: {
@@ -595,6 +596,7 @@ export type Database = {
           sponsored_prize_amount?: number | null
           status?: string
           template_id: string
+          updated_at?: string | null
           winner_count?: number
         }
         Update: {
@@ -625,6 +627,7 @@ export type Database = {
           sponsored_prize_amount?: number | null
           status?: string
           template_id?: string
+          updated_at?: string | null
           winner_count?: number
         }
         Relationships: [
