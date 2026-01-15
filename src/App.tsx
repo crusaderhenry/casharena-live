@@ -10,6 +10,8 @@ import { AudioProvider } from "@/contexts/AudioContext";
 import { NotificationProvider } from "@/components/PushNotification";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useActivityTracker } from "@/hooks/useActivityTracker";
+import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import { TestModeBanner } from "@/components/wallet/TestModeBanner";
 import { PushNotificationBanner } from "@/components/PushNotificationBanner";
 import { GlobalConfetti } from "@/components/GlobalConfetti";
@@ -187,6 +189,13 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Session manager component - handles activity tracking and inactivity logout
+const SessionManager = () => {
+  useActivityTracker();
+  useInactivityLogout();
+  return null;
+};
+
 const AppRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
@@ -264,6 +273,7 @@ const App = () => {
                   <GlobalConfetti />
                   <GlobalSoundPlayer />
                   <BrowserRouter>
+                    <SessionManager />
                     <TestModeBanner />
                     <PushNotificationBanner />
                     <AppRoutes />

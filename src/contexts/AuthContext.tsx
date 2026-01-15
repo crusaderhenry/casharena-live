@@ -19,6 +19,7 @@ interface Profile {
   bank_account_name?: string | null;
   bank_account_number?: string | null;
   bank_code?: string | null;
+  last_active_at?: string | null;
 }
 
 interface AuthContextType {
@@ -28,6 +29,7 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateLastActive: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -50,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*, received_welcome_bonus, welcome_bonus_received_at')
+      .select('*, received_welcome_bonus, welcome_bonus_received_at, last_active_at')
       .eq('id', userId)
       .maybeSingle();
 
@@ -107,18 +109,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user?.id, fetchProfile]);
 
-  // Update last_active_at for user activity tracking (for email campaigns)
-  const updateLastActive = useCallback(async (userId: string) => {
+  // Update last_active_at for user activity tracking (for email campaigns and session timeout)
+  const updateLastActive = useCallback(async () => {
+    if (!user?.id) return;
     try {
       await supabase
         .from('profiles')
         .update({ last_active_at: new Date().toISOString() })
-        .eq('id', userId);
+        .eq('id', user.id);
     } catch (err) {
       // Silent fail - activity tracking is not critical
       console.error('Failed to update last_active_at:', err);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -169,8 +172,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setProfile(profileData);
             checkWelcomeBonusToast(session.user.id, profileData);
           });
-          // Update last active timestamp
-          updateLastActive(session.user.id);
+          // Update last active timestamp (use direct call since user state isn't set yet)
+          supabase
+            .from('profiles')
+            .update({ last_active_at: new Date().toISOString() })
+            .eq('id', session.user.id)
+            .then(() => {}, err => console.error('Failed to update last_active_at:', err));
         } else {
         setSession(null);
         setUser(null);
@@ -180,7 +187,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchProfile, checkWelcomeBonusToast, updateLastActive]);
+  }, [fetchProfile, checkWelcomeBonusToast]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -190,7 +197,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signOut, refreshProfile, updateLastActive }}>
       {children}
     </AuthContext.Provider>
   );
