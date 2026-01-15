@@ -159,14 +159,8 @@ export const CycleResults = () => {
           setShowConfetti(true);
           play('win');
           
-          // Check if user has seen the celebration page (via sessionStorage)
-          const celebrationKey = `celebration_seen_${cycleId}`;
-          if (!sessionStorage.getItem(celebrationKey)) {
-            sessionStorage.setItem(celebrationKey, 'true');
-            // Redirect to celebration page first
-            navigate(`/arena/${cycleId}/winner`, { replace: true });
-            return;
-          }
+          // Stay on results page - no redirect to winner celebration page
+          // The results page now shows the win banner prominently
         }
       }
 
@@ -220,7 +214,8 @@ export const CycleResults = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading results...</p>
+          <p className="text-lg font-medium text-foreground">Calculating results...</p>
+          <p className="text-sm text-muted-foreground mt-1">This will only take a moment</p>
         </div>
       </div>
     );

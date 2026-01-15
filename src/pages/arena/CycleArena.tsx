@@ -201,40 +201,20 @@ export const CycleArena = () => {
     return () => { supabase.removeChannel(channel); };
   }, [cycleId]);
 
-  // Game end handler - direct navigation to results
+  // Game end handler - immediate navigation to results (no delay)
   const handleGameEnd = useCallback(async () => {
     if (gameEndTriggeredRef.current) return;
     gameEndTriggeredRef.current = true;
     
     play('prizeWin');
     
-    // Trigger backend settlement
-    try {
-      await supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } });
-    } catch (err) {
-      console.error('[CycleArena] Tick error:', err);
-    }
+    // Trigger backend settlement in background - don't wait
+    supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } })
+      .catch(err => console.error('[CycleArena] Background tick error:', err));
     
-    // Brief delay for settlement, then navigate directly to results
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Check if current user won
-    if (user) {
-      const { data: winData } = await supabase
-        .from('cycle_winners')
-        .select('id')
-        .eq('cycle_id', cycleId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (winData) {
-        navigate(`/arena/${cycleId}/winner`, { replace: true });
-        return;
-      }
-    }
-    
+    // Navigate to results immediately - results page will handle loading state
     navigate(`/arena/${cycleId}/results`, { replace: true });
-  }, [cycleId, navigate, user, play]);
+  }, [cycleId, navigate, play]);
 
   // Local countdown ticker
   useEffect(() => {
@@ -363,10 +343,23 @@ export const CycleArena = () => {
     );
   }
 
-  // Route guards
-  if (cycle.status === 'waiting' || cycle.status === 'opening') {
+  // Route guards - allow opening status to show briefly during transition
+  if (cycle.status === 'waiting') {
     navigate(`/arena/${cycleId}`, { replace: true });
     return null;
+  }
+  
+  // For opening status, show a "Game starting..." state instead of redirecting
+  if (cycle.status === 'opening') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-xl font-bold text-foreground">Game Starting...</p>
+          <p className="text-muted-foreground mt-2">Get ready!</p>
+        </div>
+      </div>
+    );
   }
 
   if (cycle.status === 'cancelled') {

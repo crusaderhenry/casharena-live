@@ -289,11 +289,17 @@ export const CycleLobby = () => {
             triggerTickAndNavigate();
           }
           
-          // At T=0, force immediate tick and navigate
+          // At T=0, navigate immediately without waiting for backend
           if (newVal === 0 && prev > 0) {
+            play('gameStart');
+            hapticSuccess();
             setFlashActive(true);
             setTransitioning(true);
-            triggerTickAndNavigate();
+            // Navigate immediately - don't wait for backend confirmation
+            navigate(`/arena/${cycleId}/live`, { replace: true });
+            // Trigger backend tick in background
+            supabase.functions.invoke('cycle-manager', { body: { action: 'tick' } })
+              .catch(err => console.error('[CycleLobby] Background tick error:', err));
           }
           return newVal;
         });
@@ -400,7 +406,7 @@ export const CycleLobby = () => {
   const canJoin = isOpening && !participation.isParticipant;
   const hasBalance = (profile?.wallet_balance || 0) >= cycle.entry_fee;
   const isLastMinute = timeUntilLive <= 30;
-  const canLeave = timeUntilLive > 300; // 5 minutes = 300 seconds
+  const canLeave = timeUntilLive > 30; // 30 seconds before live
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
