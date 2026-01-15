@@ -21,9 +21,6 @@ export const useOAuthUsername = (userId: string | undefined) => {
       if (alreadySet) {
         setNeedsUsername(false);
         setChecking(false);
-        
-        // Show welcome toast for returning users (first time this session)
-        showWelcomeToast(userId);
         return;
       }
 
@@ -44,11 +41,6 @@ export const useOAuthUsername = (userId: string | undefined) => {
           profile.username.startsWith('Player');
         
         setNeedsUsername(needsSet);
-        
-        // Show welcome toast if username is already set properly
-        if (!needsSet) {
-          showWelcomeToast(userId);
-        }
       }
 
       setChecking(false);
@@ -77,7 +69,7 @@ export const useOAuthUsername = (userId: string | undefined) => {
   const markComplete = () => {
     if (userId) {
       localStorage.setItem(`username_set_${userId}`, 'true');
-      // Show welcome toast after setting username
+      // Show welcome toast only after first signup username setup
       showWelcomeToast(userId);
     }
     setNeedsUsername(false);

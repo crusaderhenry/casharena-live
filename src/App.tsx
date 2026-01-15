@@ -11,11 +11,9 @@ import { NotificationProvider } from "@/components/PushNotification";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { TestModeBanner } from "@/components/wallet/TestModeBanner";
-import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { PushNotificationBanner } from "@/components/PushNotificationBanner";
 import { GlobalConfetti } from "@/components/GlobalConfetti";
 import { GlobalSoundPlayer } from "@/components/GlobalSoundPlayer";
-import { UpdateBanner } from "@/components/UpdateBanner";
 
 // Eagerly loaded - core pages
 import { AuthPage } from "@/pages/AuthPage";
@@ -266,9 +264,7 @@ const App = () => {
                   <GlobalConfetti />
                   <GlobalSoundPlayer />
                   <BrowserRouter>
-                    <UpdateBanner />
                     <TestModeBanner />
-                    <PWAInstallPrompt />
                     <PushNotificationBanner />
                     <AppRoutes />
                   </BrowserRouter>
