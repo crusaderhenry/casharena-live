@@ -76,7 +76,7 @@ export const Home = () => {
     fetchParticipations();
   }, [user, cycles]);
 
-  // Fetch recent winners from cycle_winners
+  // Fetch recent winners from cycle_winners with mock user support
   useEffect(() => {
     const fetchRecentWinners = async () => {
       const { data } = await supabase
@@ -86,12 +86,31 @@ export const Home = () => {
         .limit(5);
       
       if (data && data.length > 0) {
-        const winnersWithProfiles = await Promise.all(
-          data.map(async (w) => {
-            const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: w.user_id });
-            return { ...w, profile: profileData?.[0] };
-          })
+        const userIds = data.map(w => w.user_id);
+        
+        // Get real profiles
+        const { data: profiles } = await supabase.rpc('get_public_profiles', { user_ids: userIds });
+        const profileMap = new Map<string, { username: string; avatar: string }>(
+          (profiles as { id: string; username: string; avatar: string }[] | null)?.map(p => [p.id, { username: p.username, avatar: p.avatar }]) || []
         );
+        
+        // Get mock users for any missing profiles
+        const missingIds = userIds.filter(id => !profileMap.has(id));
+        if (missingIds.length > 0) {
+          const { data: mockUsers } = await supabase
+            .from('mock_users')
+            .select('id, username, avatar')
+            .in('id', missingIds);
+          
+          mockUsers?.forEach((m) => {
+            profileMap.set(m.id, { username: m.username, avatar: m.avatar || '🎮' });
+          });
+        }
+        
+        const winnersWithProfiles = data.map(w => ({
+          ...w,
+          profile: profileMap.get(w.user_id) || { username: 'Unknown', avatar: '🎮' },
+        }));
         setRecentWinners(winnersWithProfiles);
       } else {
         // Fallback to old winners table for historical data
@@ -102,12 +121,17 @@ export const Home = () => {
           .limit(5);
         
         if (oldWinners) {
-          const winnersWithProfiles = await Promise.all(
-            oldWinners.map(async (w) => {
-              const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: w.user_id });
-              return { ...w, prize_amount: w.amount_won, profile: profileData?.[0] };
-            })
+          const userIds = oldWinners.map(w => w.user_id);
+          const { data: profiles } = await supabase.rpc('get_public_profiles', { user_ids: userIds });
+          const profileMap = new Map<string, { username: string; avatar: string }>(
+            (profiles as { id: string; username: string; avatar: string }[] | null)?.map(p => [p.id, { username: p.username, avatar: p.avatar }]) || []
           );
+          
+          const winnersWithProfiles = oldWinners.map(w => ({
+            ...w,
+            prize_amount: w.amount_won,
+            profile: profileMap.get(w.user_id) || { username: 'Unknown', avatar: '🎮' },
+          }));
           setRecentWinners(winnersWithProfiles);
         }
       }
@@ -124,9 +148,28 @@ export const Home = () => {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cycle_winners' }, async (payload) => {
         const winner = payload.new as any;
+        let profileInfo: { username: string; avatar: string } | null = null;
+        
+        // Try real profile first
         const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: winner.user_id });
         if (profileData?.[0]) {
-          setRecentWinners(prev => [{ ...winner, profile: profileData[0] }, ...prev].slice(0, 5));
+          profileInfo = { username: profileData[0].username, avatar: profileData[0].avatar || '🎮' };
+        }
+        
+        // If no profile found, check mock_users
+        if (!profileInfo) {
+          const { data: mockUser } = await supabase
+            .from('mock_users')
+            .select('id, username, avatar')
+            .eq('id', winner.user_id)
+            .maybeSingle();
+          if (mockUser) {
+            profileInfo = { username: mockUser.username, avatar: mockUser.avatar || '🎮' };
+          }
+        }
+        
+        if (profileInfo) {
+          setRecentWinners(prev => [{ ...winner, profile: profileInfo }, ...prev].slice(0, 5));
         }
       })
       .subscribe();
