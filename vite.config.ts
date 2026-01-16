@@ -9,6 +9,10 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  define: {
+    // Inject build timestamp at build time (not runtime)
+    '__BUILD_TIMESTAMP__': JSON.stringify(Date.now().toString()),
+  },
   plugins: [
     react(),
     mode === "development" && componentTagger(),
