@@ -229,6 +229,10 @@ export const AdminMockUsers = () => {
       return;
     }
 
+    // Generate random initial stats
+    const initialWins = Math.floor(Math.random() * 15) + 1;
+    const initialRankPoints = Math.floor(Math.random() * 500) + 50;
+
     try {
       const { data, error } = await supabase
         .from('mock_users')
@@ -236,6 +240,8 @@ export const AdminMockUsers = () => {
           username: newUser.username,
           avatar: newUser.avatar,
           personality: newUser.personality,
+          virtual_wins: initialWins,
+          virtual_rank_points: initialRankPoints,
         })
         .select()
         .single();
@@ -275,10 +281,13 @@ export const AdminMockUsers = () => {
         
         if (attempts < 50) {
           existingUsernames.add(username.toLowerCase());
+          // Generate random initial stats for each mock user
           usersToCreate.push({
             username,
             avatar: generateRandomAvatar(),
             personality: generateRandomPersonality(),
+            virtual_wins: Math.floor(Math.random() * 15) + 1,
+            virtual_rank_points: Math.floor(Math.random() * 500) + 50,
           });
         }
       }
@@ -297,7 +306,7 @@ export const AdminMockUsers = () => {
       
       setMockUsers([...(data as unknown as MockUser[]), ...mockUsers]);
       setShowBulkDialog(false);
-      toast.success(`Generated ${data?.length || 0} mock users`);
+      toast.success(`Generated ${data?.length || 0} mock users with randomized stats`);
     } catch (error: any) {
       console.error('Error bulk generating users:', error);
       toast.error(error.message || 'Failed to generate mock users');
