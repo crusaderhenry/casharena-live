@@ -162,6 +162,7 @@ export type Database = {
           id: string
           is_spectator: boolean
           joined_at: string
+          last_comment_at: string | null
           user_id: string
         }
         Insert: {
@@ -169,6 +170,7 @@ export type Database = {
           id?: string
           is_spectator?: boolean
           joined_at?: string
+          last_comment_at?: string | null
           user_id: string
         }
         Update: {
@@ -176,6 +178,7 @@ export type Database = {
           id?: string
           is_spectator?: boolean
           joined_at?: string
+          last_comment_at?: string | null
           user_id?: string
         }
         Relationships: [

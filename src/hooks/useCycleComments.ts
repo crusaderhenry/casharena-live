@@ -143,19 +143,26 @@ export const useCycleComments = (cycleId: string | null) => {
     };
   }, [cycleId]);
 
-  // Send a comment with validation
-  const sendComment = useCallback(async (content: string): Promise<boolean> => {
-    if (!cycleId || !user) return false;
+  // Send a comment with validation and honeypot check
+  const sendComment = useCallback(async (content: string, honeypotValue?: string): Promise<{ success: boolean; rateLimited?: boolean }> => {
+    if (!cycleId || !user) return { success: false };
+
+    // Honeypot check - if filled, silently reject (bots fill hidden fields)
+    if (honeypotValue && honeypotValue.trim().length > 0) {
+      console.warn('[useCycleComments] Honeypot triggered - likely bot');
+      // Return success to not alert the bot, but don't actually send
+      return { success: true };
+    }
 
     // Validate and sanitize content
     const validationResult = commentSchema.safeParse(content);
     if (!validationResult.success) {
       console.error('[useCycleComments] Validation error:', validationResult.error.message);
-      return false;
+      return { success: false };
     }
 
     const sanitizedContent = validationResult.data;
-    if (!sanitizedContent) return false;
+    if (!sanitizedContent) return { success: false };
 
     setSending(true);
     try {
@@ -167,10 +174,15 @@ export const useCycleComments = (cycleId: string | null) => {
 
       if (error) {
         console.error('[useCycleComments] Send error:', error);
-        return false;
+        // Check if it's a rate limit error from the trigger
+        if (error.message?.toLowerCase().includes('too fast') || 
+            error.message?.toLowerCase().includes('wait')) {
+          return { success: false, rateLimited: true };
+        }
+        return { success: false };
       }
 
-      return true;
+      return { success: true };
     } finally {
       setSending(false);
     }

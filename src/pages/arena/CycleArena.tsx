@@ -100,6 +100,7 @@ export const CycleArena = () => {
   const [loading, setLoading] = useState(true);
   const [participation, setParticipation] = useState<{ isParticipant: boolean; isSpectator: boolean }>({ isParticipant: false, isSpectator: false });
   const [commentText, setCommentText] = useState('');
+  const [commentCooldown, setCommentCooldown] = useState(false);
   const [localCountdown, setLocalCountdown] = useState(0);
   const [gameTimeRemaining, setGameTimeRemaining] = useState(0);
   const [hostIsSpeaking, setHostIsSpeaking] = useState(false);
@@ -567,10 +568,11 @@ export const CycleArena = () => {
     }
   };
 
-  const handleSendComment = async () => {
+  const handleSendComment = async (honeypotValue: string = '') => {
     // Guard: No comments during freeze or if not live
     if (showGameEndFreeze || cycle?.status !== 'live') return;
     if (!commentText.trim() || !participation.isParticipant || participation.isSpectator) return;
+    if (commentCooldown) return;
     
     play('click');
     
@@ -580,11 +582,17 @@ export const CycleArena = () => {
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 3000);
     } else {
-      const success = await sendRealComment(commentText);
-      if (success) {
+      const result = await sendRealComment(commentText, honeypotValue);
+      if (result.success) {
         setCommentText('');
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 3000);
+        
+        // Start client-side cooldown to prevent rapid submissions
+        setCommentCooldown(true);
+        setTimeout(() => setCommentCooldown(false), 750);
+      } else if (result.rateLimited) {
+        toast.error('Too fast! Wait a moment before commenting again');
       }
     }
   };
@@ -1022,6 +1030,7 @@ export const CycleArena = () => {
             sending={sending}
             countdown={displayCountdown}
             userAvatar={profile?.avatar || '🎮'}
+            cooldownActive={commentCooldown}
           />
         )}
 
