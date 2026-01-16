@@ -703,103 +703,112 @@ export const CycleArena = () => {
       
       {/* Live Winner Reveal Overlay - keeps arena visible in background */}
       {freezeActive && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/90 backdrop-blur-sm animate-fade-in">
-          {/* Drumroll Phase */}
-          {freezePhase === 'drumroll' && (
-            <div className="text-center">
-              <div className="relative mb-6">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center mx-auto animate-pulse">
-                  <span className="text-4xl">🥁</span>
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background animate-fade-in"
+          style={{
+            backgroundColor: 'hsl(var(--background))',
+            color: 'hsl(var(--foreground))',
+          }}
+        >
+          {/* Solid backdrop (avoids backdrop-filter rendering issues on some devices) */}
+          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-background via-background to-card/30" />
+
+          <div className="relative z-10 flex w-full flex-col items-center justify-center">
+            {/* Drumroll Phase */}
+            {freezePhase === 'drumroll' && (
+              <div className="text-center">
+                <div className="relative mb-6">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center mx-auto animate-pulse">
+                    <span className="text-4xl">🥁</span>
+                  </div>
+                  <div className="absolute inset-0 w-20 h-20 mx-auto border-4 border-gold/20 border-t-gold rounded-full animate-spin" />
                 </div>
-                <div className="absolute inset-0 w-20 h-20 mx-auto border-4 border-gold/20 border-t-gold rounded-full animate-spin" />
+                <p className="text-xl font-bold text-foreground mb-2">Drumroll please...</p>
+                <p className="text-muted-foreground">Calculating the winner{(cycle?.winner_count || 1) > 1 ? 's' : ''}!</p>
               </div>
-              <p className="text-xl font-bold text-foreground mb-2">Drumroll please...</p>
-              <p className="text-muted-foreground">Calculating the winner{(cycle?.winner_count || 1) > 1 ? 's' : ''}!</p>
-            </div>
-          )}
-          
-          {/* Reveal & Countdown Phases */}
-          {freezePhase !== 'drumroll' && (
-            <>
-              {/* Header */}
-              <div className="text-center mb-6">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Trophy className="w-8 h-8 text-gold animate-bounce" />
-                  <span className="text-2xl font-black text-foreground">GAME OVER!</span>
-                  <Trophy className="w-8 h-8 text-gold animate-bounce" />
+            )}
+
+            {/* Reveal & Countdown Phases */}
+            {freezePhase !== 'drumroll' && (
+              <>
+                {/* Header */}
+                <div className="text-center mb-6">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Trophy className="w-8 h-8 text-gold animate-bounce" />
+                    <span className="text-2xl font-black text-foreground">GAME OVER!</span>
+                    <Trophy className="w-8 h-8 text-gold animate-bounce" />
+                  </div>
+                  <p className="text-muted-foreground text-sm">Winner determined by last valid comment</p>
                 </div>
-                <p className="text-muted-foreground text-sm">Winner determined by last valid comment</p>
-              </div>
-              
-              {/* Winner Cards - Leaders Style with Zoom Effect */}
-              <div className="w-full max-w-sm px-4 space-y-3">
-                {freezeWinners.length > 0 ? (
-                  freezeWinners.map((winner, idx) => {
-                    const isSpotlit = freezeWinners.length === 1 || spotlightIndex === idx;
-                    return (
-                      <div
-                        key={idx}
-                        className={`winner-spotlight flex flex-col p-4 rounded-2xl border-2 transition-all duration-300 ${
-                          isSpotlit 
-                            ? 'active bg-gold/20 border-gold shadow-lg animate-winner-zoom' 
-                            : 'dimmed bg-muted/50 border-border/30'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{getPositionEmoji(winner.position)}</span>
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center text-2xl border-2 border-gold/50">
-                            {winner.avatar}
+
+                {/* Winner Cards - Leaders Style with Zoom Effect */}
+                <div className="w-full max-w-sm px-4 space-y-3">
+                  {freezeWinners.length > 0 ? (
+                    freezeWinners.map((winner, idx) => {
+                      const isSpotlit = freezeWinners.length === 1 || spotlightIndex === idx;
+                      return (
+                        <div
+                          key={idx}
+                          className={`winner-spotlight flex flex-col p-4 rounded-2xl border-2 transition-all duration-300 ${
+                            isSpotlit
+                              ? 'active bg-gold/20 border-gold shadow-lg animate-winner-zoom'
+                              : 'dimmed bg-muted/50 border-border/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{getPositionEmoji(winner.position)}</span>
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center text-2xl border-2 border-gold/50">
+                              {winner.avatar}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-bold truncate ${isSpotlit ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                {winner.username}
+                              </p>
+                              <p className={`text-sm font-bold ${isSpotlit ? 'text-gold' : 'text-muted-foreground'}`}>
+                                {formatPrize(winner.prizeAmount)}
+                              </p>
+                            </div>
+                            {winner.position === 1 && <Crown className="w-6 h-6 text-gold animate-pulse" />}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`font-bold truncate ${isSpotlit ? 'text-foreground' : 'text-muted-foreground'}`}>
-                              {winner.username}
-                            </p>
-                            <p className={`text-sm font-bold ${isSpotlit ? 'text-gold' : 'text-muted-foreground'}`}>
-                              {formatPrize(winner.prizeAmount)}
-                            </p>
-                          </div>
-                          {winner.position === 1 && (
-                            <Crown className="w-6 h-6 text-gold animate-pulse" />
+                          {/* Show winning comment for 1st place */}
+                          {winner.position === 1 && winner.winningComment && isSpotlit && (
+                            <div className="mt-3 pt-3 border-t border-gold/20">
+                              <p className="text-xs text-muted-foreground mb-1">Winning comment:</p>
+                              <p className="text-sm text-foreground italic">"{winner.winningComment}"</p>
+                            </div>
                           )}
                         </div>
-                        {/* Show winning comment for 1st place */}
-                        {winner.position === 1 && winner.winningComment && isSpotlit && (
-                          <div className="mt-3 pt-3 border-t border-gold/20">
-                            <p className="text-xs text-muted-foreground mb-1">Winning comment:</p>
-                            <p className="text-sm text-foreground italic">"{winner.winningComment}"</p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">Calculating winners...</p>
-                    <div className="w-8 h-8 border-3 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mt-4" />
-                  </div>
-                )}
-              </div>
-              
-              {/* Countdown to Results */}
-              <div className="mt-8 text-center">
-                <p className="text-muted-foreground text-sm mb-2">Going to results in</p>
-                <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
-                  <span className="text-3xl font-black text-primary">{freezeCountdown}</span>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">Calculating winners...</p>
+                      <div className="w-8 h-8 border-4 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mt-4" />
+                    </div>
+                  )}
                 </div>
-              </div>
-              
-              {/* Skip Button */}
-              <button
-                onClick={handleFreezeComplete}
-                className="mt-6 px-6 py-2 rounded-xl bg-muted/50 text-muted-foreground text-sm hover:bg-muted transition-colors"
-              >
-                Skip to results →
-              </button>
-            </>
-          )}
+
+                {/* Countdown to Results */}
+                <div className="mt-8 text-center">
+                  <p className="text-muted-foreground text-sm mb-2">Going to results in</p>
+                  <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
+                    <span className="text-3xl font-black text-primary">{freezeCountdown}</span>
+                  </div>
+                </div>
+
+                {/* Skip Button */}
+                <button
+                  onClick={handleFreezeComplete}
+                  className="mt-6 px-6 py-2 rounded-xl bg-muted/50 text-muted-foreground text-sm hover:bg-muted transition-colors"
+                >
+                  Skip to results →
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
-      
+
       <WinningBanner 
         isVisible={currentUserIsWinning} 
         prizeAmount={effectivePrizePool * (cycle.prize_distribution[0] / 100)} 
