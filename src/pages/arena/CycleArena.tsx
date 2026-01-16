@@ -704,17 +704,22 @@ export const CycleArena = () => {
       {/* Live Winner Reveal Overlay - keeps arena visible in background */}
       {freezeActive && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/90 backdrop-blur-sm animate-fade-in">
-          {/* Drumroll Phase - Loading State */}
-          {freezePhase === 'drumroll' && freezeWinners.length === 0 && (
+          {/* Drumroll Phase */}
+          {freezePhase === 'drumroll' && (
             <div className="text-center">
-              <div className="w-16 h-16 border-4 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-xl font-bold text-foreground">Calculating winners...</p>
-              <p className="text-muted-foreground mt-2">🥁 Drumroll please...</p>
+              <div className="relative mb-6">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center mx-auto animate-pulse">
+                  <span className="text-4xl">🥁</span>
+                </div>
+                <div className="absolute inset-0 w-20 h-20 mx-auto border-4 border-gold/20 border-t-gold rounded-full animate-spin" />
+              </div>
+              <p className="text-xl font-bold text-foreground mb-2">Drumroll please...</p>
+              <p className="text-muted-foreground">Calculating the winner{(cycle?.winner_count || 1) > 1 ? 's' : ''}!</p>
             </div>
           )}
           
           {/* Reveal & Countdown Phases */}
-          {(freezePhase !== 'drumroll' || freezeWinners.length > 0) && (
+          {freezePhase !== 'drumroll' && (
             <>
               {/* Header */}
               <div className="text-center mb-6">
