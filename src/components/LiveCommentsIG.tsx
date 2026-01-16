@@ -107,7 +107,7 @@ export const LiveCommentsIG = ({
         style={{ 
           scrollbarWidth: 'none', 
           msOverflowStyle: 'none',
-          paddingBottom: highlightWinners ? '6rem' : bottomOffset
+          paddingBottom: highlightWinners ? '6rem' : `calc(${bottomOffset} + 16px)`
         }}
       >
         <style>{`div::-webkit-scrollbar { display: none; }`}</style>
