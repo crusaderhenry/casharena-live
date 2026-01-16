@@ -629,17 +629,17 @@ async function settleCycle(supabase: any, cycleId: string) {
 
     // Credit wallet and update stats
     if (prize > 0) {
-      // Fetch current profile to update incrementally
+      // Try to update real profile first
       const { data: profile } = await supabase
         .from('profiles')
         .select('wallet_balance, rank_points, total_wins')
         .eq('id', userId)
         .single();
       
+      const rankPoints = [100, 60, 30, 10, 10][i] || 5;
+      
       if (profile) {
-        const rankPoints = [100, 60, 30, 10, 10][i] || 5;
-        
-        // Update wallet balance and stats
+        // Real user - update wallet balance and stats
         await supabase
           .from('profiles')
           .update({ 
@@ -664,7 +664,26 @@ async function settleCycle(supabase: any, cycleId: string) {
           reason: `Position ${i + 1} in Royal Rumble`,
         });
         
-        console.log(`[settle] Credited ₦${prize} + ${rankPoints} rank points to ${userId}`);
+        console.log(`[settle] Credited ₦${prize} + ${rankPoints} rank points to real user ${userId}`);
+      } else {
+        // Check if this is a mock user and update their virtual stats
+        const { data: mockUser } = await supabase
+          .from('mock_users')
+          .select('id, virtual_wins, virtual_rank_points')
+          .eq('id', userId)
+          .single();
+        
+        if (mockUser) {
+          await supabase
+            .from('mock_users')
+            .update({ 
+              virtual_wins: (mockUser.virtual_wins || 0) + 1,
+              virtual_rank_points: (mockUser.virtual_rank_points || 0) + rankPoints,
+            })
+            .eq('id', userId);
+          
+          console.log(`[settle] Updated mock user ${userId}: +1 win, +${rankPoints} virtual rank points`);
+        }
       }
     }
 

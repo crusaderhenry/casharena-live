@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Trophy, X, Crown, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { UserBadgeIndicator } from '@/components/UserBadgeIndicator';
 
 interface Winner {
   id: string;
@@ -11,6 +12,8 @@ interface Winner {
   position: number;
   gameName?: string;
   timestamp?: string;
+  totalWins?: number;
+  gamesPlayed?: number;
 }
 
 interface WinnerStoriesProps {
@@ -102,10 +105,17 @@ export const WinnerStories = ({ winners }: WinnerStoriesProps) => {
                     </div>
                   </div>
                   
-                  {/* Name */}
-                  <span className="text-[11px] font-medium text-foreground truncate w-16 text-center">
-                    {winner.playerName.split(' ')[0]}
-                  </span>
+                  {/* Name with badge */}
+                  <div className="flex items-center gap-0.5 justify-center">
+                    <span className="text-[11px] font-medium text-foreground truncate max-w-12">
+                      {winner.playerName.split(' ')[0]}
+                    </span>
+                    <UserBadgeIndicator 
+                      totalWins={winner.totalWins || 0} 
+                      gamesPlayed={winner.gamesPlayed || 0} 
+                      size="sm" 
+                    />
+                  </div>
                   
                   {/* Amount won */}
                   <span className="text-[10px] font-bold text-gold">
@@ -164,9 +174,16 @@ export const WinnerStories = ({ winners }: WinnerStoriesProps) => {
                   </span>
                 </div>
                 
-                {/* Name & Position */}
+                {/* Name & Position with Badge */}
                 <div className="space-y-1">
-                  <h2 className="text-2xl font-black text-foreground">{selectedWinner.playerName}</h2>
+                  <div className="flex items-center justify-center gap-1.5">
+                    <h2 className="text-2xl font-black text-foreground">{selectedWinner.playerName}</h2>
+                    <UserBadgeIndicator 
+                      totalWins={selectedWinner.totalWins || 0} 
+                      gamesPlayed={selectedWinner.gamesPlayed || 0} 
+                      size="md" 
+                    />
+                  </div>
                   <p className={`text-sm font-bold uppercase tracking-wider ${
                     selectedWinner.position === 1 ? 'text-gold' :
                     selectedWinner.position === 2 ? 'text-silver' : 'text-bronze'
