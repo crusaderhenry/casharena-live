@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, X } from 'lucide-react';
 
-// This timestamp gets updated on each build
-const BUILD_VERSION = Date.now().toString();
+// Declare the global constant injected by Vite at build time
+declare const __BUILD_TIMESTAMP__: string;
+
+// Use the build-time constant (stays the same across page reloads within the same build)
+const BUILD_VERSION = typeof __BUILD_TIMESTAMP__ !== 'undefined' ? __BUILD_TIMESTAMP__ : Date.now().toString();
 const VERSION_KEY = 'app_build_version';
 const DISMISS_KEY = 'app_update_dismissed';
 const CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
@@ -48,7 +51,7 @@ export const AppVersionCheck = () => {
   const handleUpdate = () => {
     setIsUpdating(true);
     
-    // Update stored version
+    // Update stored version BEFORE reload
     localStorage.setItem(VERSION_KEY, BUILD_VERSION);
     localStorage.removeItem(DISMISS_KEY);
     
