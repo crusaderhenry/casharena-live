@@ -33,6 +33,7 @@ const WinnerCelebration = lazy(() => import("@/pages/arena/WinnerCelebration").t
 // Lazy loaded - Other screens
 const RankScreen = lazy(() => import("@/pages/RankScreen").then(m => ({ default: m.RankScreen })));
 const ProfileScreen = lazy(() => import("@/pages/ProfileScreen").then(m => ({ default: m.ProfileScreen })));
+const HowToPlay = lazy(() => import("@/pages/HowToPlay"));
 const WalletMain = lazy(() => import("@/pages/wallet/WalletMain").then(m => ({ default: m.WalletMain })));
 const TransactionHistory = lazy(() => import("@/pages/wallet/TransactionHistory").then(m => ({ default: m.TransactionHistory })));
 const DepositCallback = lazy(() => import("@/pages/wallet/DepositCallback").then(m => ({ default: m.DepositCallback })));
@@ -223,6 +224,7 @@ const AppRoutes = () => (
       {/* Other screens */}
       <Route path="/rank" element={<RankScreen />} />
       <Route path="/profile" element={<ProtectedRoute><ProfileScreen /></ProtectedRoute>} />
+      <Route path="/how-to-play" element={<HowToPlay />} />
       <Route path="/wallet" element={<ProtectedRoute><WalletMain /></ProtectedRoute>} />
       <Route path="/wallet/history" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
       <Route path="/wallet/callback" element={<ProtectedRoute><DepositCallback /></ProtectedRoute>} />
