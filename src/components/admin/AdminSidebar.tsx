@@ -17,6 +17,7 @@ import {
   Bot,
   Mail,
   Home,
+  Award,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -33,6 +34,7 @@ const navItems = [
   { label: 'Wallet & Payouts', icon: Wallet, path: '/admin/wallet' },
   { label: 'Pending Withdrawals', icon: Clock, path: '/admin/withdrawals' },
   { label: 'Rank & Rewards', icon: Trophy, path: '/admin/rank' },
+  { label: 'Badges', icon: Award, path: '/admin/badges' },
   { label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
   { label: 'Audit Logs', icon: Shield, path: '/admin/audit-logs' },
   { label: 'Email Templates', icon: Mail, path: '/admin/email-templates' },

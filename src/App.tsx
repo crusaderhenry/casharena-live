@@ -50,6 +50,7 @@ const AdminKyc = lazy(() => import("@/pages/admin/AdminKyc").then(m => ({ defaul
 const AdminWallet = lazy(() => import("@/pages/admin/AdminWallet").then(m => ({ default: m.AdminWallet })));
 const AdminPendingWithdrawals = lazy(() => import("@/pages/admin/AdminPendingWithdrawals").then(m => ({ default: m.AdminPendingWithdrawals })));
 const AdminRank = lazy(() => import("@/pages/admin/AdminRank").then(m => ({ default: m.AdminRank })));
+const AdminBadges = lazy(() => import("@/pages/admin/AdminBadges"));
 const AdminAnalytics = lazy(() => import("@/pages/admin/AdminAnalytics").then(m => ({ default: m.AdminAnalytics })));
 const AdminAuditLogs = lazy(() => import("@/pages/admin/AdminAuditLogs").then(m => ({ default: m.AdminAuditLogs })));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings").then(m => ({ default: m.AdminSettings })));
@@ -241,6 +242,7 @@ const AppRoutes = () => (
         <Route path="wallet" element={<AdminWallet />} />
         <Route path="withdrawals" element={<AdminPendingWithdrawals />} />
         <Route path="rank" element={<AdminRank />} />
+        <Route path="badges" element={<AdminBadges />} />
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="audit-logs" element={<AdminAuditLogs />} />
         <Route path="email-templates" element={<AdminEmailTemplates />} />

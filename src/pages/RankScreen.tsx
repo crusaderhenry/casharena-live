@@ -1,6 +1,7 @@
 import { BottomNav } from '@/components/BottomNav';
 import { AllTimeLeaderboard } from '@/components/AllTimeLeaderboard';
 import { AuthPromptModal } from '@/components/AuthPromptModal';
+import { UserBadgeIndicator } from '@/components/UserBadgeIndicator';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { Trophy, Crown, Medal, Award, ArrowLeft, TrendingUp, RefreshCw, LogIn } from 'lucide-react';
@@ -64,7 +65,10 @@ export const RankScreen = () => {
                 {displayProfile.avatar}
               </div>
               <div className="flex-1">
-                <p className="font-bold text-foreground text-lg">{displayProfile.username}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-bold text-foreground text-lg">{displayProfile.username}</p>
+                  <UserBadgeIndicator totalWins={displayProfile.wins} gamesPlayed={profile?.games_played || 0} size="sm" />
+                </div>
                 <div className="flex items-center gap-3 text-sm">
                   <span className="text-primary font-semibold">Rank #{userRank || '-'}</span>
                   <span className="text-muted-foreground">•</span>
@@ -105,7 +109,10 @@ export const RankScreen = () => {
                 {top3[1]?.avatar || '🥈'}
               </div>
               <div className="podium-2 rounded-t-xl w-full py-4 text-center" style={{ height: '80px' }}>
-                <p className="font-bold text-sm text-foreground truncate px-2">{top3[1]?.username}</p>
+                <div className="flex items-center justify-center gap-1">
+                  <p className="font-bold text-sm text-foreground truncate px-2">{top3[1]?.username}</p>
+                  <UserBadgeIndicator totalWins={top3[1]?.total_wins || 0} gamesPlayed={top3[1]?.games_played || 0} size="xs" />
+                </div>
                 <p className="text-xs text-silver">{top3[1]?.total_wins} wins</p>
               </div>
             </div>
@@ -115,7 +122,10 @@ export const RankScreen = () => {
                 {top3[0]?.avatar || '👑'}
               </div>
               <div className="podium-1 rounded-t-xl w-full py-5 text-center" style={{ height: '100px' }}>
-                <p className="font-bold text-foreground truncate px-2">{top3[0]?.username}</p>
+                <div className="flex items-center justify-center gap-1">
+                  <p className="font-bold text-foreground truncate px-2">{top3[0]?.username}</p>
+                  <UserBadgeIndicator totalWins={top3[0]?.total_wins || 0} gamesPlayed={top3[0]?.games_played || 0} size="sm" />
+                </div>
                 <p className="text-sm font-bold text-gold">{top3[0]?.total_wins} wins</p>
               </div>
             </div>
@@ -124,7 +134,10 @@ export const RankScreen = () => {
                 {top3[2]?.avatar || '🥉'}
               </div>
               <div className="podium-3 rounded-t-xl w-full py-3 text-center" style={{ height: '65px' }}>
-                <p className="font-bold text-sm text-foreground truncate px-2">{top3[2]?.username}</p>
+                <div className="flex items-center justify-center gap-1">
+                  <p className="font-bold text-sm text-foreground truncate px-2">{top3[2]?.username}</p>
+                  <UserBadgeIndicator totalWins={top3[2]?.total_wins || 0} gamesPlayed={top3[2]?.games_played || 0} size="xs" />
+                </div>
                 <p className="text-xs text-bronze">{top3[2]?.total_wins} wins</p>
               </div>
             </div>
@@ -156,7 +169,10 @@ export const RankScreen = () => {
                     {player.avatar}
                   </div>
                   <div className="flex-1">
-                    <p className="font-semibold text-foreground">{player.username}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-semibold text-foreground">{player.username}</p>
+                      <UserBadgeIndicator totalWins={player.total_wins} gamesPlayed={player.games_played} size="sm" />
+                    </div>
                     <p className="text-xs text-muted-foreground">{player.total_wins} wins</p>
                   </div>
                   <p className="text-sm font-bold text-primary">{player.rank_points} pts</p>
