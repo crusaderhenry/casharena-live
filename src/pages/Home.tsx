@@ -88,38 +88,21 @@ export const Home = () => {
       if (data && data.length > 0) {
         const userIds = data.map(w => w.user_id);
         
-        // Get real profiles with stats
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, username, avatar, total_wins, games_played')
-          .in('id', userIds);
+        // Use RPC function to get profiles (handles both real and mock users)
+        const { data: profiles, error } = await supabase.rpc('get_winner_profiles', { user_ids: userIds });
+        
+        if (error) {
+          console.error('Error fetching winner profiles:', error);
+        }
         
         const profileMap = new Map<string, { username: string; avatar: string; totalWins: number; gamesPlayed: number }>(
-          (profiles || []).map(p => [p.id, { 
+          (profiles || []).map((p: any) => [p.id, { 
             username: p.username, 
             avatar: p.avatar || '🎮',
             totalWins: p.total_wins || 0,
             gamesPlayed: p.games_played || 0
           }])
         );
-        
-        // Get mock users for any missing profiles (with virtual stats)
-        const missingIds = userIds.filter(id => !profileMap.has(id));
-        if (missingIds.length > 0) {
-          const { data: mockUsers } = await supabase
-            .from('mock_users')
-            .select('id, username, avatar, virtual_wins, virtual_rank_points')
-            .in('id', missingIds);
-          
-          mockUsers?.forEach((m) => {
-            profileMap.set(m.id, { 
-              username: m.username, 
-              avatar: m.avatar || '🎮',
-              totalWins: m.virtual_wins || 0,
-              gamesPlayed: m.virtual_wins || 0 // Use virtual_wins as proxy for games played
-            });
-          });
-        }
         
         const winnersWithProfiles = data.map(w => ({
           ...w,
@@ -136,13 +119,10 @@ export const Home = () => {
         
         if (oldWinners) {
           const userIds = oldWinners.map(w => w.user_id);
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, username, avatar, total_wins, games_played')
-            .in('id', userIds);
+          const { data: profiles } = await supabase.rpc('get_winner_profiles', { user_ids: userIds });
           
           const profileMap = new Map<string, { username: string; avatar: string; totalWins: number; gamesPlayed: number }>(
-            (profiles || []).map(p => [p.id, { 
+            (profiles || []).map((p: any) => [p.id, { 
               username: p.username, 
               avatar: p.avatar || '🎮',
               totalWins: p.total_wins || 0,
@@ -171,42 +151,18 @@ export const Home = () => {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cycle_winners' }, async (payload) => {
         const winner = payload.new as any;
-        let profileInfo: { username: string; avatar: string; totalWins: number; gamesPlayed: number } | null = null;
         
-        // Try real profile first
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('id, username, avatar, total_wins, games_played')
-          .eq('id', winner.user_id)
-          .maybeSingle();
+        // Use RPC function to get profile (handles both real and mock users)
+        const { data: profiles } = await supabase.rpc('get_winner_profiles', { user_ids: [winner.user_id] });
         
-        if (profileData) {
-          profileInfo = { 
-            username: profileData.username, 
-            avatar: profileData.avatar || '🎮',
-            totalWins: profileData.total_wins || 0,
-            gamesPlayed: profileData.games_played || 0
+        if (profiles && profiles.length > 0) {
+          const p = profiles[0];
+          const profileInfo = { 
+            username: p.username, 
+            avatar: p.avatar || '🎮',
+            totalWins: p.total_wins || 0,
+            gamesPlayed: p.games_played || 0
           };
-        }
-        
-        // If no profile found, check mock_users
-        if (!profileInfo) {
-          const { data: mockUser } = await supabase
-            .from('mock_users')
-            .select('id, username, avatar, virtual_wins')
-            .eq('id', winner.user_id)
-            .maybeSingle();
-          if (mockUser) {
-            profileInfo = { 
-              username: mockUser.username, 
-              avatar: mockUser.avatar || '🎮',
-              totalWins: mockUser.virtual_wins || 0,
-              gamesPlayed: mockUser.virtual_wins || 0
-            };
-          }
-        }
-        
-        if (profileInfo) {
           setRecentWinners(prev => [{ ...winner, profile: profileInfo }, ...prev].slice(0, 5));
         }
       })
