@@ -17,6 +17,7 @@ import { PushNotificationBanner } from "@/components/PushNotificationBanner";
 import { GlobalConfetti } from "@/components/GlobalConfetti";
 import { GlobalSoundPlayer } from "@/components/GlobalSoundPlayer";
 import { FloatingGameReturn } from "@/components/FloatingGameReturn";
+import { AppVersionCheck } from "@/components/AppVersionCheck";
 
 // Eagerly loaded - core pages
 import { AuthPage } from "@/pages/AuthPage";
@@ -282,6 +283,7 @@ const App = () => {
                     <TestModeBanner />
                     <PushNotificationBanner />
                     <FloatingGameReturn />
+                    <AppVersionCheck />
                     <AppRoutes />
                   </BrowserRouter>
                 </NotificationProvider>
