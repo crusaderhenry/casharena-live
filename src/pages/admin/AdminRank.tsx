@@ -3,6 +3,8 @@ import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { Trophy, RotateCcw, Clock, Award, RefreshCw } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { UserBadgeIndicator } from '@/components/UserBadgeIndicator';
+import { useNavigate } from 'react-router-dom';
 
 interface LeaderboardUser {
   id: string;
@@ -17,6 +19,7 @@ interface LeaderboardUser {
 export const AdminRank = () => {
   const { triggerWeeklyReset } = useAdmin();
   const { weeklyRewards } = usePlatformSettings();
+  const navigate = useNavigate();
   const [weeklyCountdown, setWeeklyCountdown] = useState('');
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,6 +101,13 @@ export const AdminRank = () => {
             <RefreshCw className={`w-5 h-5 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
+            onClick={() => navigate('/admin/badges')}
+            className="flex items-center gap-2 px-4 py-2 bg-primary/20 text-primary rounded-xl font-medium hover:bg-primary/30"
+          >
+            <Award className="w-4 h-4" />
+            Manage Badges
+          </button>
+          <button
             onClick={triggerWeeklyReset}
             className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-xl font-medium hover:bg-red-500/30"
           >
@@ -165,7 +175,10 @@ export const AdminRank = () => {
                   {user.avatar}
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-foreground">{user.username}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-medium text-foreground">{user.username}</p>
+                    <UserBadgeIndicator totalWins={user.total_wins} gamesPlayed={user.games_played} size="sm" />
+                  </div>
                   <p className="text-[10px] text-muted-foreground">{user.games_played} games played</p>
                 </div>
 
