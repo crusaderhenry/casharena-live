@@ -76,7 +76,7 @@ export const Home = () => {
     fetchParticipations();
   }, [user, cycles]);
 
-  // Fetch recent winners from cycle_winners with mock user support
+  // Fetch recent winners from cycle_winners with mock user support and stats for badges
   useEffect(() => {
     const fetchRecentWinners = async () => {
       const { data } = await supabase
@@ -88,28 +88,42 @@ export const Home = () => {
       if (data && data.length > 0) {
         const userIds = data.map(w => w.user_id);
         
-        // Get real profiles
-        const { data: profiles } = await supabase.rpc('get_public_profiles', { user_ids: userIds });
-        const profileMap = new Map<string, { username: string; avatar: string }>(
-          (profiles as { id: string; username: string; avatar: string }[] | null)?.map(p => [p.id, { username: p.username, avatar: p.avatar }]) || []
+        // Get real profiles with stats
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, username, avatar, total_wins, games_played')
+          .in('id', userIds);
+        
+        const profileMap = new Map<string, { username: string; avatar: string; totalWins: number; gamesPlayed: number }>(
+          (profiles || []).map(p => [p.id, { 
+            username: p.username, 
+            avatar: p.avatar || '🎮',
+            totalWins: p.total_wins || 0,
+            gamesPlayed: p.games_played || 0
+          }])
         );
         
-        // Get mock users for any missing profiles
+        // Get mock users for any missing profiles (with virtual stats)
         const missingIds = userIds.filter(id => !profileMap.has(id));
         if (missingIds.length > 0) {
           const { data: mockUsers } = await supabase
             .from('mock_users')
-            .select('id, username, avatar')
+            .select('id, username, avatar, virtual_wins, virtual_rank_points')
             .in('id', missingIds);
           
           mockUsers?.forEach((m) => {
-            profileMap.set(m.id, { username: m.username, avatar: m.avatar || '🎮' });
+            profileMap.set(m.id, { 
+              username: m.username, 
+              avatar: m.avatar || '🎮',
+              totalWins: m.virtual_wins || 0,
+              gamesPlayed: m.virtual_wins || 0 // Use virtual_wins as proxy for games played
+            });
           });
         }
         
         const winnersWithProfiles = data.map(w => ({
           ...w,
-          profile: profileMap.get(w.user_id) || { username: 'Unknown', avatar: '🎮' },
+          profile: profileMap.get(w.user_id) || { username: 'Unknown', avatar: '🎮', totalWins: 0, gamesPlayed: 0 },
         }));
         setRecentWinners(winnersWithProfiles);
       } else {
@@ -122,15 +136,24 @@ export const Home = () => {
         
         if (oldWinners) {
           const userIds = oldWinners.map(w => w.user_id);
-          const { data: profiles } = await supabase.rpc('get_public_profiles', { user_ids: userIds });
-          const profileMap = new Map<string, { username: string; avatar: string }>(
-            (profiles as { id: string; username: string; avatar: string }[] | null)?.map(p => [p.id, { username: p.username, avatar: p.avatar }]) || []
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, username, avatar, total_wins, games_played')
+            .in('id', userIds);
+          
+          const profileMap = new Map<string, { username: string; avatar: string; totalWins: number; gamesPlayed: number }>(
+            (profiles || []).map(p => [p.id, { 
+              username: p.username, 
+              avatar: p.avatar || '🎮',
+              totalWins: p.total_wins || 0,
+              gamesPlayed: p.games_played || 0
+            }])
           );
           
           const winnersWithProfiles = oldWinners.map(w => ({
             ...w,
             prize_amount: w.amount_won,
-            profile: profileMap.get(w.user_id) || { username: 'Unknown', avatar: '🎮' },
+            profile: profileMap.get(w.user_id) || { username: 'Unknown', avatar: '🎮', totalWins: 0, gamesPlayed: 0 },
           }));
           setRecentWinners(winnersWithProfiles);
         }
@@ -148,23 +171,38 @@ export const Home = () => {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cycle_winners' }, async (payload) => {
         const winner = payload.new as any;
-        let profileInfo: { username: string; avatar: string } | null = null;
+        let profileInfo: { username: string; avatar: string; totalWins: number; gamesPlayed: number } | null = null;
         
         // Try real profile first
-        const { data: profileData } = await supabase.rpc('get_public_profile', { profile_id: winner.user_id });
-        if (profileData?.[0]) {
-          profileInfo = { username: profileData[0].username, avatar: profileData[0].avatar || '🎮' };
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('id, username, avatar, total_wins, games_played')
+          .eq('id', winner.user_id)
+          .maybeSingle();
+        
+        if (profileData) {
+          profileInfo = { 
+            username: profileData.username, 
+            avatar: profileData.avatar || '🎮',
+            totalWins: profileData.total_wins || 0,
+            gamesPlayed: profileData.games_played || 0
+          };
         }
         
         // If no profile found, check mock_users
         if (!profileInfo) {
           const { data: mockUser } = await supabase
             .from('mock_users')
-            .select('id, username, avatar')
+            .select('id, username, avatar, virtual_wins')
             .eq('id', winner.user_id)
             .maybeSingle();
           if (mockUser) {
-            profileInfo = { username: mockUser.username, avatar: mockUser.avatar || '🎮' };
+            profileInfo = { 
+              username: mockUser.username, 
+              avatar: mockUser.avatar || '🎮',
+              totalWins: mockUser.virtual_wins || 0,
+              gamesPlayed: mockUser.virtual_wins || 0
+            };
           }
         }
         
@@ -209,6 +247,8 @@ export const Home = () => {
     playerAvatar: w.profile?.avatar || '🎮',
     amount: w.prize_amount || w.amount_won,
     position: w.position,
+    totalWins: w.profile?.totalWins || 0,
+    gamesPlayed: w.profile?.gamesPlayed || 0,
   })), [recentWinners]);
 
   return (
