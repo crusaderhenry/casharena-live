@@ -1482,6 +1482,14 @@ export type Database = {
           weekly_rank: number
         }[]
       }
+      get_mock_user_profiles: {
+        Args: { user_ids: string[] }
+        Returns: {
+          avatar: string
+          id: string
+          username: string
+        }[]
+      }
       get_public_profile: {
         Args: { profile_id: string }
         Returns: {
