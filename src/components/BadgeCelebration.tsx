@@ -1,20 +1,14 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Confetti } from '@/components/Confetti';
-import { X, Share2, Twitter, Facebook, MessageCircle, Loader2 } from 'lucide-react';
+import { X, Share2, Twitter, Facebook, MessageCircle } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useOGImage } from '@/hooks/useOGImage';
+import { CelebrationBadge } from '@/hooks/useBadgeUnlock';
 
 interface BadgeCelebrationProps {
-  badge: {
-    id: string;
-    name: string;
-    description: string;
-    icon: React.ReactNode;
-    color: string;
-    bgColor: string;
-  };
+  badge: CelebrationBadge;
   onDismiss: () => void;
 }
 
