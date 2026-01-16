@@ -1501,6 +1501,16 @@ export type Database = {
         }[]
       }
       get_server_time: { Args: never; Returns: string }
+      get_winner_profiles: {
+        Args: { user_ids: string[] }
+        Returns: {
+          avatar: string
+          games_played: number
+          id: string
+          total_wins: number
+          username: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
