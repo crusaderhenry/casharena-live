@@ -1,25 +1,51 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Badge, getUnlockedBadges } from '@/components/ProfileBadges';
+import { useBadges, Badge } from '@/hooks/useBadges';
 import { useSounds } from '@/hooks/useSounds';
 import { useHaptics } from '@/hooks/useHaptics';
+import { LucideIcon } from 'lucide-react';
+import React from 'react';
 
 const STORAGE_KEY_PREFIX = 'unlocked_badges_';
 const SESSION_KEY = 'badge_session_initialized';
 
+// Interface for badge celebration component (with rendered icon)
+export interface CelebrationBadge {
+  id: string;
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+  color: string;
+  bgColor: string;
+}
+
 interface BadgeUnlockState {
-  newBadge: Badge | null;
+  newBadge: CelebrationBadge | null;
   showCelebration: boolean;
   dismissCelebration: () => void;
 }
+
+// Convert Badge with LucideIcon to CelebrationBadge with ReactNode
+const badgeToCelebrationBadge = (badge: Badge): CelebrationBadge => {
+  const IconComponent = badge.icon as LucideIcon;
+  return {
+    id: badge.id,
+    name: badge.name,
+    description: badge.description,
+    icon: React.createElement(IconComponent, { className: 'w-5 h-5' }),
+    color: badge.color,
+    bgColor: badge.bgColor,
+  };
+};
 
 export const useBadgeUnlock = (
   stats: { total_wins: number; games_played: number },
   userId?: string
 ): BadgeUnlockState => {
-  const [newBadge, setNewBadge] = useState<Badge | null>(null);
+  const [newBadge, setNewBadge] = useState<CelebrationBadge | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const { play } = useSounds();
   const { success } = useHaptics();
+  const { getUnlockedBadges } = useBadges();
   const hasCheckedRef = useRef(false);
   const prevStatsRef = useRef<{ total_wins: number; games_played: number } | null>(null);
 
@@ -59,7 +85,7 @@ export const useBadgeUnlock = (
     if (newlyUnlocked.length > 0 && sessionInitialized && storedBadgesJson && statsChanged) {
       // Show the most recent/highest achievement
       const latestBadge = newlyUnlocked[newlyUnlocked.length - 1];
-      setNewBadge(latestBadge);
+      setNewBadge(badgeToCelebrationBadge(latestBadge));
       setShowCelebration(true);
 
       // Play celebration sound and haptic
@@ -79,7 +105,7 @@ export const useBadgeUnlock = (
     }
     
     hasCheckedRef.current = true;
-  }, [stats.total_wins, stats.games_played, userId, play, success]);
+  }, [stats.total_wins, stats.games_played, userId, play, success, getUnlockedBadges]);
 
   const dismissCelebration = useCallback(() => {
     setShowCelebration(false);
