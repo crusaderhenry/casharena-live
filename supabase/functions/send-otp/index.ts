@@ -151,32 +151,32 @@ Deno.serve(async (req) => {
           },
         },
       ],
-      subject: `Your verification code: ${code}`,
+      subject: `FortunesHQ - Account Verification`,
       htmlbody: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0a0a0f;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="font-size: 28px; font-weight: 900; margin: 0;">
-              <span style="color: #4fd1c5;">Fortunes</span><span style="color: #f59e0b;"> HQ</span> <span style="color: #f59e0b;">✨</span>
+            <h1 style="font-size: 28px; font-weight: 900; margin: 0; color: #1a1a2e;">
+              FortunesHQ
             </h1>
-            <p style="color: #6b7280; font-size: 12px; margin-top: 5px;">Real Money | Real Players | Live Show</p>
           </div>
-          <div style="background: #1a1a2e; border-radius: 16px; padding: 30px; border: 1px solid #2d2d44;">
-            <h2 style="color: #ffffff; font-size: 20px; margin: 0 0 15px 0;">Your Verification Code</h2>
-            <p style="color: #9ca3af; font-size: 14px; margin-bottom: 25px;">
-              Enter this code to sign in to your account:
+          <div style="background: #f9fafb; border-radius: 12px; padding: 30px; border: 1px solid #e5e7eb;">
+            <h2 style="color: #1a1a2e; font-size: 20px; margin: 0 0 15px 0;">Verify Your Account</h2>
+            <p style="color: #6b7280; font-size: 14px; margin-bottom: 25px;">
+              Use the code below to complete your sign-in:
             </p>
-            <div style="background: linear-gradient(135deg, #4fd1c5 0%, #f59e0b 100%); border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 25px;">
-              <span style="color: #0a0a0f; font-size: 32px; font-weight: bold; letter-spacing: 8px;">${code}</span>
+            <div style="background: #1a1a2e; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 25px;">
+              <span style="color: #ffffff; font-size: 32px; font-weight: bold; letter-spacing: 8px;">${code}</span>
             </div>
-            <p style="color: #6b7280; font-size: 12px;">
-              This code expires in 10 minutes. If you didn't request this, you can safely ignore this email.
+            <p style="color: #9ca3af; font-size: 12px;">
+              This code expires in 10 minutes. If you did not request this code, please ignore this email.
             </p>
           </div>
-          <p style="color: #4b5563; font-size: 11px; text-align: center; margin-top: 30px;">
-            © ${new Date().getFullYear()} FortunesHQ. Play responsibly.
+          <p style="color: #9ca3af; font-size: 11px; text-align: center; margin-top: 30px;">
+            FortunesHQ ${new Date().getFullYear()}
           </p>
         </div>
       `,
+      textbody: `FortunesHQ - Account Verification\n\nYour verification code is: ${code}\n\nThis code expires in 10 minutes.\n\nIf you did not request this code, please ignore this email.`,
     };
 
     const zeptoResponse = await fetch('https://api.zeptomail.com/v1.1/email', {
